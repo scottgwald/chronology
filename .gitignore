@@ -1,0 +1,6 @@
+*.py[co]
+*~
+.DS_Store
+._.DS_Store
+.coverage
+.tox

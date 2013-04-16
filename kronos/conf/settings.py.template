@@ -1,0 +1,37 @@
+from uuid import getnode
+
+# Backends.
+storage = {
+  'cassandra_timewidth': {
+    'backend': 'cassandra.TimeWidthCassandraStorage',
+    'hosts': ['localhost:9160'],
+    'keyspace': 'kronos_tw',
+    'replication_factor': 0,
+    'default_timewidth_seconds': 86400,
+    'default_shards_per_bucket': 5,
+    'read_size': 5000
+    },
+  'memory': {
+    'backend': 'memory.InMemoryStorage',
+    'default_max_items': 1000
+    },
+  }
+
+# Node related settings. `id` should be a unique name that identifies this
+# Kronos instance, while `name` is simply a more human readable name.
+node = {
+  'id':  hex(getnode()), # Unique ID for this Kronos server.
+  'greenlet_pool_size': 20, # Greenlet poolsize per process.
+  'log_directory': 'log'
+  }
+
+# Stream settings. `fields` maps what keys the ID and timestamp should be
+# assigned to in an event JSON.
+stream = {
+  'fields': {
+    'id': '@id',
+    'timestamp': '@time'
+    }
+  }
+
+# TODO(usmanm): Add configuration for logging events for Kronos itself.

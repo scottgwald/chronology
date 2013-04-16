@@ -1,0 +1,1 @@
+from kronos.storage.backends.cassandra.client import TimeWidthCassandraStorage
