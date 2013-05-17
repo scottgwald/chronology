@@ -21,7 +21,4 @@
 "*":
   backends:
     memory:
-    cassandra_timewidth:
-      timewidth_seconds: 86400
-      shards_per_bucket: 3
-  read_backend: cassandra_timewidth
+  read_backend: memory

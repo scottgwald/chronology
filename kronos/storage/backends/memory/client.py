@@ -41,7 +41,7 @@ class InMemoryStorage(BaseStorage):
         self.db[stream].pop(0)
       bisect.insort(self.db[stream], Event(event))
       
-  def _retrieve(self, stream, start_id, end_time, max_items, configuration):
+  def _retrieve(self, stream, start_id, end_time, configuration):
     events_returned = 0
     start_id_event = Event({ID_FIELD: str(start_id)})
     for event in self.db[stream]:
@@ -51,5 +51,3 @@ class InMemoryStorage(BaseStorage):
         break
       yield event
       events_returned += 1
-      if events_returned == max_items:
-        break
