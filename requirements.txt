@@ -3,3 +3,6 @@ gevent
 geventhttpclient
 gunicorn
 pycassa
+python-cjson
+werkzeug
+requests>=1.2.0

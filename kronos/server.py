@@ -136,6 +136,7 @@ def get_events(environment, start_response):
   for event in events_from_backend:
     yield '%s\r\n' % cjson.encode(event)
 
+
 # Map URLs to handler functions.
 urls = {
   '/1.0/index': index,

@@ -3,6 +3,7 @@
 import gevent.monkey; gevent.monkey.patch_all()
 import gevent.pywsgi
 import geventhttpclient.httplib; geventhttpclient.httplib.patch()
+import logging
 import multiprocessing
 import sys
 import werkzeug.serving
