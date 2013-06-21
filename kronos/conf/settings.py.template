@@ -1,3 +1,4 @@
+import re
 from uuid import getnode
 
 # Backends.
@@ -8,8 +9,7 @@ storage = {
     'keyspace': 'kronos_tw',
     'replication_factor': 0,
     'default_timewidth_seconds': 86400,
-    'default_shards_per_bucket': 5,
-    'read_size': 5000
+    'default_shards_per_bucket': 5
     },
   'memory': {
     'backend': 'memory.InMemoryStorage',
@@ -22,7 +22,11 @@ storage = {
 node = {
   'id':  hex(getnode()), # Unique ID for this Kronos server.
   'greenlet_pool_size': 20, # Greenlet poolsize per process.
-  'log_directory': 'log'
+  'log_directory': 'log',
+  'cors_whitelist_domains' : map(re.compile, [
+    # Domains that match any regex in this list will be allowed to talk to this
+    # Kronos instance
+    ])
   }
 
 # Stream settings. `fields` maps what keys the ID and timestamp should be
@@ -35,3 +39,4 @@ stream = {
   }
 
 # TODO(usmanm): Add configuration for logging events for Kronos itself.
+

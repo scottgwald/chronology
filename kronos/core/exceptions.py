@@ -15,3 +15,9 @@ class ImproperlyConfigured(Exception):
 
 class BackendMissing(Exception):
   pass
+
+class InvalidBucketIntervalComparison(Exception):
+  pass
+
+class InvalidUUIDComparison(Exception):
+  pass

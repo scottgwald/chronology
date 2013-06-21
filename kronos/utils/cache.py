@@ -1,13 +1,15 @@
 class InMemoryLRUCache(object):
   """
-  In-memory LRU Cache modeled as a doubly linked circular list with a sentinel
+  In-memory LRU Cache backed by a doubly linked circular list with a sentinel
   keeping track of the LRU and MRU entries. The keys are also stored in a dict
   to allow for O(1) look up and insert time.
   """
+
   def __init__(self, max_items=1000):
     self.max_items = max_items
     self.cache = dict() # key => [value, next_ptr, previous_ptr]
     self.sentinel = [None, None, None]
+
 
   def mark_as_lru(self, entry):
     value, next, previous = entry
@@ -17,7 +19,7 @@ class InMemoryLRUCache(object):
     entry[1] = self.sentinel  
     previous[1] = next
     next[2] = previous
-    
+  
   def set(self, key, value):
     entry = self.cache.get(key, self.sentinel)
     if entry == self.sentinel:

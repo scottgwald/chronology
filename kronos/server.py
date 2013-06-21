@@ -20,72 +20,107 @@ from kronos.storage import router
 
 GREENLET_POOL = gevent.pool.Pool(size=settings.node['greenlet_pool_size'])
 
-def endpoint(methods=['GET']):
-  def decorator(function, methods=methods):
+# map URLs to the functions that serve them
+urls = { }
+
+def endpoint(url, methods=['GET']):
+  """
+  Returns a decorator which when applied a function, causes that function to
+  serve `url` and only allows the HTTP methods in `methods`
+  """
+
+  def decorator(function, methods = methods):
     @wraps(function)
     def wrapper(environment, start_response):
       try:
-        request_method = environment['REQUEST_METHOD']
-        if request_method not in methods:
-          start_response('405 Method Not Allowed',
-                         [('Allow', ', '.join(methods)),
-                          ('Content-Type', 'application/json')])
-          return cjson.encode({'@errors': ['%s method not allowed.' %
-                                        request_method]})
-        # All POST request bodies must be a valid JSON object.
-        if request_method == 'POST':
+        req_method = environment['REQUEST_METHOD']
+
+        if req_method == 'OPTIONS':
+          origin = environment['Origin']
+          if origin in settings.node.cors_whitelist_domains:
+            # Origin is allowed, so include CORS headers
+            headers = [('Access-Control-Allow-Origin', origin),
+                       ('Access-Control-Allow-Methods', methods),
+                       ('Access-Control-Allow-Headers',
+                       ('Accept', 'Content-Type', 'Origin', 'X-Requested-With'))]
+            start_response('200 OK', headers)
+            return
+          else:
+            # If origin isn't allowed, don't return any CORS headers
+            # Client's browser will treat this as an error
+            return
+
+        # If the request method is not allowed, return 405
+        if req_method not in methods:
+          headers = [('Allow', ', '.join(methods)),
+                     ('Content-Type', 'application/json')]
+          start_repsonse('405 Method Not Allowed', headers)
+          error = '{0} method not allowed'.format(req_method)
+          return cjson.encode({'@errors' : [error]})
+
+        # All POST bodies must be json, so decode it here
+        if req_method == 'POST':
           environment['json'] = cjson.decode(environment['wsgi.input'].read())
+
         return function(environment, start_response)
       except Exception, e:
-        start_response('400 Bad Request',
-                       [('Content-Type', 'application/json')])
-        return cjson.encode({'@errors': [repr(e)]})
+        start_response('400 Bad Request', [('Content-Type', 'application/json')])
+        return cjson.encode({'@errors' : [repr(e)]})
+
+    # map the URL to serve to this function
+    global urls
+    urls[url] = wrapper
 
     return wrapper
-  # Hack to allow using @endpoint instead of @endpoint() which looks fuuglyyy.
-  if type(methods) in (types.MethodType, types.FunctionType):
-    return decorator(methods, ['GET'])  
+
   return decorator
 
-@endpoint
+@endpoint('/1.0/index')
 def index(environment, start_response):
-  status = {
-    'service': 'kronosd',
-    'version': kronos.get_version(),
-    'id': settings.node.get('id'),
-    'fields': settings.stream['fields'],
-    'storage': {}
-    }
-  # Get `is_alive` status from all configured backends.
+  """
+  Return the status of this Kronos instance + it's backends>
+  Doesn't expect any URL parameters.
+  """
+
+  status = {'service': 'kronosd',
+            'version': kronos.get_version(),
+            'id': settings.node.get('id'),
+            'fields': settings.stream['fields'],
+            'storage': {}}
+
+  # Check if each backend is alive
   for name, backend in router.get_backends():
-    status['storage'][name] = {
-      'ok': backend.is_alive(),
-      'backend': settings.storage[name]['backend']
-      }
+    status['storage'][name] = {'ok': backend.is_alive(),
+                               'backend': settings.storage[name]['backend']}
+
   start_response('200 OK', [('Content-Type', 'application/json')])
   return cjson.encode(status)
 
-@endpoint(['POST'])
-def put_events(environment, start_response):
+@endpoint('/1.0/events/put', ['POST'])
+def put(environment, start_response):
+  """
+  Store events in backends
+  POST body should contain a JSON encoded version of:
+    { stream_name1 : [event1, event2, ...],
+      stream_name2 : [event1, event2, ...],
+    ...
+    }
+  Where each event is a dictionary of keys and values.
+  """
+
   start_time = time.time()
-  request_json = environment['json']
   errors = []
   events_to_insert = defaultdict(list)
 
-  # Validate stream names.
-  streams = request_json.keys()
-  for stream in streams:
+  # Validate streams and events
+  for stream, events in environment['json'].iteritems():
     try:
       validate_stream(stream)
     except Exception, e:
       errors.append(repr(e))
-      # If stream name is invalid, drop all events for that stream in the
-      # request.
-      del request_json[stream]
+      continue
 
-  # Validate events.
-  for stream in request_json:
-    for event in request_json[stream]:
+    for event in events:
       try:
         validate_event(event)
         events_to_insert[stream].append(event)
@@ -95,14 +130,10 @@ def put_events(environment, start_response):
   # Spawn greenlets to insert events asynchronously into matching backends.
   greenlets = []
   for stream, events in events_to_insert.iteritems():
-    try:
-      backends_to_insert = router.backends_to_insert(stream).iteritems()
-    except InvalidStreamName, e:
-      errors.append(e)
-      continue
-    for backend, configuration in backends_to_insert:
-      greenlets.append(GREENLET_POOL.spawn(backend.insert,
-                                           stream, events, configuration))
+    backends = router.backends_to_insert(stream)
+    for backend, conf in backends.iteritems():
+      greenlet = GREENLET_POOL.spawn(backend.insert, stream, events, conf)
+      greenlets.append(greenlet)
 
   # TODO(usmanm): Add async option to API and bypass this wait in that case?
   # Wait for all backends to finish inserting.
@@ -114,17 +145,32 @@ def put_events(environment, start_response):
       errors.append(repr(greenlet.exception))
 
   # Return count of valid events per stream.
-  response = {stream: len(events) for stream, events in
-              events_to_insert.iteritems()}
-  response['@took'] = '%sms' % int(1000 * (time.time() - start_time))
+  response = { stream : len(events) for stream, events in
+                                        events_to_insert.iteritems() }
+  response['@took'] = '{0}ms'.format(1000 * (time.time() - start_time))
   if errors:
     response['@errors'] = errors
+
   start_response('200 OK', [('Content-Type', 'application/json')]) 
   return cjson.encode(response)
 
 # TODO(usmanm): gzip compress response stream?
-@endpoint(['POST'])
+@endpoint('/1.0/events/get', ['POST'])
 def get_events(environment, start_response):
+  """
+  Retrieve events
+  POST body should contain a JSON encoded version of:
+    { stream : stream_name,
+      start_time : starting_time_as_unix_time,
+      end_time : ending_time_as_unix_time,
+      start_id : only_return_events_with_id_greater_than_me
+    }
+  Either start_time or start_id should be specified. If a retrieval breaks
+  while returning results, you can send another retrieval request and specify
+  start_id as the last id that you saw. Kronos will only return events that
+  occurred after the event with that id.
+  """
+
   request_json = environment['json']
   backend, configuration = router.backend_to_retrieve(request_json['stream'])
   events_from_backend = backend.retrieve(request_json['stream'],
@@ -132,17 +178,10 @@ def get_events(environment, start_response):
                                          request_json['end_time'],
                                          request_json.get('start_id'),
                                          configuration)
+
   start_response('200 OK', [('Content-Type', 'application/json')])
   for event in events_from_backend:
-    yield '%s\r\n' % cjson.encode(event)
-
-
-# Map URLs to handler functions.
-urls = {
-  '/1.0/index': index,
-  '/1.0/events/put': put_events,
-  '/1.0/events/get': get_events
-  }
+    yield '{0}\r\n'.format(cjson.encode(event))
 
 def wsgi_application(environment, start_response):
   path = environment.get('PATH_INFO', '').rstrip('/')
@@ -155,18 +194,20 @@ def wsgi_application(environment, start_response):
 class GunicornApplication(Application):
   def __init__(self, options={}):
     # Try creating log directory, if missing.
-    if not os.path.exists(settings.node['log_directory']):
-      os.makedirs(settings.node['log_directory'])
-    self.options = {
-      'worker_class': 'gevent',
-      'accesslog': '%s/%s' % (settings.node['log_directory'].rstrip('/'),
-                              'access.log'),
-      'errorlog': '%s/%s' % (settings.node['log_directory'].rstrip('/'),
-                             'error.log'),
-      'log_level': 'info',
-      'name': 'kronosd'
-      }
+    log_dir = settings.node['log_directory'].rstrip('/')
+    if not os.path.exists(log_dir):
+      os.makedirs(log_dir)
+
+    # Default options
+    self.options = {'worker_class': 'gevent',
+                    'accesslog': '{0}/{1}'.format(log_dir, 'access.log'),
+                    'errorlog': '{0}/{1}'.format(log_dir, 'error.log'),
+                    'log_level': 'info',
+                    'name': 'kronosd'}
+
+    # Apply user specified options
     self.options.update(options)
+
     super(GunicornApplication, self).__init__()
 
   def init(self, *args):
