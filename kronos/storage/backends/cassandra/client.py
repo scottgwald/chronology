@@ -241,6 +241,7 @@ class TimeWidthCassandraStorage(BaseStorage):
   }  
   
   def __init__(self, name, **settings):
+    super(TimeWidthCassandraStorage, self).__init__(name, **settings)
     self.hosts = settings['hosts']
     if not isinstance(self.hosts, list):
       raise ImproperlyConfigured('%s: `hosts` settings must be an array.' %
