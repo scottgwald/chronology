@@ -74,8 +74,7 @@ class KronosClient(object):
 
     errors = []
     last_id = None
-    done = False
-    while not done:
+    while True:
       try:
         response = requests.post(self._get_url,
                                  data=json.encode(stream_params),
@@ -88,7 +87,7 @@ class KronosClient(object):
             event = json.decode(line)
             last_id = event[self.id_key]
             yield event
-        done = True
+        break
       except Exception, e:
         errors.append(e)
         if len(errors) == 10:
