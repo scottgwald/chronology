@@ -37,18 +37,18 @@ def endpoint(url, methods=['GET']):
 
         if req_method == 'OPTIONS':
           origin = environment['Origin']
-          if origin in settings.node.cors_whitelist_domains:
-            # Origin is allowed, so include CORS headers
-            headers = [('Access-Control-Allow-Origin', origin),
-                       ('Access-Control-Allow-Methods', methods),
-                       ('Access-Control-Allow-Headers',
-                       ('Accept', 'Content-Type', 'Origin', 'X-Requested-With'))]
-            start_response('200 OK', headers)
-            return
-          else:
-            # If origin isn't allowed, don't return any CORS headers
-            # Client's browser will treat this as an error
-            return
+          for cors_allowed in settings.node.cors_whitelist_domans:
+            if cors_allowed.match(origin):
+              # Origin is allowed, so include CORS headers
+              headers = [('Access-Control-Allow-Origin', origin),
+                         ('Access-Control-Allow-Methods', methods),
+                         ('Access-Control-Allow-Headers',
+                         ('Accept', 'Content-Type', 'Origin', 'X-Requested-With'))]
+              start_response('200 OK', headers)
+              return
+          # If origin isn't allowed, don't return any CORS headers
+          # Client's browser will treat this as an error
+          return
 
         # If the request method is not allowed, return 405
         if req_method not in methods:
