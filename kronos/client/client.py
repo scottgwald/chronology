@@ -5,6 +5,7 @@ import time
 from threading import Thread, Lock
 from collections import defaultdict
 
+
 class KronosClientException(Exception):
   pass
 
@@ -17,6 +18,11 @@ class KronosClient(object):
   If non-blocking, `sleep_block` specifies the frequency of
     a background thread that flushes events to the server.
   """
+
+  # These are constants, do not modify them.
+  TIMESTAMP_FIELD = '@time'
+  ID_FIELD = '@id'
+
   def __init__(self, http_url, blocking=True, sleep_block=0.1):
     self._put_url = '%s/1.0/events/put' % http_url
     self._get_url = '%s/1.0/events/get' % http_url
@@ -25,7 +31,6 @@ class KronosClient(object):
     if not blocking:
       self._sleep_block = sleep_block
       self._setup_nonblocking()
-    self._setup_remote_keys()
 
   def index(self):
     return requests.get(self._index_url).json()
@@ -85,7 +90,7 @@ class KronosClient(object):
         for line in response.iter_lines():
           if line:
             event = json.decode(line)
-            last_id = event[self.id_key]
+            last_id = event[KronosClient.ID_FIELD]
             yield event
         break
       except Exception, e:
@@ -128,11 +133,6 @@ class KronosClient(object):
         for stream_name, events in event_dict.iteritems():
           stream_name_to_events_map[stream_name].extend(events)
       self._put(stream_name_to_events_map)
-
-  def _setup_remote_keys(self):
-    index = self.index()
-    self.id_key = index['fields']['id']
-    self.time_key = index['fields']['timestamp']
 
   def _put(self, event_dict):
     response = requests.post(self._put_url, data=json.encode(event_dict))
