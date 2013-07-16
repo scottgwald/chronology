@@ -32,9 +32,9 @@
 
 
 # TODO(usmanm): Cython some code to speed it?
-import cjson
 import heapq
 import itertools
+import json
 import math
 import random
 
@@ -335,7 +335,7 @@ class TimeWidthCassandraStorage(BaseStorage):
     for event in events:
       bucket_start_time = round_down(event[TIMESTAMP_FIELD], width)
       bucketname = BucketInterval.name(stream, bucket_start_time, shard)
-      bucket_to_events[bucketname][UUID(event[ID_FIELD])] = cjson.encode(event)
+      bucket_to_events[bucketname][UUID(event[ID_FIELD])] = json.dumps(event)
       index_start_time = round_down(event[TIMESTAMP_FIELD], SECONDS_IN_YEAR)
       index = '%s:%s' % (stream, index_start_time)
       index_to_buckets[index][(bucket_start_time, width, shards)] = ''

@@ -1,4 +1,4 @@
-import cjson as json
+import json
 import requests
 import time
 
@@ -82,14 +82,14 @@ class KronosClient(object):
     while True:
       try:
         response = requests.post(self._get_url,
-                                 data=json.encode(stream_params),
+                                 data=json.dumps(stream_params),
                                  stream=True)
         if response.status_code != requests.codes.ok:
           raise KronosClientException('Bad server response code %d' %
                                       response.status_code)
         for line in response.iter_lines():
           if line:
-            event = json.decode(line)
+            event = json.loads(line)
             last_id = event[KronosClient.ID_FIELD]
             yield event
         break
@@ -135,7 +135,7 @@ class KronosClient(object):
       self._put(stream_name_to_events_map)
 
   def _put(self, event_dict):
-    response = requests.post(self._put_url, data=json.encode(event_dict))
+    response = requests.post(self._put_url, data=json.dumps(event_dict))
     if response.status_code != requests.codes.ok:
       raise KronosClientException('Received response code %s with errors %s' %
                                   (response.status_code,

@@ -1,8 +1,6 @@
-# Use cjson instead of simplejson because it's significantly faster. 
-# http://j2labs.tumblr.com/post/4262756632/speed-tests-for-json-and-cpickle-in-python
-import cjson
 import gevent
 import gevent.pool
+import json
 import os
 import time
 import types
@@ -56,16 +54,16 @@ def endpoint(url, methods=['GET']):
                      ('Content-Type', 'application/json')]
           start_repsonse('405 Method Not Allowed', headers)
           error = '{0} method not allowed'.format(req_method)
-          return cjson.encode({'@errors' : [error]})
+          return json.dumps({'@errors' : [error]})
 
         # All POST bodies must be json, so decode it here
         if req_method == 'POST':
-          environment['json'] = cjson.decode(environment['wsgi.input'].read())
+          environment['json'] = json.loads(environment['wsgi.input'].read())
 
         return function(environment, start_response)
       except Exception, e:
         start_response('400 Bad Request', [('Content-Type', 'application/json')])
-        return cjson.encode({'@errors' : [repr(e)]})
+        return json.dumps({'@errors' : [repr(e)]})
 
     # map the URL to serve to this function
     global urls
@@ -94,7 +92,7 @@ def index(environment, start_response):
                                'backend': settings.storage[name]['backend']}
 
   start_response('200 OK', [('Content-Type', 'application/json')])
-  return cjson.encode(status)
+  return json.dumps(status)
 
 @endpoint('/1.0/events/put', ['POST'])
 def put(environment, start_response):
@@ -152,7 +150,7 @@ def put(environment, start_response):
     response['@errors'] = errors
 
   start_response('200 OK', [('Content-Type', 'application/json')]) 
-  return cjson.encode(response)
+  return json.dumps(response)
 
 # TODO(usmanm): gzip compress response stream?
 @endpoint('/1.0/events/get', ['POST'])
@@ -181,7 +179,7 @@ def get_events(environment, start_response):
 
   start_response('200 OK', [('Content-Type', 'application/json')])
   for event in events_from_backend:
-    yield '{0}\r\n'.format(cjson.encode(event))
+    yield '{0}\r\n'.format(json.dumps(event))
 
 def wsgi_application(environment, start_response):
   path = environment.get('PATH_INFO', '').rstrip('/')
