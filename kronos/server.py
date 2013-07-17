@@ -21,48 +21,70 @@ GREENLET_POOL = gevent.pool.Pool(size=settings.node['greenlet_pool_size'])
 # map URLs to the functions that serve them
 urls = { }
 
+
+def is_remote_allowed(remote):
+  for domain_pattern in settings.node['cors_whitelist_domains']:
+    if domain_pattern.match(remote):
+      return True
+  return False
+
 def endpoint(url, methods=['GET']):
   """
   Returns a decorator which when applied a function, causes that function to
   serve `url` and only allows the HTTP methods in `methods`
   """
 
-  def decorator(function, methods = methods):
+  def decorator(function, methods=methods):
     @wraps(function)
     def wrapper(environment, start_response):
       try:
         req_method = environment['REQUEST_METHOD']
 
-        if req_method == 'OPTIONS':
-          origin = environment['Origin']
-          for cors_allowed in settings.node.cors_whitelist_domans:
-            if cors_allowed.match(origin):
-              # Origin is allowed, so include CORS headers
-              headers = [('Access-Control-Allow-Origin', origin),
-                         ('Access-Control-Allow-Methods', methods),
-                         ('Access-Control-Allow-Headers',
-                         ('Accept', 'Content-Type', 'Origin', 'X-Requested-With'))]
-              start_response('200 OK', headers)
-              return
-          # If origin isn't allowed, don't return any CORS headers
-          # Client's browser will treat this as an error
-          return
-
-        # If the request method is not allowed, return 405
-        if req_method not in methods:
-          headers = [('Allow', ', '.join(methods)),
-                     ('Content-Type', 'application/json')]
-          start_repsonse('405 Method Not Allowed', headers)
+        # If the request method is not allowed, return 405.
+        # Always allow OPTIONS since any non-simple CORS request will need it.
+        if req_method != 'OPTIONS' and req_method not in methods:
+          start_response('405 Method Not Allowed',
+                         [('Allow', ', '.join(methods)),
+                          ('Content-Type', 'application/json')])
           error = '{0} method not allowed'.format(req_method)
           return json.dumps({'@errors' : [error]})
+
+        headers = []
+        remote_origin = environment.get('HTTP_ORIGIN',
+                                        environment['SERVER_NAME'])
+        local_origin = '{}://{}'.format(environment['wsgi.url_scheme'],
+                                        environment['HTTP_HOST'])
+        if remote_origin not in ('127.0.0.1', local_origin):
+          # This is a cross domain request, so check that the remote domain is
+          # allowed and include CORS headers.
+          if is_remote_allowed(remote_origin):
+            cors_headers = [('Access-Control-Allow-Origin', remote_origin),
+                            ('Access-Control-Allow-Methods', ', '.join(methods)),
+                            ('Access-Control-Allow-Headers', ', '.join(
+                              ('Accept', 'Content-Type', 'Origin', 'X-Requested-With')))]
+            if req_method == 'OPTIONS':
+              # We just tell the client that CORS is ok. Client will follow up
+              # with another request to get the answer.
+              start_response('200 OK', cors_headers)
+              return ''
+            else:
+              # We return the answer to the request along with CORS headers.
+              headers.extend(cors_headers)
+          else:
+            # Remote domain is not allowed.
+            start_response('200 OK', [])
+            return ''
 
         # All POST bodies must be json, so decode it here
         if req_method == 'POST':
           environment['json'] = json.loads(environment['wsgi.input'].read())
 
-        return function(environment, start_response)
+        # All responses are JSON.
+        headers.append(('Content-Type', 'application/json'))
+
+        return function(environment, start_response, headers)
       except Exception, e:
-        start_response('400 Bad Request', [('Content-Type', 'application/json')])
+        start_response('400 Bad Request', headers)
         return json.dumps({'@errors' : [repr(e)]})
 
     # map the URL to serve to this function
@@ -74,7 +96,7 @@ def endpoint(url, methods=['GET']):
   return decorator
 
 @endpoint('/1.0/index')
-def index(environment, start_response):
+def index(environment, start_response, headers):
   """
   Return the status of this Kronos instance + it's backends>
   Doesn't expect any URL parameters.
@@ -91,11 +113,11 @@ def index(environment, start_response):
     status['storage'][name] = {'ok': backend.is_alive(),
                                'backend': settings.storage[name]['backend']}
 
-  start_response('200 OK', [('Content-Type', 'application/json')])
+  start_response('200 OK', headers)
   return json.dumps(status)
 
 @endpoint('/1.0/events/put', ['POST'])
-def put(environment, start_response):
+def put(environment, start_response, headers):
   """
   Store events in backends
   POST body should contain a JSON encoded version of:
@@ -149,12 +171,12 @@ def put(environment, start_response):
   if errors:
     response['@errors'] = errors
 
-  start_response('200 OK', [('Content-Type', 'application/json')]) 
+  start_response('200 OK', headers)
   return json.dumps(response)
 
 # TODO(usmanm): gzip compress response stream?
 @endpoint('/1.0/events/get', ['POST'])
-def get_events(environment, start_response):
+def get_events(environment, start_response, headers):
   """
   Retrieve events
   POST body should contain a JSON encoded version of:
@@ -170,6 +192,13 @@ def get_events(environment, start_response):
   """
 
   request_json = environment['json']
+  try:
+    validate_stream(request_json['stream'])
+  except Exception as e:
+    start_response('400 Bad Request', headers)
+    yield json.dumps({'@errors' : [repr(e)]})
+    raise StopIteration()
+
   backend, configuration = router.backend_to_retrieve(request_json['stream'])
   events_from_backend = backend.retrieve(request_json['stream'],
                                          request_json.get('start_time'),
@@ -177,7 +206,7 @@ def get_events(environment, start_response):
                                          request_json.get('start_id'),
                                          configuration)
 
-  start_response('200 OK', [('Content-Type', 'application/json')])
+  start_response('200 OK', headers)
   for event in events_from_backend:
     yield '{0}\r\n'.format(json.dumps(event))
 

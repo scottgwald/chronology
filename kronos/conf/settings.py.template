@@ -38,5 +38,14 @@ stream = {
     }
   }
 
+streams_to_backends = {
+  '*': {
+    'backends': {
+      'memory': None
+    },
+    'read_backend': 'memory'
+  }
+}
+
 # TODO(usmanm): Add configuration for logging events for Kronos itself.
 

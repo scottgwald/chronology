@@ -2,7 +2,6 @@
 # for online changes and easy synchronization between multiple Kronos instances.
 
 import re
-import yaml
 
 from collections import defaultdict
 from importlib import import_module
@@ -71,7 +70,10 @@ class StorageRouter(object):
     return self.backends.iteritems()
 
   def load_configurations(self):
-    configurations = yaml.load(open('kronos/conf/streams.yaml'))
+    configurations = getattr(settings, 'streams_to_backends', None)
+    if not configurations or not isinstance(configurations, dict):
+      raise ImproperlyConfigured('`storage.streams_to_backends` setting must contain a'
+                                 ' valid dict')
     # Validate stream configurations.
     for stream_pattern, options in configurations.iteritems():
       # Validate stream pattern by replacing '*' with any legal string.

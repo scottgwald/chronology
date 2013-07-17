@@ -217,15 +217,16 @@ class SortedShardedEventStream(object):
         # the ready_heap.
         if self.ready_heap:
           (next_uuid, next_event) = self.ready_heap[0]
-          next_bucket_start = self.bucket_heap[0].start
-          while next_bucket_start <= next_uuid._time_seconds:
-            self.load_next_bucket()
-            if self.bucket_heap:
-              next_bucket_start = self.bucket_heap[0].start
+          while self.bucket_heap:
+            next_bucket_start = self.bucket_heap[0].start
+            if next_bucket_start <= next_uuid._time_seconds:
+              self.load_next_bucket()
             else:
               break
 
 class TimeWidthCassandraStorage(BaseStorage):
+  # TODO(meelap): Put `read_size` stuff back so that we can limit how much
+  # memory Kronos uses to buffer read data from backends.
   EVENT_CF = 'events'
   INDEX_CF = 'index'
   MAX_WIDTH = 6*30*24*60*60 # 6 months. Too big, too small? Can we avoid it?
@@ -244,29 +245,28 @@ class TimeWidthCassandraStorage(BaseStorage):
     required_params = ('hosts',
                        'keyspace',
                        'replication_factor',
-                       'default_width',
-                       'default_shards',
-                       'read_size')
+                       'default_timewidth_seconds',
+                       'default_shards_per_bucket')
     for param in required_params:
       try:
         setattr(self, param, settings[param])
       except KeyError:
         raise ImproperlyConfigured('{0}: Missing required parameter `{1}`.'
-                                    .format(self.__class__, p))
+                                    .format(self.__class__, param))
 
     if not isinstance(self.hosts, list):
       raise ImproperlyConfigured('{0}: `hosts` must be a list.'
                                   .format(self.__class__))
 
-    if (not isinstance(self.default_width, int) or
-        self.default_width > TimeWidthCassandraStorage.MAX_WIDTH or
-        self.default_width < 0):
-      raise ImproperlyConfigured('{0}: `default_width` must be an integer '+
+    if (not isinstance(self.default_timewidth_seconds, int) or
+        self.default_timewidth_seconds > TimeWidthCassandraStorage.MAX_WIDTH or
+        self.default_timewidth_seconds < 0):
+      raise ImproperlyConfigured('{0}: `default_timewidth_seconds` must be an integer '+
                                  'between 0 and MAX_WIDTH [{1}].'
                                   .format((self.__class__, TimeWidthCassandraStorage.MAX_WIDTH)))
 
-    if not isinstance(self.default_shards, int) or self.default_shards < 0:
-      raise ImproperlyConfigured('%s: `default_shards` settings must be a '
+    if not isinstance(self.default_shards_per_bucket, int) or self.default_shards_per_bucket < 0:
+      raise ImproperlyConfigured('%s: `default_shards_per_bucket` settings must be a '
                                  'postive integer.' %  self.__class__)
 
     self.index_cache = InMemoryLRUCache() # 1000-entry LRU cache.
@@ -285,7 +285,7 @@ class TimeWidthCassandraStorage(BaseStorage):
       self.system_manager.create_keyspace(
           self.keyspace,
           SIMPLE_STRATEGY,
-          {'replication_factor': self.replication_factor})
+          {'replication_factor': str(self.replication_factor)})
       self.system_manager.create_column_family(
           self.keyspace,
           TimeWidthCassandraStorage.EVENT_CF,
@@ -323,8 +323,8 @@ class TimeWidthCassandraStorage(BaseStorage):
                       such as number of shards or width of a time interval.
     """
 
-    width = configuration.get('timewidth_seconds', self.default_width)
-    shards = int(configuration.get('shards_per_bucket', self.default_shards))
+    width = configuration.get('timewidth_seconds', self.default_timewidth_seconds)
+    shards = int(configuration.get('shards_per_bucket', self.default_shards_per_bucket))
     shard = random.randint(0, shards - 1)
 
     index_to_buckets = defaultdict(dict)
@@ -408,7 +408,6 @@ class TimeWidthCassandraStorage(BaseStorage):
                                       start_id, 
                                       # Largest UUID
                                       convert_time_to_uuid(end_time,
-                                                           lowest_val=False),
-                                      self.read_size)
+                                                           lowest_val=False))
     for event in events:
       yield event
