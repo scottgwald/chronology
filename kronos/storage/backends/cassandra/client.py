@@ -231,9 +231,13 @@ class TimeWidthCassandraStorage(BaseStorage):
   INDEX_CF = 'index'
   MAX_WIDTH = 6*30*24*60*60 # 6 months. Too big, too small? Can we avoid it?
 
-  CONF_PARAMETERS = {
-    'timewidth_seconds': lambda x: int(x) <= TimeWidthCassandraStorage.MAX_WIDTH,
-    'shards_per_bucket': int
+  SETTINGS_VALIDATORS = {
+    'default_timewidth_seconds': lambda x: int(x) <= TimeWidthCassandraStorage.MAX_WIDTH,
+    'default_shards_per_bucket': lambda x: int(x) > 0,
+    'hosts': lambda x: isinstance(x, list),
+    'keyspace': lambda x: len(str(x)) > 0,
+    'replication_factor': lambda x: int(x) >= 0,
+    'backend': lambda x: x == 'cassandra.TimeWidthCassandraStorage',
   }  
 
   def __init__(self, name, **settings):
@@ -248,26 +252,7 @@ class TimeWidthCassandraStorage(BaseStorage):
                        'default_timewidth_seconds',
                        'default_shards_per_bucket')
     for param in required_params:
-      try:
-        setattr(self, param, settings[param])
-      except KeyError:
-        raise ImproperlyConfigured('{0}: Missing required parameter `{1}`.'
-                                    .format(self.__class__, param))
-
-    if not isinstance(self.hosts, list):
-      raise ImproperlyConfigured('{0}: `hosts` must be a list.'
-                                  .format(self.__class__))
-
-    if (not isinstance(self.default_timewidth_seconds, int) or
-        self.default_timewidth_seconds > TimeWidthCassandraStorage.MAX_WIDTH or
-        self.default_timewidth_seconds < 0):
-      raise ImproperlyConfigured('{0}: `default_timewidth_seconds` must be an integer '+
-                                 'between 0 and MAX_WIDTH [{1}].'
-                                  .format((self.__class__, TimeWidthCassandraStorage.MAX_WIDTH)))
-
-    if not isinstance(self.default_shards_per_bucket, int) or self.default_shards_per_bucket < 0:
-      raise ImproperlyConfigured('%s: `default_shards_per_bucket` settings must be a '
-                                 'postive integer.' %  self.__class__)
+      setattr(self, param, settings[param])
 
     self.index_cache = InMemoryLRUCache() # 1000-entry LRU cache.
     self.setup_cassandra()

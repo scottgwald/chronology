@@ -10,12 +10,12 @@ storage = {
     'replication_factor': 0,
     'default_timewidth_seconds': 86400,
     'default_shards_per_bucket': 5
-    },
+  },
   'memory': {
     'backend': 'memory.InMemoryStorage',
     'default_max_items': 1000
-    },
-  }
+  },
+}
 
 # Node related settings. `id` should be a unique name that identifies this
 # Kronos instance, while `name` is simply a more human readable name.
@@ -26,17 +26,23 @@ node = {
   'cors_whitelist_domains' : map(re.compile, [
     # Domains that match any regex in this list will be allowed to talk to this
     # Kronos instance
-    ])
-  }
+  ])
+}
 
-# Stream settings. `fields` maps what keys the ID and timestamp should be
-# assigned to in an event JSON.
+# Stream settings.
+# `fields` maps what keys the ID and timestamp should be assigned to in an event
+# JSON.
+# 
+# `format` specifies what a valid stream name looks like. Kronos will use the
+# stream name as part of the key that events are stored under for each backend.
+# Ensure that each backend that you use accepts patterns defined by `format`.
 stream = {
   'fields': {
     'id': '@id',
     'timestamp': '@time'
-    }
-  }
+  },
+  'format': re.compile(r'^[a-z0-9\_]+(\.[a-z0-9\_]+)*$', re.I)
+}
 
 streams_to_backends = {
   '*': {

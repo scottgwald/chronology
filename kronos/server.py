@@ -11,8 +11,12 @@ from gunicorn.app.base import Application
 
 import kronos
 
-from kronos.conf import settings
-from kronos.core.validators import validate_event, validate_stream
+# Validate settings before importing anything else
+from kronos.core.validate_settings import validate_settings
+from kronos.conf import settings; validate_settings(settings)
+
+from kronos.core.validators import validate_event
+from kronos.core.validators import validate_stream
 from kronos.core.exceptions import InvalidStreamName
 from kronos.storage import router
 
@@ -104,7 +108,7 @@ def index(environment, start_response, headers):
 
   status = {'service': 'kronosd',
             'version': kronos.get_version(),
-            'id': settings.node.get('id'),
+            'id': settings.node['id'],
             'fields': settings.stream['fields'],
             'storage': {}}
 

@@ -2,8 +2,21 @@ import uuid
 
 from kronos.core.exceptions import ImproperlyConfigured
 
+
 class BaseStorage(object):
+
+  # All subclasses must define `SETTINGS_VALIDATORS` mapping option names to a
+  # function that takes a value for that option and returns True if it is valid
+  # and False otherwise. For example, if a subclass takes one option called
+  # `max_size` that should be a nonnegative integer, we would have:
+  # SETTINGS_VALIDATORS = { 'max_size': lambda x: int(x) >= 0 }
+  SETTINGS_VALIDATORS = {}
+
   def __init__(self, name, **settings):
+    """
+    Subclasses can assume that `settings` only contains keys that are also in
+    `SETTINGS_VALIDATORS` and that their values are valid.
+    """
     self.name = name
 
   def is_alive(self):
@@ -43,21 +56,3 @@ class BaseStorage(object):
   def _retrieve(self, stream, start_id, end_time, configuration):
     raise NotImplementedError("Must implement `retrieve` method for %s." %
                               self.__class__.__name__)
-
-  def validate_configuration(self, stream_configuration):
-    if stream_configuration:
-      if not isinstance(stream_configuration, dict):
-        raise ImproperlyConfigured('%s: stream configuration must be a dict.' %
-                                   self.__class__)
-      invalid_keys = (set(stream_configuration.keys()) -
-                      set(self.CONF_PARAMETERS.keys()))
-      if invalid_keys:
-        raise ImproperlyConfigured('%s: stream configuration contains invalid '
-                                   'key %s.' % (self.__class__, invalid_keys[0]))
-      for key in stream_configuration:
-        try:
-          self.CONF_PARAMETERS[key](stream_configuration[key])
-        except:
-          raise ImproperlyConfigured('%s: stream configuration contains '
-                                     'invalid value for key %s.' %
-                                     (self.__class__, key))

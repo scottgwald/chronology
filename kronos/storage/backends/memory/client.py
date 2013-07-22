@@ -38,10 +38,13 @@ class InMemoryStorage(BaseStorage):
   """
   The in memory storage backend maintains a sorted list of events per stream
   name.
-  The size of this list is capped at max_items|default_max_items per stream.
+  The size of this list is capped at `max_items` per stream.
   """
 
-  CONF_PARAMETERS = { 'max_items': int }
+  SETTINGS_VALIDATORS = {
+    'default_max_items': lambda x: int(x) > 0,
+    'backend': lambda x: x == 'memory.InMemoryStorage',
+  }
   
   def __init__(self, name, **settings):
     super(InMemoryStorage, self).__init__(name, **settings)

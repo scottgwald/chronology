@@ -7,11 +7,9 @@ from collections import defaultdict
 from importlib import import_module
 
 from kronos.conf import settings
-from kronos.core.exceptions import (BackendMissing, ImproperlyConfigured,
-                                    InvalidStreamName)
+from kronos.core.exceptions import BackendMissing
+from kronos.core.exceptions import InvalidStreamName
 from kronos.core.validators import validate_stream
-
-MATCH_PATTERN = '*'
 
 class StorageRouter(object):
   def __init__(self):
@@ -24,41 +22,28 @@ class StorageRouter(object):
     self.load_configurations()
 
   def pattern_to_regex(self, stream_pattern):
-    return re.compile('%s%s%s' %
-                      ('^',
-                       (stream_pattern
-                        .replace('.', '\.')
-                        .replace(MATCH_PATTERN, '(.*)')),
-                       '$'), re.I)
+    return re.compile('^%s$' % (stream_pattern
+                                  .replace('.', '\.')
+                                  .replace('*', '(.*)'))
+                     , re.I)
 
   def regex_to_pattern(self, stream_regex):
-    return stream_regex.pattern[1:-1].replace('\.', '.').replace('(.*)',
-                                                                 MATCH_PATTERN)
+    return (stream_regex.pattern[1:-1]
+              .replace('\.', '.')
+              .replace('(.*)', '*'))
   
   def load_backends(self):
     """
     Loads all the backends setup in settings.py.
     """
-    backends_settings = getattr(settings, 'storage', {})
-    if not isinstance(backends_settings, dict):
-      raise ImproperlyConfigured('`storage` setting must be a dict.')
-    if not backends_settings:
-      raise ImproperlyConfigured('Must define at least one backend in the '
-                                 '`storage` settings')
-    backends = {}
-    for name, backend_settings in backends_settings.iteritems():
-      if not (isinstance(backend_settings, dict) and
-              'backend' in backend_settings):
-        raise ImproperlyConfigured('`storage.%s` setting must be a valid dict '
-                                   'and contain a `backend` key.' % name)
-      backend_path = ('kronos.storage.backends.%s' %
-                      backend_settings.get('backend'))
+    for name, backend_settings in settings.storage.iteritems():
+      backend_path = 'kronos.storage.backends.%s' % backend_settings['backend']
       backend_module, backend_cls = backend_path.rsplit('.', 1)
       backend_module = import_module(backend_module)
+
       # Create an instance of the configured backend.
-      backends[name] = (getattr(backend_module, backend_cls)
-                        (name, **backend_settings))
-    self.backends = backends
+      backend_constructor = getattr(backend_module, backend_cls)
+      self.backends[name] = backend_constructor(name, **backend_settings)
 
   def get_backend(self, name):
     try:
@@ -70,37 +55,13 @@ class StorageRouter(object):
     return self.backends.iteritems()
 
   def load_configurations(self):
-    configurations = getattr(settings, 'streams_to_backends', None)
-    if not configurations or not isinstance(configurations, dict):
-      raise ImproperlyConfigured('`storage.streams_to_backends` setting must contain a'
-                                 ' valid dict')
-    # Validate stream configurations.
-    for stream_pattern, options in configurations.iteritems():
-      # Validate stream pattern by replacing '*' with any legal string.
-      validate_stream(stream_pattern.replace(MATCH_PATTERN, 'jia'))
-      stream_regex = self.pattern_to_regex(stream_pattern)
-      backend_to_read = options.get('read_backend')
-      if not backend_to_read:
-        raise ImproperlyConfigured('Must provide `read_backend` for stream '
-                                   'pattern `%s`.' % stream_pattern)      
-      self.backend_to_read[stream_regex] = self.get_backend(backend_to_read)
-      backends = options.get('backends')
-      if not backends:
-        raise ImproperlyConfigured('Must configure at least one `backends` for '
-                                   'stream pattern `%s`.' % stream_pattern)
-      if backend_to_read not in backends:
-        raise ImproperlyConfigured('`backend_to_read` missing from `backends` '
-                                   'for %s.' % stream_pattern)
+    for pattern, options in settings.streams_to_backends.iteritems():
+      regex = self.pattern_to_regex(pattern)
+      self.backend_to_read[regex] = self.get_backend(options['read_backend'])
+      backends = options['backends']
       for backend_name, configuration in backends.iteritems():
-        if configuration is None:
-          configuration = {}
         backend = self.get_backend(backend_name)
-        backend.validate_configuration(configuration)
-        self.configurations[stream_regex][backend] = configuration
-        
-    if not self.pattern_to_regex(MATCH_PATTERN) in self.configurations:
-      raise ImproperlyConfigured('Must configure stream pattern `%s`.' %
-                                 MATCH_PATTERN)
+        self.configurations[regex][backend] = configuration or {}
 
   def get_configuration(self, stream, backend):
     return self.backends_to_insert(stream)[backend]
@@ -122,7 +83,7 @@ class StorageRouter(object):
     except InvalidStreamName, e:
       self.stream_to_pattern_cache[stream] = e
       raise e
-    default_regex = self.pattern_to_regex(MATCH_PATTERN)
+    default_regex = self.pattern_to_regex('*')
     best_match = (default_regex, float('inf'), -float('inf'))
     for stream_pattern in self.configurations:
       if stream_pattern == default_regex:
@@ -131,7 +92,7 @@ class StorageRouter(object):
       if match:
         literal_pattern = self.regex_to_pattern(stream_pattern)
         extra_dots = stream.count('.') - literal_pattern.count('.')
-        literal_count = len(literal_pattern.replace(MATCH_PATTERN, ''))
+        literal_count = len(literal_pattern.replace('*', ''))
         if (extra_dots < best_match[1] or
             (extra_dots == best_match[1] and literal_count > best_match[2])):
           best_match = (stream_pattern, extra_dots, literal_count)
