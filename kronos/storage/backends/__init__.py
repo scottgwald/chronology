@@ -1,6 +1,7 @@
 import uuid
 
 from kronos.core.exceptions import ImproperlyConfigured
+from kronos.utils.math import uuid_from_kronos_time
 
 
 class BaseStorage(object):
@@ -37,18 +38,7 @@ class BaseStorage(object):
     time window had been returned. 
     """
     if not start_id:
-      # Make the lowest value UUID with the start timestamp.
-      clock_seq_low = 0 & 0xffL
-      clock_seq_hi_variant = 0 & 0x3fL
-      node = 0 & 0xffffffffffffL
-      nanoseconds = int(start_time * 1e9)
-      timestamp = int(nanoseconds/100) + 0x01b21dd213814000L
-      time_low = timestamp & 0xffffffffL
-      time_mid = (timestamp >> 32L) & 0xffffL
-      time_hi_version = (timestamp >> 48L) & 0x0fffL
-      start_id = uuid.UUID(fields=(time_low, time_mid, time_hi_version,
-                                   clock_seq_hi_variant, clock_seq_low, node),
-                           version=1)
+      start_id = uuid_from_kronos_time(start_time, lowest=True)
     else:
       start_id = uuid.UUID(start_id)
     return self._retrieve(stream, start_id, end_time, configuration)

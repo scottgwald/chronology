@@ -29,6 +29,14 @@
 # we stream these values back to the caller in UUID order. Note that we may need
 # to prune some events out of this stream if they occured in an intersecting
 # interval but <a or >=b.
+#
+#
+#
+### Indices
+#
+# Indices help determine which buckets need to be scanned to retrieve events
+# between a given start and end time.
+# TODO(meelap): Finish documenting indexes.
 
 
 # TODO(usmanm): Cython some code to speed it?
@@ -40,6 +48,7 @@ import random
 
 from blist import sortedset
 from collections import defaultdict
+from datetime import timedelta
 from pycassa import ColumnFamily, ConnectionPool, NotFoundException, types
 from pycassa.batch import Mutator
 from pycassa.system_manager import SIMPLE_STRATEGY, SystemManager
@@ -51,15 +60,17 @@ from kronos.conf import settings
 ID_FIELD = settings.stream['fields']['id']
 TIMESTAMP_FIELD = settings.stream['fields']['timestamp']
 
-from kronos.core.exceptions import (ImproperlyConfigured,
-                                    InvalidBucketIntervalComparison)
+from kronos.core.exceptions import ImproperlyConfigured
+from kronos.core.exceptions import InvalidBucketIntervalComparison
 
 from kronos.storage.backends import BaseStorage
 from kronos.utils.cache import InMemoryLRUCache
+from kronos.utils.math import kronos_time_to_datetime
 from kronos.utils.math import round_down
-from kronos.utils.math import uuid_to_unix_time
+from kronos.utils.math import time_to_kronos_time
+from kronos.utils.math import uuid_to_kronos_time
 
-SECONDS_IN_YEAR = int(365.25*24*60*60) # Fixed time width for index buckets.
+LENGTH_OF_YEAR = int(timedelta(days=365.25).total_seconds() * 1e7)
 
 
 class CassandraSortedUUID(UUID):
@@ -71,7 +82,7 @@ class CassandraSortedUUID(UUID):
 
   def __init__(self, *args, **kwargs):
     super(CassandraSortedUUID, self).__init__(*args, **kwargs)
-    self._time_seconds = uuid_to_unix_time(self)
+    self._kronos_time = uuid_to_kronos_time(self)
 
   # TODO(meelap): why is this method overridden
   def __setattr__(self, name, value):
@@ -118,12 +129,12 @@ class BucketInterval(object):
     if other is None:
       return 1
     elif isinstance(other, BucketInterval):
-        return cmp((self.start, self.name), (other.start, other.name))
+      return cmp((self.start, self.name), (other.start, other.name))
 
     try:
-        return cmp(self.start, float(other))
+      return cmp(self.start, float(other))
     except Exception as e:
-        raise InvalidBucketIntervalComparison(repr(e))
+      raise InvalidBucketIntervalComparison(repr(e))
 
   def fetch(self):
     """
@@ -219,7 +230,7 @@ class SortedShardedEventStream(object):
           (next_uuid, next_event) = self.ready_heap[0]
           while self.bucket_heap:
             next_bucket_start = self.bucket_heap[0].start
-            if next_bucket_start <= next_uuid._time_seconds:
+            if next_bucket_start <= next_uuid._kronos_time:
               self.load_next_bucket()
             else:
               break
@@ -229,10 +240,10 @@ class TimeWidthCassandraStorage(BaseStorage):
   # memory Kronos uses to buffer read data from backends.
   EVENT_CF = 'events'
   INDEX_CF = 'index'
-  MAX_WIDTH = 6*30*24*60*60 # 6 months. Too big, too small? Can we avoid it?
+  MAX_WIDTH = LENGTH_OF_YEAR / 2 # Too big, small, necessary?
 
   SETTINGS_VALIDATORS = {
-    'default_timewidth_seconds': lambda x: int(x) <= TimeWidthCassandraStorage.MAX_WIDTH,
+    'default_timewidth_seconds': lambda x: int(x) > 0 and (int(x)*1e7) <= TimeWidthCassandraStorage.MAX_WIDTH,
     'default_shards_per_bucket': lambda x: int(x) > 0,
     'hosts': lambda x: isinstance(x, list),
     'keyspace': lambda x: len(str(x)) > 0,
@@ -309,6 +320,7 @@ class TimeWidthCassandraStorage(BaseStorage):
     """
 
     width = configuration.get('timewidth_seconds', self.default_timewidth_seconds)
+    width = time_to_kronos_time(width)
     shards = int(configuration.get('shards_per_bucket', self.default_shards_per_bucket))
     shard = random.randint(0, shards - 1)
 
@@ -319,20 +331,19 @@ class TimeWidthCassandraStorage(BaseStorage):
     # bucket_to_events maps bucketnames to { column_name==UUID : event, ... }.
     for event in events:
       bucket_start_time = round_down(event[TIMESTAMP_FIELD], width)
-      bucketname = BucketInterval.name(stream, bucket_start_time, shard)
-      bucket_to_events[bucketname][UUID(event[ID_FIELD])] = json.dumps(event)
-      index_start_time = round_down(event[TIMESTAMP_FIELD], SECONDS_IN_YEAR)
+      bucket_name = BucketInterval.name(stream, bucket_start_time, shard)
+      bucket_to_events[bucket_name][UUID(event[ID_FIELD])] = json.dumps(event)
+      index_start_time = round_down(event[TIMESTAMP_FIELD], LENGTH_OF_YEAR)
       index = '%s:%s' % (stream, index_start_time)
       index_to_buckets[index][(bucket_start_time, width, shards)] = ''
 
     mutator = Mutator(self.pool, queue_size=1000)
 
     # Add all event writes to the batch of operations.
-    for bucketname, events in bucket_to_events.iteritems():
-      mutator.insert(self.event_cf, bucketname, events)
+    for bucket_name, events in bucket_to_events.iteritems():
+      mutator.insert(self.event_cf, bucket_name, events)
 
     # Add all index writes to the batch of operations.
-    # TODO(meelap) Figure out exactly how index is used and document it.
     for index, buckets in index_to_buckets.iteritems():
       try:
         self.index_cache.get(index)
@@ -354,27 +365,26 @@ class TimeWidthCassandraStorage(BaseStorage):
     """
 
     # Time of the first event to return
-    start_time = uuid_to_unix_time(start_id)
+    start_time = uuid_to_kronos_time(start_id)
 
     # Time of the oldest bucket that could possibly contain the first event.
-    bucket_start_time = long(math.floor(
-        max(start_time - TimeWidthCassandraStorage.MAX_WIDTH, 0)))
+    bucket_start_time = max(start_time - TimeWidthCassandraStorage.MAX_WIDTH, 0)
     assert(start_time >= bucket_start_time)
 
     # Smallest possible width of the oldest bucket that could possibly contain
     # the first event.
-    bucket_start_width = int(math.ceil(start_time - bucket_start_time))
+    bucket_start_width = start_time - bucket_start_time
 
     # Time of the last event to return.
-    end_time = long(math.ceil(end_time))
+    end_time = long(end_time)
 
     # Index width is one year. Get all indices pointing to buckets which
     # intersect with our time interval of interest.
     indexes_to_scan = ['%s:%s' % (stream, i) for i in
-                       range(round_down(bucket_start_time, SECONDS_IN_YEAR),
-                             round_down(end_time, SECONDS_IN_YEAR) +
-                             SECONDS_IN_YEAR,
-                             SECONDS_IN_YEAR)]
+                       range(round_down(bucket_start_time, LENGTH_OF_YEAR),
+                             round_down(end_time, LENGTH_OF_YEAR) +
+                             LENGTH_OF_YEAR,
+                             LENGTH_OF_YEAR)]
 
     # Get all buckets which might contain events of interest.
     index_keys = self.index_cf.multiget(indexes_to_scan,
@@ -389,10 +399,7 @@ class TimeWidthCassandraStorage(BaseStorage):
       for i in xrange(bucket_key[2]):
         intervals.append(BucketInterval(self.event_cf, stream, bucket_key, i))
 
-    events = SortedShardedEventStream(intervals,
-                                      start_id, 
-                                      # Largest UUID
-                                      convert_time_to_uuid(end_time,
-                                                           lowest_val=False))
+    end_id = uuid_from_kronos_time(end_time, lowest=False)
+    events = SortedShardedEventStream(intervals, start_id, end_id)
     for event in events:
       yield event

@@ -5,16 +5,14 @@ from uuid import UUID
 
 from kronos.conf import settings
 
-from kronos.core.exceptions import (InvalidEventId,
-                                    InvalidEventTime,
-                                    InvalidStreamName)
-from kronos.utils.math import (uuid_to_unix_time,
-                               uuid_from_time)
+from kronos.core.exceptions import InvalidEventId
+from kronos.core.exceptions import InvalidEventTime
+from kronos.core.exceptions import InvalidStreamName
+from kronos.utils.math import uuid_to_kronos_time
+from kronos.utils.math import uuid_from_kronos_time
 
 TIMESTAMP_FIELD = settings.stream['fields']['timestamp']
 ID_FIELD = settings.stream['fields']['id']
-# TODO(meelap) move to settings.py?
-# Format of a valid stream name
 STREAM_REGEX = re.compile(r'^[a-z0-9\_]+(\.[a-z0-9\_]+)*$', re.I)
 
 def validate_event(event):
@@ -35,7 +33,7 @@ def validate_event(event):
         uuid = UUID(event_id)
       except ValueError:
         raise InvalidEventId(event_id)
-      event_time = uuid_to_unix_time(uuid)
+      event_time = uuid_to_kronos_time(uuid)
   elif type(event_time) not in (int, long, float):
     raise InvalidEventTime(event_time)
 
@@ -45,10 +43,10 @@ def validate_event(event):
     # of this machine rather than that of the client, but we're using uuids as
     # a proxy for unique pseudotime-ordered strings anyway, so the damage has
     # already been done :).
-    uuid = uuid_from_time(event_time)
+    uuid = uuid_from_kronos_time(event_time)
 
-    # Make sure that the time in our uuid is close to the event's actual time
-    if uuid_to_unix_time(uuid) != event_time:
+    # Make sure that the time in our uuid is the event's actual time
+    if uuid_to_kronos_time(uuid) != event_time:
       raise InvalidEventTime('{0}: mismatch with event id [{1}].'
                               .format(event[TIMESTAMP_FIELD], uuid))
 

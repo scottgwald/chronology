@@ -2,8 +2,11 @@ import json
 import requests
 import time
 
+from datetime import datetime
 from threading import Thread, Lock
 from collections import defaultdict
+
+from utils import kronos_time_now
 
 
 class KronosClientException(Exception):
@@ -54,6 +57,14 @@ class KronosClient(object):
     that data.  Calling `flush` will block until all pending data has
     been acknowledged by the server.
     """
+
+    # Ensure that all events have a timestamp.
+    timestamp = kronos_time_now()
+    for events in event_dict.values():
+      for event in events:
+        if KronosClient.TIMESTAMP_FIELD not in event:
+          event[KronosClient.TIMESTAMP_FIELD] = timestamp
+
     if self._blocking:
       return self._put(event_dict)
     else:

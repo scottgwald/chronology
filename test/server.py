@@ -35,7 +35,8 @@ kronos.conf.settings.stream = {
   'fields': {
     'id': '@id',
     'timestamp': '@time'
-  }
+  },
+  'format': re.compile(r'^[a-z0-9\_]+(\.[a-z0-9\_]+)*$', re.I)
 }
 
 from kronos.server import wsgi_application
@@ -166,7 +167,10 @@ stream_configurations = [
 
 if __name__ == "__main__":
   runner = unittest.TextTestRunner()
-  test = unittest.defaultTestLoader.loadTestsFromTestCase(KronosServerTest)
+  if len(sys.argv) > 1:
+    test = unittest.defaultTestLoader.loadTestsFromNames(sys.argv[1:])
+  else:
+    test = unittest.defaultTestLoader.loadTestsFromTestCase(KronosServerTest)
 
   # Run all tests against each backend configuration.
   for streams in stream_configurations:
