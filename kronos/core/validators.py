@@ -8,6 +8,7 @@ from kronos.conf import settings
 from kronos.core.exceptions import InvalidEventId
 from kronos.core.exceptions import InvalidEventTime
 from kronos.core.exceptions import InvalidStreamName
+from kronos.utils.math import time_to_kronos_time
 from kronos.utils.math import uuid_to_kronos_time
 from kronos.utils.math import uuid_from_kronos_time
 
@@ -27,7 +28,7 @@ def validate_event(event):
   # exists, otherwise set the time to now.
   if event_time is None:
     if event_id is None:
-      event_time = time.time()
+      event_time = time_to_kronos_time(time.time())
     else:
       try:
         uuid = UUID(event_id)
