@@ -3,7 +3,6 @@ import gevent.pool
 import json
 import os
 import time
-import types
 
 from collections import defaultdict
 from functools import wraps
@@ -17,7 +16,6 @@ from kronos.conf import settings; validate_settings(settings)
 
 from kronos.core.validators import validate_event
 from kronos.core.validators import validate_stream
-from kronos.core.exceptions import InvalidStreamName
 from kronos.storage import router
 
 GREENLET_POOL = gevent.pool.Pool(size=settings.node['greenlet_pool_size'])
@@ -37,7 +35,6 @@ def endpoint(url, methods=['GET']):
   Returns a decorator which when applied a function, causes that function to
   serve `url` and only allows the HTTP methods in `methods`
   """
-
   def decorator(function, methods=methods):
     @wraps(function)
     def wrapper(environment, start_response):
@@ -62,10 +59,12 @@ def endpoint(url, methods=['GET']):
           # This is a cross domain request, so check that the remote domain is
           # allowed and include CORS headers.
           if is_remote_allowed(remote_origin):
-            cors_headers = [('Access-Control-Allow-Origin', remote_origin),
-                            ('Access-Control-Allow-Methods', ', '.join(methods)),
-                            ('Access-Control-Allow-Headers', ', '.join(
-                              ('Accept', 'Content-Type', 'Origin', 'X-Requested-With')))]
+            cors_headers = [
+                ('Access-Control-Allow-Origin', remote_origin),
+                ('Access-Control-Allow-Methods', ', '.join(methods)),
+                ('Access-Control-Allow-Headers', ', '.join(
+                  ('Accept', 'Content-Type', 'Origin', 'X-Requested-With')))
+                ]
             if req_method == 'OPTIONS':
               # We just tell the client that CORS is ok. Client will follow up
               # with another request to get the answer.
@@ -201,7 +200,7 @@ def get_events(environment, start_response, headers):
   except Exception as e:
     start_response('400 Bad Request', headers)
     yield json.dumps({'@errors' : [repr(e)]})
-    raise StopIteration()
+    raise StopIteration
 
   backend, configuration = router.backend_to_retrieve(request_json['stream'])
   events_from_backend = backend.retrieve(request_json['stream'],
@@ -213,6 +212,16 @@ def get_events(environment, start_response, headers):
   start_response('200 OK', headers)
   for event in events_from_backend:
     yield '{0}\r\n'.format(json.dumps(event))
+
+@endpoint('/1.0/streams', ['GET'])
+def list_streams(environment, start_response, headers):
+  start_response('200 OK', headers)
+  streams_seen_so_far = set()
+  for regex, backend in router.get_backend_to_read():
+    for stream in backend.streams():
+      if regex.match(stream) and stream not in streams_seen_so_far:
+        streams_seen_so_far.add(stream)
+        yield '{0}\r\n'.format(stream)
 
 def wsgi_application(environment, start_response):
   path = environment.get('PATH_INFO', '').rstrip('/')

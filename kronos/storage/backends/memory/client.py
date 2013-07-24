@@ -60,7 +60,6 @@ class InMemoryStorage(BaseStorage):
     insert. Make room for the events to insert if necessary by deleting the
     oldest events. Then insert each event in time sorted order.
     """
-
     max_items = configuration.get('max_items', self.default_max_items)  
     for event in events:
       while len(self.db[stream]) >= max_items:
@@ -72,7 +71,6 @@ class InMemoryStorage(BaseStorage):
     Yield events from stream starting after the event with id `start_id` until
     and including events with timestamp `end_time`.
     """
-
     events_returned = 0
     start_id_event = Event({ID_FIELD: str(start_id)})
     for event in self.db[stream]:
@@ -82,3 +80,6 @@ class InMemoryStorage(BaseStorage):
         break
       yield event
       events_returned += 1
+
+  def streams(self):
+    return self.db.iterkeys()

@@ -2,7 +2,6 @@ import json
 import requests
 import time
 
-from datetime import datetime
 from threading import Thread, Lock
 from collections import defaultdict
 
@@ -30,6 +29,7 @@ class KronosClient(object):
     self._put_url = '%s/1.0/events/put' % http_url
     self._get_url = '%s/1.0/events/get' % http_url
     self._index_url = '%s/1.0/index' % http_url
+    self._streams_url = '%s/1.0/streams' % http_url
     self._blocking = blocking
     if not blocking:
       self._sleep_block = sleep_block
@@ -113,6 +113,19 @@ class KronosClient(object):
             del stream_params['start_time']
           stream_params['start_id'] = last_id
         time.sleep(len(errors) * 0.1)
+
+  def get_streams(self):
+    """
+    Queries the Kronos server and fetches a list of streams per backend if the 
+    form of { backend: backend_name, streams: [stream1, ...] }.
+    """
+    response = requests.get(self._streams_url, stream=True)
+    if response.status_code != requests.codes.ok:
+      raise KronosClientException('Bad server response code %d' %
+                                  response.status_code)
+    for line in response.iter_lines():
+      if line:
+        yield line
           
   def _setup_nonblocking(self):
     self._put_queue = []

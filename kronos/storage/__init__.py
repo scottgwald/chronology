@@ -54,6 +54,9 @@ class StorageRouter(object):
   def get_backends(self):
     return self.backends.iteritems()
 
+  def get_backend_to_read(self):
+    return self.backend_to_read.iteritems()
+
   def load_configurations(self):
     for pattern, options in settings.streams_to_backends.iteritems():
       regex = self.pattern_to_regex(pattern)
@@ -113,5 +116,8 @@ class StorageRouter(object):
     backend_to_read = self.backend_to_read[stream_pattern]
     return (backend_to_read,
             self.configurations[stream_pattern][backend_to_read])
+
+  def refresh(self):
+    self.__init__()
       
 router = StorageRouter()

@@ -4,12 +4,12 @@
 # - Backend specific tests
 
 import json
-import os
 import random
 import re
 import sys
 import time
 import unittest
+
 from werkzeug.test import Client
 from werkzeug.wrappers import BaseResponse
 
@@ -21,6 +21,14 @@ kronos.conf.settings.storage = {
   'memory': {
     'backend': 'memory.InMemoryStorage',
     'default_max_items': 1000000
+  },
+  'cassandra_timewidth': {
+    'backend': 'cassandra.TimeWidthCassandraStorage',
+    'hosts': ['localhost:9160'],
+    'keyspace': 'kronos_tw_test',
+    'replication_factor': 1,
+    'default_timewidth_seconds': 1000,
+    'default_shards_per_bucket': 2
   }
 }
 kronos.conf.settings.node = {
@@ -49,6 +57,7 @@ class KronosServerTest(unittest.TestCase):
     self.kronos_client = Client(wsgi_application, BaseResponse)
     self.get_path = '/1.0/events/get'
     self.put_path = '/1.0/events/put'
+    self.streams_path = '/1.0/streams'
 
   def tearDown(self):
     pass
@@ -72,6 +81,10 @@ class KronosServerTest(unittest.TestCase):
                                    data=data,
                                    buffered=True)
     return map(json.loads, resp.data.splitlines())
+
+  def get_streams(self):
+    resp = self.kronos_client.get(self.streams_path, buffered=True)
+    return resp.data.splitlines()
 
   def test_put_and_get(self):
     stream = "kronos_server_test_{0}".format(random.random())
@@ -142,7 +155,11 @@ class KronosServerTest(unittest.TestCase):
     # Start time < 0 and end time < 0
     self.assertEqual([], self.get(stream, -2000, -1000))
 
-
+  def test_list_streams(self):
+    streams = ['stream_{0}'.format(random.random()) for i in range(10)]
+    for stream in streams:
+      self.put(stream, [{'@time': 1}])
+    self.assertTrue(set(streams) <= set(self.get_streams()))
 
 all_streams_to_memory = {
   '*': {
@@ -175,4 +192,5 @@ if __name__ == "__main__":
   # Run all tests against each backend configuration.
   for streams in stream_configurations:
     kronos.conf.settings.streams_to_backends = streams
+    kronos.storage.router.refresh()
     runner.run(test)

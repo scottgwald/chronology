@@ -1,6 +1,5 @@
 import uuid
 
-from kronos.core.exceptions import ImproperlyConfigured
 from kronos.utils.math import uuid_from_kronos_time
 
 
@@ -21,11 +20,11 @@ class BaseStorage(object):
     self.name = name
 
   def is_alive(self):
-    raise NotImplementedError("Must implement `is_alive` method for %s" %
+    raise NotImplementedError('Must implement `is_alive` method for %s' %
                               self.__class__.__name__)    
 
   def insert(self, stream, events, configuration):
-    raise NotImplementedError("Must implement `insert` method for %s" %
+    raise NotImplementedError('Must implement `insert` method for %s' %
                               self.__class__.__name__)
 
   def retrieve(self, stream, start_time, end_time, start_id, configuration):
@@ -44,5 +43,9 @@ class BaseStorage(object):
     return self._retrieve(stream, start_id, end_time, configuration)
   
   def _retrieve(self, stream, start_id, end_time, configuration):
-    raise NotImplementedError("Must implement `retrieve` method for %s." %
+    raise NotImplementedError('Must implement `retrieve` method for %s.' %
+                              self.__class__.__name__)
+
+  def streams(self):
+    raise NotImplementedError('Must implement `streams` method for %s' %
                               self.__class__.__name__)

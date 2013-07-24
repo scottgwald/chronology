@@ -43,33 +43,28 @@
 import heapq
 import itertools
 import json
-import math
 import random
 
-from blist import sortedset
 from collections import defaultdict
 from datetime import timedelta
 from pycassa import ColumnFamily, ConnectionPool, NotFoundException, types
 from pycassa.batch import Mutator
 from pycassa.system_manager import SIMPLE_STRATEGY, SystemManager
-from pycassa.util import convert_time_to_uuid
 from types import StringTypes
 from uuid import UUID
 
 from kronos.conf import settings
-ID_FIELD = settings.stream['fields']['id']
-TIMESTAMP_FIELD = settings.stream['fields']['timestamp']
-
-from kronos.core.exceptions import ImproperlyConfigured
 from kronos.core.exceptions import InvalidBucketIntervalComparison
-
+from kronos.core.exceptions import InvalidUUIDComparison
 from kronos.storage.backends import BaseStorage
 from kronos.utils.cache import InMemoryLRUCache
-from kronos.utils.math import kronos_time_to_datetime
 from kronos.utils.math import round_down
 from kronos.utils.math import time_to_kronos_time
+from kronos.utils.math import uuid_from_kronos_time
 from kronos.utils.math import uuid_to_kronos_time
 
+ID_FIELD = settings.stream['fields']['id']
+TIMESTAMP_FIELD = settings.stream['fields']['timestamp']
 LENGTH_OF_YEAR = int(timedelta(days=365.25).total_seconds() * 1e7)
 
 
@@ -79,15 +74,14 @@ class CassandraSortedUUID(UUID):
   Override Python's UUID comparator so that time is the first parameter used for
   sorting.
   """
-
   def __init__(self, *args, **kwargs):
     super(CassandraSortedUUID, self).__init__(*args, **kwargs)
     self._kronos_time = uuid_to_kronos_time(self)
 
-  # TODO(meelap): why is this method overridden
   def __setattr__(self, name, value):
+    # Override UUID's __setattr__ method to make it mutable.
     super(UUID, self).__setattr__(name, value)
-    
+
   def __cmp__(self, other):
     if isinstance(other, UUID):
       return cmp((self.time, self.bytes), (other.time, other.bytes))
@@ -113,7 +107,6 @@ class BucketInterval(object):
     `bucket_key` : A tuple of start time and interval length.
     `shard` : The id of the shard that this BucketInterval represents.
     """
-
     # The name of this BucketInterval as it is stored in Cassandra.
     self.name = BucketInterval.name(stream, bucket_key[0], shard)
 
@@ -146,7 +139,7 @@ class BucketInterval(object):
       data = self.column_family.get(self.name, column_count=num_cols)
       data = {CassandraSortedUUID(str(k)) : v for k,v in data.iteritems()}
       return data
-    except NotFoundException as e:
+    except NotFoundException:
       # Nothing was stored with this key.
       # This might happen if some events were stored with a sharding factor of
       # `s`, but less than `s` shards were actually used.
@@ -165,14 +158,12 @@ class SortedShardedEventStream(object):
   SortedShardedEventStream is an iterable that fetches events from Cassandra and
   returns them in the order defined by CassandraSortedUUID.
   """
-
   def __init__(self, intervals, start_id, end_id):
     """
     `intervals` : A list of BucketIntervals to return events from.
     `start_id` : The UUID of the first event to return.
     `end_id` : The UUID of the last event to return. Assumes start_id <= end_id.
     """
-
     self.start_id = CassandraSortedUUID(str(start_id))
     self.end_id = CassandraSortedUUID(str(end_id))
 
@@ -201,9 +192,10 @@ class SortedShardedEventStream(object):
 
     # The result set is empty.
     if not self.ready_heap:
-      raise StopIteration()
+      raise StopIteration
 
-    # Keep going as long as we have events to return or buckets that we haven't loaded yet.
+    # Keep going as long as we have events to return or buckets that we haven't 
+    # loaded yet.
     while self.ready_heap or self.bucket_heap:
       if not self.ready_heap:
         if self.bucket_heap:
@@ -212,7 +204,7 @@ class SortedShardedEventStream(object):
           self.load_next_bucket()
         else:
           # We are done if there are no events to return and no buckets to load.
-          raise StopIteration()
+          raise StopIteration
       else:
         # Get the next event to return.
         (uuid, event) = heapq.heappop(self.ready_heap)
@@ -220,7 +212,7 @@ class SortedShardedEventStream(object):
         # Yield it if it is in the correct interval, or stop the iteration if we
         # have extended beyond the requested interval.
         if self.end_id < uuid:
-          raise StopIteration()
+          raise StopIteration
         elif self.start_id <= uuid:
           yield event
 
@@ -243,7 +235,9 @@ class TimeWidthCassandraStorage(BaseStorage):
   MAX_WIDTH = LENGTH_OF_YEAR / 2 # Too big, small, necessary?
 
   SETTINGS_VALIDATORS = {
-    'default_timewidth_seconds': lambda x: int(x) > 0 and (int(x)*1e7) <= TimeWidthCassandraStorage.MAX_WIDTH,
+    'default_timewidth_seconds': 
+         lambda x: (int(x) > 0 and 
+                    (int(x)*1e7) <= TimeWidthCassandraStorage.MAX_WIDTH),
     'default_shards_per_bucket': lambda x: int(x) > 0,
     'hosts': lambda x: isinstance(x, list),
     'keyspace': lambda x: len(str(x)) > 0,
@@ -256,7 +250,7 @@ class TimeWidthCassandraStorage(BaseStorage):
     Check that settings contains all of the required parameters in the right
     format, then setup a connection to the specified Cassandra instance.
     """
-
+    super(TimeWidthCassandraStorage, self).__init__(name, **settings)
     required_params = ('hosts',
                        'keyspace',
                        'replication_factor',
@@ -273,7 +267,6 @@ class TimeWidthCassandraStorage(BaseStorage):
     Set up a connection pool to the specified Cassandra instances and create the
     specified keyspace if it does not exist.
     """
-
     # TODO(meelap) Don't assume we can connect to the first host. Round robin
     # across hosts until we can connect to one.
     self.system_manager = SystemManager(self.hosts[0])
@@ -301,7 +294,6 @@ class TimeWidthCassandraStorage(BaseStorage):
     """
     Is our connection to Cassandra alive?
     """
-
     try:
       connection = self.pool.get()
       connection.describe_keyspace(self.keyspace) # Fake *ping* Cassandra?
@@ -318,7 +310,6 @@ class TimeWidthCassandraStorage(BaseStorage):
     `configuration` : A dictionary of settings to override any default settings,
                       such as number of shards or width of a time interval.
     """
-
     width = configuration.get('timewidth_seconds', self.default_timewidth_seconds)
     width = time_to_kronos_time(width)
     shards = int(configuration.get('shards_per_bucket', self.default_shards_per_bucket))
@@ -363,13 +354,11 @@ class TimeWidthCassandraStorage(BaseStorage):
     `configuration` : A dictionary of settings to override any default settings,
                       such as number of shards or width of a time interval.
     """
-
     # Time of the first event to return
     start_time = uuid_to_kronos_time(start_id)
 
     # Time of the oldest bucket that could possibly contain the first event.
     bucket_start_time = max(start_time - TimeWidthCassandraStorage.MAX_WIDTH, 0)
-    assert(start_time >= bucket_start_time)
 
     # Smallest possible width of the oldest bucket that could possibly contain
     # the first event.
@@ -403,3 +392,13 @@ class TimeWidthCassandraStorage(BaseStorage):
     events = SortedShardedEventStream(intervals, start_id, end_id)
     for event in events:
       yield event
+
+  def streams(self):
+    # TODO(usmanm): Ideally, we don't wanna keep an in-memory set of all stream 
+    # names because it could cause memory issues. How to dedup?
+    streams = set()
+    for index in self.index_cf.get_range(column_count=0, filter_empty=False):
+      stream = index[0].split(':')[0]
+      if stream not in streams:
+        streams.add(stream)
+        yield stream
