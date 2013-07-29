@@ -10,7 +10,6 @@ class InMemoryLRUCache(object):
     self.cache = dict() # key => [value, next_ptr, previous_ptr]
     self.sentinel = [None, None, None]
 
-
   def mark_as_lru(self, entry):
     value, next, previous = entry
     first = self.sentinel[2]

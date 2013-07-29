@@ -198,13 +198,9 @@ class SortedShardedEventStream(object):
     # loaded yet.
     while self.ready_heap or self.bucket_heap:
       if not self.ready_heap:
-        if self.bucket_heap:
-          # If no events are ready to return but there are buckets left, fetch a
-          # bucket
-          self.load_next_bucket()
-        else:
-          # We are done if there are no events to return and no buckets to load.
-          raise StopIteration
+        # If no events are ready to return but there are buckets left, fetch a
+        # bucket
+        self.load_next_bucket()
       else:
         # Get the next event to return.
         (uuid, event) = heapq.heappop(self.ready_heap)
@@ -237,7 +233,7 @@ class TimeWidthCassandraStorage(BaseStorage):
   SETTINGS_VALIDATORS = {
     'default_timewidth_seconds': 
          lambda x: (int(x) > 0 and 
-                    (int(x)*1e7) <= TimeWidthCassandraStorage.MAX_WIDTH),
+                    time_to_kronos_time(int(x)) <= TimeWidthCassandraStorage.MAX_WIDTH),
     'default_shards_per_bucket': lambda x: int(x) > 0,
     'hosts': lambda x: isinstance(x, list),
     'keyspace': lambda x: len(str(x)) > 0,
@@ -315,8 +311,8 @@ class TimeWidthCassandraStorage(BaseStorage):
     shards = int(configuration.get('shards_per_bucket', self.default_shards_per_bucket))
     shard = random.randint(0, shards - 1)
 
-    index_to_buckets = defaultdict(dict)
-    bucket_to_events = defaultdict(dict)
+    index_to_buckets = defaultdict(dict) # (stream, index_start) => [(stream, bucket_start, shard)]
+    bucket_to_events = defaultdict(dict) # (stream, bucket_start, shard) => {id => properties}
 
     # Group together all events that are in the same bucket so that
     # bucket_to_events maps bucketnames to { column_name==UUID : event, ... }.
@@ -337,10 +333,16 @@ class TimeWidthCassandraStorage(BaseStorage):
     # Add all index writes to the batch of operations.
     for index, buckets in index_to_buckets.iteritems():
       try:
-        self.index_cache.get(index)
+        cached_index_value = self.index_cache.get(index)
+        new_index_value = set(buckets) | cached_index_value
+        if new_index_value != cached_index_value:
+          # Write the new buckets covered by this index entry.
+          mutator.insert(self.index_cf, index,
+                         dict.fromkeys(new_index_value - cached_index_value, ''))
+          self.index_cache.set(index, new_index_value)
       except KeyError:
         mutator.insert(self.index_cf, index, buckets)
-        self.index_cache.set(index, None)
+        self.index_cache.set(index, set(buckets))
 
     # Send the current batch of operations to Cassandra.
     mutator.send()
@@ -349,8 +351,8 @@ class TimeWidthCassandraStorage(BaseStorage):
     """
     Retrieve events for `stream` between `start_id` and `end_time`.
     `stream` : The stream to return events for.
-    `start_id` : UUID of the first event to return. TODO(meelap): or the next one?
-    `end_time` : The unix time of the last event to return.
+    `start_id` : Return events with id > `start_id`.
+    `end_time` : Return events ending <= `end_time`.
     `configuration` : A dictionary of settings to override any default settings,
                       such as number of shards or width of a time interval.
     """

@@ -35,7 +35,7 @@ def validate_event(event):
       except ValueError:
         raise InvalidEventId(event_id)
       event_time = uuid_to_kronos_time(uuid)
-  elif type(event_time) not in (int, long, float):
+  elif type(event_time) not in (int, long):
     raise InvalidEventTime(event_time)
 
   if event_id is None:
@@ -53,7 +53,7 @@ def validate_event(event):
 
     event_id = str(uuid)
   
-  event[TIMESTAMP_FIELD] = event_time
+  event[TIMESTAMP_FIELD] = int(event_time)
   event[ID_FIELD] = event_id
 
 

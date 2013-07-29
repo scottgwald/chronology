@@ -69,14 +69,14 @@ def endpoint(url, methods=['GET']):
               # We just tell the client that CORS is ok. Client will follow up
               # with another request to get the answer.
               start_response('200 OK', cors_headers)
-              return ''
+              raise StopIteration
             else:
               # We return the answer to the request along with CORS headers.
               headers.extend(cors_headers)
           else:
             # Remote domain is not allowed.
             start_response('200 OK', [])
-            return ''
+            raise StopIteration
 
         # All POST bodies must be json, so decode it here
         if req_method == 'POST':
@@ -212,6 +212,8 @@ def get_events(environment, start_response, headers):
   start_response('200 OK', headers)
   for event in events_from_backend:
     yield '{0}\r\n'.format(json.dumps(event))
+
+  raise StopIteration
 
 @endpoint('/1.0/streams', ['GET'])
 def list_streams(environment, start_response, headers):
