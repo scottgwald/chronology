@@ -52,7 +52,7 @@ def endpoint(url, methods=['GET']):
 
         headers = []
         remote_origin = environment.get('HTTP_ORIGIN',
-                                        environment['SERVER_NAME'])
+                                        environment['REMOTE_ADDR'])
         local_origin = '{}://{}'.format(environment['wsgi.url_scheme'],
                                         environment['HTTP_HOST'])
         if remote_origin not in ('127.0.0.1', local_origin):
@@ -78,7 +78,7 @@ def endpoint(url, methods=['GET']):
             start_response('200 OK', [])
             raise StopIteration
 
-        # All POST bodies must be json, so decode it here
+        # All POST bodies must be json, so decode it here.
         if req_method == 'POST':
           environment['json'] = json.loads(environment['wsgi.input'].read())
 
@@ -208,10 +208,9 @@ def get_events(environment, start_response, headers):
                                          request_json['end_time'],
                                          request_json.get('start_id'),
                                          configuration)
-
   start_response('200 OK', headers)
   for event in events_from_backend:
-    yield '{0}\r\n'.format(json.dumps(event))
+    yield '{0}\r\n'.format(event)
 
   raise StopIteration
 
@@ -224,6 +223,8 @@ def list_streams(environment, start_response, headers):
       if regex.match(stream) and stream not in streams_seen_so_far:
         streams_seen_so_far.add(stream)
         yield '{0}\r\n'.format(stream)
+
+  raise StopIteration
 
 def wsgi_application(environment, start_response):
   path = environment.get('PATH_INFO', '').rstrip('/')

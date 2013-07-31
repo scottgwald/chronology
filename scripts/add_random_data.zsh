@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-KRONOS_URL=http://localhost:8051
+KRONOS_URL=http://localhost:8150
 
 KEYS=(apple banana coconut donut fig pear orange kvass grapes tomato strawberry watermelon)
 N=${1:-1}

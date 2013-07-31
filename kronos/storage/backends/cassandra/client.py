@@ -137,8 +137,15 @@ class BucketInterval(object):
     try:
       num_cols = self.column_family.get_count(self.name)
       data = self.column_family.get(self.name, column_count=num_cols)
-      data = {CassandraSortedUUID(str(k)) : v for k,v in data.iteritems()}
-      return data
+      result = {}
+      for column, event in data.iteritems():
+        try:
+          event = json.loads(event)
+          result[CassandraSortedUUID(str(column))] = event
+        except:
+          # TODO(meelap): Do something about this error. Log?
+          pass
+      return result
     except NotFoundException:
       # Nothing was stored with this key.
       # This might happen if some events were stored with a sharding factor of

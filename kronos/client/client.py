@@ -60,7 +60,7 @@ class KronosClient(object):
 
     # Ensure that all events have a timestamp.
     timestamp = kronos_time_now()
-    for events in event_dict.values():
+    for events in event_dict.itervalues():
       for event in events:
         if KronosClient.TIMESTAMP_FIELD not in event:
           event[KronosClient.TIMESTAMP_FIELD] = timestamp

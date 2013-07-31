@@ -40,7 +40,7 @@ def uuid_from_kronos_time(time, lowest=False):
   # except we use a random UUID to seed the clock sequence to minimize the
   # probability of two calls to this function with the same time getting the
   # same ID.
-  timestamp = time + 0x01b21dd213814000L
+  timestamp = int(time) + 0x01b21dd213814000L
   time_low = timestamp & 0xffffffffL
   time_mid = (timestamp >> 32L) & 0xffffL
   time_hi_version = (timestamp >> 48L) & 0x0fffL
@@ -63,8 +63,8 @@ def uuid_from_kronos_time(time, lowest=False):
   return uuid
 
 def round_down(value, base):
-    """
-    Round `value` down to the nearest multiple of `base`.
-    Expects `value` and `base` to be non-negative.
-    """
-    return int(value - (value % base))
+  """
+  Round `value` down to the nearest multiple of `base`.
+  Expects `value` and `base` to be non-negative.
+  """
+  return int(value - (value % base))
