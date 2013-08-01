@@ -210,7 +210,7 @@ def get_events(environment, start_response, headers):
                                          configuration)
   start_response('200 OK', headers)
   for event in events_from_backend:
-    yield '{0}\r\n'.format(event)
+    yield '{0}\r\n'.format(json.dumps(event))
 
   raise StopIteration
 
