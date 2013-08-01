@@ -1,0 +1,3 @@
+DEBUG = True
+SECRET_KEY = 'oh man security'
+KRONOS_URL = 'http://localhost:8150'

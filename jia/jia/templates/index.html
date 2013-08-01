@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<ul id="visualizations">
+</ul>
+
+<form id="new-vis-form" class="form-horizontal" action="">
+    <fieldset>
+        <legend>Create a new visualization</legend>
+        <!--TODO(meelap) move plot|table toggle to the actual visualization-->
+         <!--Choose whether x-axis is time or sub-attribute-->
+        <div class="control-group">
+            <label class="control-label">Type: </label>
+            <div class="controls">
+                <label class="radio">
+                    <input type="radio" name="vistype" value="plot"> plot
+                </label>
+                <label class="radio">
+                    <input type="radio" name="vistype" value="table"> table
+                </label>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label class="control-label">Start time:</label>
+            <div class="controls">
+                <input id="start-time" type=text placeholder="-3months, 4 days ago, YYYY/MM/DD HH:MM:SS">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label class="control-label">End time:</label>
+            <div class="controls">
+                <input id="end-time" type=text placeholder="yesterday, today, now, YYYY/MM/DD HH:MM:SS">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label class="control-label">Stream:</label>
+            <div class="controls">
+              <input id="stream-name" type=text placeholder="locu...">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <button type="Submit" class="btn">Add Visualization</button>
+        </div>
+    </fieldset>
+</form>
+
+<script type="text/template" id="table-vis">
+    <p><%= title %></p>
+    <table class="tablesorter">
+        <thead><tr></tr></thead>
+        <tbody></tbody>
+    </table>
+</script>
+
+<script type="text/template" id="plot-vis">
+    <p><%= title %></p>
+    <div class="plot-container">
+      <div class="y_axis"></div>
+      <div class="plot"></div>
+    </div>
+    <div class="legend"></div>
+</script>
+
+{% endblock content %}
+
+
+
+{% block css_includes %}
+<link href="/static/css/jquery-ui.min.css" rel="stylesheet">
+<link href="/static/css/rickshaw.min.css" rel="stylesheet">
+<link href="/static/css/tablesorter.theme.default.css" rel="stylesheet">
+<link href="/static/css/index.css" rel="stylesheet">
+{% endblock css_includes %}
+
+
+{% block js_includes %}
+<script src="/static/js/date.js"></script>
+<script src="/static/js/d3.v2.js"></script> 
+<script src="/static/js/d3.layout.min.js"></script> 
+<script src="/static/js/rickshaw.min.js"></script> 
+<script src="/static/js/jquery-ui.min.js"></script>
+<script src="/static/js/jquery.tablesorter.min.js"></script>
+
+<script src="/static/js/plot.js"></script>
+<script src="/static/js/models.js"></script>
+<script src="/static/js/views.js"></script>
+<script src="/static/js/main.js"></script>
+{% endblock js_includes %}

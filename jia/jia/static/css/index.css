@@ -1,0 +1,38 @@
+.view {
+  margin : 50px;
+}
+
+#new-vis-form {
+  margin: 50px;
+}
+
+input[type=text] {
+  width: 30em;
+}
+
+.legend {
+  display: inline-block;
+  vertical-align: top;
+  margin: 0 0 0 10px;
+  float: left;
+}
+
+.plot-container {
+  position: relative;
+  display: inline-block;
+}
+
+.plot {
+  display: inline-block;
+  float:left;
+  width: 600px;
+}
+
+.y_axis {
+  float: left;
+}
+
+.rickshaw_graph .x_tick .title {
+  bottom: -24px;
+  left: -12px;
+}
