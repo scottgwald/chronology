@@ -1,4 +1,3 @@
-
 function makeGraph(data, $element) {
 // data[seriesName] = [{x,y}, ...]
 
@@ -92,3 +91,64 @@ function makeTable(data, element) {
     widgets: ["zebra"]
   });
 }
+
+Date.prototype.getKronosTime = function() {
+  return this.getTime() * 10000;
+}
+
+function createNewVisualization(type, stream, start_time, end_time) {
+  // TODO(meelap) echo errors back to the user.
+  if (type != "plot" && type != "table") {
+    console.log("No visualization type chosen.");
+    return false;
+  }
+ 
+  start = Date.parse(start_time);
+  if (!start instanceof Date) {
+    console.log("Invalid start time.");
+    return false;
+  }
+
+  end = Date.parse(end_time);
+  if (!end instanceof Date) {
+    console.log("Invalid end time.");
+    return false;
+  }
+
+  if (!_.isString(stream) || stream == "") {
+    console.log("Invalid stream name.");
+    return false;
+  }
+
+  var model = new Jia.VisModel({
+    type: type,
+    title: stream,
+    start: start_time,
+    end: end_time
+  });
+
+  $.ajax({
+    type: "POST",
+    url: "/get",
+    dataType: "json",
+    data: {
+      stream: stream,
+      start_time: start.getKronosTime(),
+      end_time: end.getKronosTime(),
+    },
+    success: function(data) {
+      if (_.has(data, "error")) {
+        console.log("Server side error fetching data points:"+data);
+      } else {
+        model.set("data", data);
+        Jia.main.collection.add(model);
+      }
+    },
+    error: function() {
+      // TODO(meelap): retry, then show user the error
+      console.log("Failed to fetch data points from Jia server.");
+    }
+  });
+  return model;
+}
+

@@ -8,8 +8,17 @@ Jia.VisModel = Backbone.Model.extend({
     "title": "Add a new visualization",
     "start": "yesterday",
     "end"  : "today",
-    "data" : null
+    "data" : null,
+    "hash" : null
   },
+
+  initialize: function() {
+    var hash = [this.get("type"),
+                this.get("title"),
+                this.get("start"),
+                this.get("end")].join();
+    this.set("hash", hash);
+  }
 });
 
 
