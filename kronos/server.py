@@ -21,20 +21,24 @@ from kronos.storage import router
 GREENLET_POOL = gevent.pool.Pool(size=settings.node['greenlet_pool_size'])
 
 # map URLs to the functions that serve them
-urls = { }
+urls = {}
 
 
-def is_remote_allowed(remote):
-  for domain_pattern in settings.node['cors_whitelist_domains']:
-    if domain_pattern.match(remote):
+def is_remote_allowed(remote, capabilities_required):
+  """
+  Check if `remote` has `capabilities_required`.
+  """
+  for (pattern, capabilities) in settings.node['capabilities']:
+    if pattern.match(remote) and capabilities_required.issubset(capabilities):
       return True
   return False
 
-def endpoint(url, methods=['GET']):
+def endpoint(url, methods=['GET'], capabilities_required=[]):
   """
   Returns a decorator which when applied a function, causes that function to
   serve `url` and only allows the HTTP methods in `methods`
   """
+  capabilities_required = frozenset(capabilities_required)
   def decorator(function, methods=methods):
     @wraps(function)
     def wrapper(environment, start_response):
@@ -51,14 +55,13 @@ def endpoint(url, methods=['GET']):
           return json.dumps({'@errors' : [error]})
 
         headers = []
-        remote_origin = environment.get('HTTP_ORIGIN',
-                                        environment['REMOTE_ADDR'])
+        remote_origin = environment.get('HTTP_ORIGIN') or environment.get('REMOTE_ADDR')
         local_origin = '{}://{}'.format(environment['wsgi.url_scheme'],
                                         environment['HTTP_HOST'])
         if remote_origin not in ('127.0.0.1', local_origin):
           # This is a cross domain request, so check that the remote domain is
           # allowed and include CORS headers.
-          if is_remote_allowed(remote_origin):
+          if is_remote_allowed(remote_origin, capabilities_required):
             cors_headers = [
                 ('Access-Control-Allow-Origin', remote_origin),
                 ('Access-Control-Allow-Methods', ', '.join(methods)),
@@ -69,14 +72,14 @@ def endpoint(url, methods=['GET']):
               # We just tell the client that CORS is ok. Client will follow up
               # with another request to get the answer.
               start_response('200 OK', cors_headers)
-              raise StopIteration
+              return ''
             else:
               # We return the answer to the request along with CORS headers.
               headers.extend(cors_headers)
           else:
             # Remote domain is not allowed.
             start_response('200 OK', [])
-            raise StopIteration
+            return ''
 
         # All POST bodies must be json, so decode it here.
         if req_method == 'POST':
@@ -178,7 +181,9 @@ def put(environment, start_response, headers):
   return json.dumps(response)
 
 # TODO(usmanm): gzip compress response stream?
-@endpoint('/1.0/events/get', ['POST'])
+@endpoint('/1.0/events/get',
+          methods=['POST'],
+          capabilities_required=['READ'])
 def get_events(environment, start_response, headers):
   """
   Retrieve events
@@ -200,7 +205,6 @@ def get_events(environment, start_response, headers):
   except Exception as e:
     start_response('400 Bad Request', headers)
     yield json.dumps({'@errors' : [repr(e)]})
-    raise StopIteration
 
   backend, configuration = router.backend_to_retrieve(request_json['stream'])
   events_from_backend = backend.retrieve(request_json['stream'],
@@ -211,10 +215,11 @@ def get_events(environment, start_response, headers):
   start_response('200 OK', headers)
   for event in events_from_backend:
     yield '{0}\r\n'.format(json.dumps(event))
+  yield ''
 
-  raise StopIteration
-
-@endpoint('/1.0/streams', ['GET'])
+@endpoint('/1.0/streams',
+          methods=['GET'],
+          capabilities_required=['READ'])
 def list_streams(environment, start_response, headers):
   start_response('200 OK', headers)
   streams_seen_so_far = set()
@@ -223,8 +228,7 @@ def list_streams(environment, start_response, headers):
       if regex.match(stream) and stream not in streams_seen_so_far:
         streams_seen_so_far.add(stream)
         yield '{0}\r\n'.format(stream)
-
-  raise StopIteration
+  yield ''
 
 def wsgi_application(environment, start_response):
   path = environment.get('PATH_INFO', '').rstrip('/')

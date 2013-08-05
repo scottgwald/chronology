@@ -23,10 +23,10 @@ node = {
   'id':  hex(getnode()), # Unique ID for this Kronos server.
   'greenlet_pool_size': 20, # Greenlet poolsize per process.
   'log_directory': 'log',
-  'cors_whitelist_domains' : map(re.compile, [
-    # Domains that match any regex in this list will be allowed to talk to this
-    # Kronos instance
-  ])
+  'permissions': map(lambda (pattern, cababilities): (re.compile(pattern), frozenset(capabilities)), [
+    # (regex to match domain against, iterable of capabilities)
+    # For example: ('^.*\.mydomain.com$', ('READ',))
+  ]),
 }
 
 # Stream settings.
