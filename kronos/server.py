@@ -2,6 +2,7 @@ import gevent
 import gevent.pool
 import json
 import os
+import sys
 import time
 
 from collections import defaultdict
@@ -14,6 +15,7 @@ import kronos
 from kronos.core.validate_settings import validate_settings
 from kronos.conf import settings; validate_settings(settings)
 
+from kronos.constants.order import ResultOrder
 from kronos.core.validators import validate_event
 from kronos.core.validators import validate_stream
 from kronos.storage import router
@@ -104,7 +106,7 @@ def endpoint(url, methods=['GET'], capabilities_required=[]):
 @endpoint('/1.0/index')
 def index(environment, start_response, headers):
   """
-  Return the status of this Kronos instance + it's backends>
+  Return the status of this Kronos instance + its backends>
   Doesn't expect any URL parameters.
   """
 
@@ -191,7 +193,10 @@ def get_events(environment, start_response, headers):
     { stream : stream_name,
       start_time : starting_time_as_unix_time,
       end_time : ending_time_as_unix_time,
-      start_id : only_return_events_with_id_greater_than_me
+      start_id : only_return_events_with_id_greater_than_me,
+      limit: optional_maximum_number_of_events,
+      order: ResultOrder.ASCENDING or ResultOrder.DESCENDING (default
+             ResultOrder.ASCENDING)
     }
   Either start_time or start_id should be specified. If a retrieval breaks
   while returning results, you can send another retrieval request and specify
@@ -211,10 +216,16 @@ def get_events(environment, start_response, headers):
                                          request_json.get('start_time'),
                                          request_json['end_time'],
                                          request_json.get('start_id'),
+                                         request_json.get('order',
+                                           ResultOrder.ASCENDING),
                                          configuration)
   start_response('200 OK', headers)
+  limit = request_json.get('limit', sys.maxint)
   for event in events_from_backend:
+    if limit <= 0:
+      break
     yield '{0}\r\n'.format(json.dumps(event))
+    limit -= 1
   yield ''
 
 @endpoint('/1.0/streams',

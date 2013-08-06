@@ -27,22 +27,24 @@ class BaseStorage(object):
     raise NotImplementedError('Must implement `insert` method for %s' %
                               self.__class__.__name__)
 
-  def retrieve(self, stream, start_time, end_time, start_id, configuration):
+  def retrieve(self, stream, start_time, end_time, start_id, order,
+               configuration):
     """
     Retrieves all the events for `stream` from `start_time` (inclusive) till
     `end_time` (exclusive). Alternatively to `start_time`, `start_id` can be 
     provided, and then all events from `start_id` (exclusive) till `end_time`
     (exlusive) are returned. `start_id` should be used in cases when the client
     got disconnected from the server before all the events in the requested
-    time window had been returned. 
+    time window had been returned. `order` can be one of ResultOrder.ASCENDING
+    or ResultOrder.DESCENDING.
     """
     if not start_id:
       start_id = uuid_from_kronos_time(start_time, lowest=True)
     else:
       start_id = uuid.UUID(start_id)
-    return self._retrieve(stream, start_id, end_time, configuration)
+    return self._retrieve(stream, start_id, end_time, order, configuration)
   
-  def _retrieve(self, stream, start_id, end_time, configuration):
+  def _retrieve(self, stream, start_id, end_time, order, configuration):
     raise NotImplementedError('Must implement `retrieve` method for %s.' %
                               self.__class__.__name__)
 

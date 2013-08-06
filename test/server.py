@@ -13,6 +13,7 @@ import unittest
 from werkzeug.test import Client
 from werkzeug.wrappers import BaseResponse
 
+from kronos.constants.order import ResultOrder
 import kronos.conf.settings
 
 # Override kronos.conf.settings to whatever we want before importing the Kronos
@@ -72,12 +73,17 @@ class KronosServerTest(unittest.TestCase):
     self.assertEqual(resp.status_code, 200)
     return json.loads(resp.data)
 
-  def get(self, stream, start_time, end_time, start_id=None):
+  def get(self, stream, start_time, end_time, start_id=None, limit=None,
+          order=None):
     data = {'stream':stream, 'end_time':end_time }
     if start_id:
       data['start_id'] = start_id
     else:
       data['start_time'] = start_time
+    if limit is not None:
+      data['limit'] = limit
+    if order is not None:
+      data['order'] = order
     data = json.dumps(data)
     resp = self.kronos_client.post(path=self.get_path,
                                    data=data,
@@ -94,8 +100,8 @@ class KronosServerTest(unittest.TestCase):
   def test_put_and_get(self):
     stream = "kronos_server_test_{0}".format(random.random())
     event1 = [{'a': 1, 'b': 2, '@time': 1}]
-    event2 = [{'a': 3, 'c': 4, '@time': 3}]
-    event3 = [{'d': 3, '@time': 3}]
+    event2 = [{'a': 2, 'c': 4, '@time': 3}]
+    event3 = [{'a': 3, '@time': 3}]
 
     resp = self.get(stream, 0, 4)
     self.assertEqual(len(resp), 0)
@@ -118,6 +124,25 @@ class KronosServerTest(unittest.TestCase):
     resp = self.get(stream, 2, 4)
     self.assertEqual(len(resp), 2)
 
+    resp = self.get(stream, 0, 4, limit=2)
+    self.assertEqual(len(resp), 2)    
+    self.assertEqual(resp[0]['a'], event1[0]['a'])
+    self.assertIn(resp[1]['a'], [event2[0]['a'], event3[0]['a']])
+    resp = self.get(stream, 0, 4, limit=1)
+    self.assertEqual(len(resp), 1)
+    self.assertEqual(resp[0]['a'], event1[0]['a'])
+    resp = self.get(stream, 0, 4, limit=0)
+    self.assertEqual(len(resp), 0)
+
+    resp = self.get(stream, 0, 4, limit=2, order=ResultOrder.ASCENDING)
+    self.assertEqual(len(resp), 2)
+    self.assertEqual(resp[0]['a'], event1[0]['a'])
+    self.assertIn(resp[1]['a'], [event2[0]['a'], event3[0]['a']])    
+    resp = self.get(stream, 0, 4, limit=2, order=ResultOrder.DESCENDING)
+    self.assertEqual(len(resp), 2)
+    self.assertIn(resp[0]['a'], [event2[0]['a'], event3[0]['a']])
+    self.assertIn(resp[1]['a'], [event2[0]['a'], event3[0]['a']])    
+    
   def test_error_codes(self):
     resp = self.kronos_client.get(path='/1.0/index',
                                   headers=[('Origin', 'localhost')])
@@ -207,6 +232,7 @@ all_streams_to_memory = {
     'read_backend': 'memory'
   }
 }
+
 all_streams_to_cassandra = {
   '*': {
     'backends': {

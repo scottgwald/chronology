@@ -72,12 +72,13 @@ class KronosClient(object):
       self._put_queue.append(event_dict)
       self._put_lock.release()
 
-  def get(self, stream, start_time, end_time, start_id=None):
+  def get(self, stream, start_time, end_time, start_id=None, limit=None):
     """
     Queries a stream with name `stream` for all events between
     `start_time` and `end_time`.  An optional `start_id` allows the
     client to restart from a failure, specifying the last ID they
-    read.
+    read.  An optional `limit` also limits the maximum number of
+    events returned.
     """
     stream_params = {
       'stream': stream,
@@ -88,6 +89,9 @@ class KronosClient(object):
     else:
       stream_params['start_time'] = start_time
 
+    if limit is not None:
+      stream_params['limit'] = limit
+    
     errors = []
     last_id = None
     while True:

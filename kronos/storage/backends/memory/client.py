@@ -7,6 +7,7 @@ from kronos.conf import settings
 ID_FIELD = settings.stream['fields']['id']
 TIMESTAMP_FIELD = settings.stream['fields']['timestamp']
 
+from kronos.constants.order import ResultOrder
 from kronos.storage.backends import BaseStorage
 
 
@@ -66,14 +67,17 @@ class InMemoryStorage(BaseStorage):
         self.db[stream].pop(0)
       bisect.insort(self.db[stream], Event(event))
     
-  def _retrieve(self, stream, start_id, end_time, configuration):
+  def _retrieve(self, stream, start_id, end_time, order, configuration):
     """
     Yield events from stream starting after the event with id `start_id` until
     and including events with timestamp `end_time`.
     """
     events_returned = 0
     start_id_event = Event({ID_FIELD: str(start_id)})
-    for event in self.db[stream]:
+    stream_events = self.db[stream]
+    if order == ResultOrder.DESCENDING:
+      stream_events = reversed(stream_events)
+    for event in stream_events:
       if event <= start_id_event:
         continue
       if event[TIMESTAMP_FIELD] >= end_time:

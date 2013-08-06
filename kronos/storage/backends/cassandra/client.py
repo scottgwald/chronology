@@ -354,14 +354,17 @@ class TimeWidthCassandraStorage(BaseStorage):
     # Send the current batch of operations to Cassandra.
     mutator.send()
     
-  def _retrieve(self, stream, start_id, end_time, configuration):
+  def _retrieve(self, stream, start_id, end_time, order, configuration):
     """
     Retrieve events for `stream` between `start_id` and `end_time`.
     `stream` : The stream to return events for.
     `start_id` : Return events with id > `start_id`.
     `end_time` : Return events ending <= `end_time`.
-    `configuration` : A dictionary of settings to override any default settings,
-                      such as number of shards or width of a time interval.
+    `order` : Whether to return the results in ResultOrder.ASCENDING
+              or ResultOrder.DESCENDING time-order.
+    `configuration` : A dictionary of settings to override any default
+                      settings, such as number of shards or width of a
+                      time interval.
     """
     # Time of the first event to return
     start_time = uuid_to_kronos_time(start_id)
@@ -403,8 +406,8 @@ class TimeWidthCassandraStorage(BaseStorage):
       yield event
 
   def streams(self):
-    # TODO(usmanm): Ideally, we don't wanna keep an in-memory set of all stream 
-    # names because it could cause memory issues. How to dedup?
+    # TODO(usmanm): Ideally, we don't want to keep an in-memory set of all
+    # stream names because it could cause memory issues. How to dedup?
     streams = set()
     for index in self.index_cf.get_range(column_count=0, filter_empty=False):
       stream = index[0].split(':')[0]
