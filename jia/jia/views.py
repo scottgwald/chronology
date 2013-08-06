@@ -5,19 +5,19 @@ from flask import request
 from time import mktime
 
 from jia import app
+
+from auth import require_auth
 from lib.kronos.client import KronosClient
 from lib.kronos.utils import is_kronos_reserved_key
 from lib.kronos.utils import kronos_time_to_datetime
 
 @app.route('/')
+@require_auth
 def index():
   return render_template("index.html")
 
-@app.route('/test')
-def test():
-  return render_template("test.html")
-
 @app.route('/get', methods=['POST'])
+@require_auth
 def get():
   # TODO(meelap): Jia can do some validation of stream name/times to avoid
   # network calls when they're unnecessary
@@ -40,6 +40,7 @@ def get():
     return jsonify(error=repr(e))
 
 @app.route('/streams', methods=['GET'])
+@require_auth
 def streams():
   try:
     kronosclient = KronosClient(app.config['KRONOS_URL'], blocking=False)
