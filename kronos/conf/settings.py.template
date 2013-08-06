@@ -23,7 +23,7 @@ node = {
   'id':  hex(getnode()), # Unique ID for this Kronos server.
   'greenlet_pool_size': 20, # Greenlet poolsize per process.
   'log_directory': 'log',
-  'permissions': map(lambda (pattern, cababilities): (re.compile(pattern), frozenset(capabilities)), [
+  'capabilities': map(lambda (pattern, cababilities): (re.compile(pattern), frozenset(capabilities)), [
     # (regex to match domain against, iterable of capabilities)
     # For example: ('^.*\.mydomain.com$', ('READ',))
   ]),
