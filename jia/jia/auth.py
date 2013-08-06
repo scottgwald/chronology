@@ -9,14 +9,14 @@ from functools import wraps
 from openid.consumer import consumer
 from openid.consumer.discover import OpenIDServiceEndpoint
 from openid.extensions import ax
-from openid.store.memstore import MemoryStore
+from openid.store.filestore import FileOpenIDStore
 
 from jia import app
 
 AUTH_KEY = 'jia_id'
 ALLOWED_USERS = app.config['ALLOWED_USERS']
 OPENID_ENDPOINT = OpenIDServiceEndpoint.fromOPEndpointURL(app.config['OPENID_ENDPOINT'])
-store = MemoryStore()
+store = FileOpenIDStore(app.config['OPENID_STATE'])
 
 def is_user_allowed(user):
   for pattern in ALLOWED_USERS:
@@ -89,7 +89,7 @@ def auth():
     else:
       return 'User {} not allowed.'.format(user_email)
   
-  if info.status == consumer.CANCEL:
+  if response.status == consumer.CANCEL:
     return 'Authentication canceled.'
 
   return 'Authentication failed.'

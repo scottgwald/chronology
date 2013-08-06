@@ -191,8 +191,8 @@ def get_events(environment, start_response, headers):
   Retrieve events
   POST body should contain a JSON encoded version of:
     { stream : stream_name,
-      start_time : starting_time_as_unix_time,
-      end_time : ending_time_as_unix_time,
+      start_time : starting_time_as_kronos_time,
+      end_time : ending_time_as_kronos_time,
       start_id : only_return_events_with_id_greater_than_me,
       limit: optional_maximum_number_of_events,
       order: ResultOrder.ASCENDING or ResultOrder.DESCENDING (default

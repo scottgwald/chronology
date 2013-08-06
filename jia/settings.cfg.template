@@ -6,6 +6,7 @@ KRONOS_URL = 'http://localhost:8150'
 
 ENABLE_OPENID = True
 OPENID_ENDPOINT = 'https://www.google.com/accounts/o8/ud'
+OPENID_STATE = '/tmp/jia-openid'
 ALLOWED_USERS = map(re.compile, [
 # Only user id's matching regexes in this list will be allowed to use Jia
 ])
