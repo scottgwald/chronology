@@ -8,8 +8,6 @@
 <form id="new-vis-form" class="form-horizontal" action="">
     <fieldset>
         <legend>Create a new visualization</legend>
-        <!--TODO(meelap) move plot|table toggle to the actual visualization-->
-         <!--Choose whether x-axis is time or sub-attribute-->
         <div class="control-group">
             <label class="control-label">Type: </label>
             <div class="controls">
@@ -51,6 +49,7 @@
 
 <script type="text/template" id="table-vis">
     <p><%= title %></p>
+    <a class="btn csv-link">Download as CSV</a>
     <table class="tablesorter">
         <thead><tr></tr></thead>
         <tbody></tbody>

@@ -69,13 +69,16 @@ $.tablesorter.addParser({
 function makeTable(data, element) {
   var $table = $(element.find("table")[0]);
   var $header = $($table.find("thead > tr")[0]);
+  var columns = [];
 
   $header.append("<th class='sorter-jia-time'>Time</th>");
   var row_template = "<tr><td><%=time%></td>";
+  columns.push("time");
 
   _.each(_.keys(data), function(column) {
     $header.append("<th>"+column+"</th>");
     row_template += "<td><%=data['"+column+"']%></td>";
+    columns.push(column);
   });
 
   row_template += "</tr>";
@@ -102,6 +105,22 @@ function makeTable(data, element) {
     sortList: [[0,1]],
     widgets: ["zebra"]
   });
+
+  var csvdata = [];
+  csvdata.push(columns);
+  _.each(tablified_data, function(values, time) {
+    var row = [];
+    row.push((new Date(1000 * time)).toDateString());
+    _.each(columns, function(column) {
+      row.push(values[column] || 0);
+    });
+    csvdata.push(row);
+  });
+
+  csvdata = _.map(csvdata, function(row) { return row.join(","); });
+  csvdata = csvdata.join("\n");
+  $(element.find(".csv-link"))
+    .attr("href", "data:text/csv,"+encodeURIComponent(csvdata));
 }
 
 Date.prototype.getKronosTime = function() {
