@@ -54,11 +54,23 @@ function makeGraph(data, $element) {
   yaxis.render();
 }
 
+$.tablesorter.addParser({
+  id: "jia-time",
+  is: function(s, table, cell) {
+    return false;
+  },
+  format: function(s, table, cell, cellIndex) {
+    return Date.parse(s).getTime();
+  },
+  type: "numeric"
+});
+
+
 function makeTable(data, element) {
   var $table = $(element.find("table")[0]);
   var $header = $($table.find("thead > tr")[0]);
 
-  $header.append("<th>Time</th>");
+  $header.append("<th class='sorter-jia-time'>Time</th>");
   var row_template = "<tr><td><%=time%></td>";
 
   _.each(_.keys(data), function(column) {
