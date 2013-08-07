@@ -24,9 +24,11 @@ Jia.router.on("route:makeVisualization", function(views) {
   });
 
   _.each(views, function(view) {
-    var params = view.split(",");
+    var pieces = view.split("&");
+    var params = pieces[0].split(",");
+
     if (params.length != 4) {
-      console.log("What is this:"+view);
+      console.log("Can't parse bookmarked view:"+view);
       return;
     }
 
@@ -34,7 +36,9 @@ Jia.router.on("route:makeVisualization", function(views) {
     var stream = params[1];
     var start = params[2];
     var end = params[3];
-    createNewVisualization(type, stream, start, end);
+    var properties = (pieces[1] && pieces[1].split(",")) || [];
+
+    createNewVisualization(type, stream, start, end, properties);
   });
 });
 

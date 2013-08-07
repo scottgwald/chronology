@@ -22,8 +22,9 @@ if __name__ == "__main__":
                       help='number of processes to run')
   args = parser.parse_args()
   if args.debug:
+    (host, port) = args.bind.split(':')
     werkzeug.serving.run_with_reloader(
-        lambda: gevent.pywsgi.WSGIServer((args.host, int(args.port)),
+        lambda: gevent.pywsgi.WSGIServer((host, int(port)),
                                          wsgi_application).serve_forever())
   else:
     # Clear command line arguments, so that GunicornApplication doesn't try to 

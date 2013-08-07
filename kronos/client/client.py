@@ -129,7 +129,7 @@ class KronosClient(object):
                                   response.status_code)
     for line in response.iter_lines():
       if line:
-        yield line
+        yield json.loads(line)
           
   def _setup_nonblocking(self):
     self._put_queue = []

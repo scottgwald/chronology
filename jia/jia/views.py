@@ -24,15 +24,28 @@ def get():
 
   try:
     stream = request.form['stream']
+    properties = frozenset(request.form.getlist('properties[]'))
     start = request.form['start_time']
     end = request.form['end_time']
+
+    # Fetch data from Kronos
+    # TODO(meelap): Optimization - pass desired properties to Kronos
     kronosclient = KronosClient(app.config['KRONOS_URL'], blocking=False)
     kronosdata = kronosclient.get(stream, start, end)
+
+    # Convert events returned by Kronos to a format suitable for rickshaw
+    # Kronos format is a list of dicts where each dict contains '@time' and
+    # various other key/value pairs.
+    # Rickshaw format is a dict mapping stream names to a list of x,y
+    # coordinates where the x-value is a timestamp and the y value is the value
+    # of the stream name at that timestamp.
     rickshawdata = defaultdict(list)
     for point in kronosdata:
       time = kronos_time_to_datetime(point[KronosClient.TIMESTAMP_FIELD])
       time = int(mktime(time.timetuple()))
       for key,value in point.iteritems():
+        if properties and key not in properties:
+          continue
         if not is_kronos_reserved_key(key):
           rickshawdata[key].append({'x': time, 'y': value})
     return jsonify(rickshawdata)

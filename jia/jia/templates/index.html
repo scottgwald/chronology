@@ -41,14 +41,26 @@
             </div>
         </div>
 
+        <div class="control-group" id="properties-checkboxes">
+          <label class="control-label">Properties:</label>
+          <div class="controls">
+          </div>
+        </div>
+
         <div class="control-group">
             <button type="Submit" class="btn">Add Visualization</button>
         </div>
     </fieldset>
 </form>
 
+<script type="text/template" id="property-checkbox">
+  <label class="checkbox">
+    <input type="checkbox" value="<%= value %>" id="properties" checked><%= value %>
+  </label>
+</script>
+
 <script type="text/template" id="table-vis">
-    <p><%= title %></p>
+    <p><%= stream %></p>
     <a class="btn csv-link">Download as CSV</a>
     <table class="tablesorter">
         <thead><tr></tr></thead>
@@ -57,7 +69,7 @@
 </script>
 
 <script type="text/template" id="plot-vis">
-    <p><%= title %></p>
+    <p><%= stream %></p>
     <div class="plot-container">
       <div class="y_axis"></div>
       <div class="plot"></div>

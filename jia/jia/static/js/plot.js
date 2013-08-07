@@ -127,7 +127,7 @@ Date.prototype.getKronosTime = function() {
   return this.getTime() * 10000;
 }
 
-function createNewVisualization(type, stream, start_time, end_time) {
+function createNewVisualization(type, stream, start_time, end_time, properties) {
   // TODO(meelap) echo errors back to the user.
   if (type != "plot" && type != "table") {
     console.log("No visualization type chosen.");
@@ -151,9 +151,15 @@ function createNewVisualization(type, stream, start_time, end_time) {
     return false;
   }
 
+  if (!properties.length) {
+    console.log("Must select at least one property.");
+    return false;
+  }
+
   var model = new Jia.VisModel({
     type: type,
-    title: stream,
+    stream: stream,
+    properties: properties,
     start: start_time,
     end: end_time
   });
@@ -164,6 +170,7 @@ function createNewVisualization(type, stream, start_time, end_time) {
     dataType: "json",
     data: {
       stream: stream,
+      properties: properties,
       start_time: start.getKronosTime(),
       end_time: end.getKronosTime(),
     },

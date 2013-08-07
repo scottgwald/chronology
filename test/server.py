@@ -95,7 +95,7 @@ class KronosServerTest(unittest.TestCase):
     resp = self.kronos_client.get(self.streams_path,
                                   headers=[('Origin', 'localhost')],
                                   buffered=True)
-    return resp.data.splitlines()
+    return map(json.loads, resp.data.splitlines())
 
   def test_put_and_get(self):
     stream = "kronos_server_test_{0}".format(random.random())
@@ -219,10 +219,17 @@ class KronosServerTest(unittest.TestCase):
 
 
   def test_list_streams(self):
-    streams = ['stream_{0}'.format(random.random()) for i in range(10)]
-    for stream in streams:
-      self.put(stream, [{'@time': 1}])
-    self.assertTrue(set(streams) <= set(self.get_streams()))
+    streams = {}
+    for i in range(10):
+      n = str(int(1000 * random.random()))
+      stream = 'stream_{}'.format(n)
+      self.put(stream, [{'@time': 1, n: 1}])
+      streams[stream] = n
+
+    listed_streams = {s[0]:s[1] for s in self.get_streams()}
+    for (stream,property) in streams.iteritems():
+      self.assertIn(stream, listed_streams)
+      self.assertIn(property, listed_streams[stream])
 
 all_streams_to_memory = {
   '*': {

@@ -4,19 +4,24 @@ if (typeof(Jia) === "undefined") {
 
 Jia.VisModel = Backbone.Model.extend({
   defaults : {
-    "type" : "plot",
-    "title": "Add a new visualization",
-    "start": "yesterday",
-    "end"  : "today",
-    "data" : null,
-    "hash" : null
+    "type": null,
+    "stream": null,
+    "properties": null,
+    "start": null,
+    "end": null,
+    "data": null,
+    "hash": null
   },
 
   initialize: function() {
     var hash = [this.get("type"),
-                this.get("title"),
+                this.get("stream"),
                 this.get("start"),
                 this.get("end")].join();
+    var properties = this.get("properties");
+    if (properties) {
+      hash += "&" + properties.join();
+    }
     this.set("hash", hash);
   }
 });
