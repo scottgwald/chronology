@@ -30,7 +30,21 @@ $(function() {
         this.render_table();
       } else {
         console.log("VisView: Unknown model type ["+type+"]");
+        return;
       }
+
+      this.$el.find(".remove-vis").click((function(view) {
+        return function() {
+          var views = Backbone.history.getHash();
+          views = (views && views.split("/")) || [];
+          var new_views = _.without(views, view.model.get("hash"));
+          Jia.router.navigate(new_views.join("/"));
+
+          view.$el.remove();
+          Jia.main.remove(view);
+        }
+      })(this));
+
       return this;
     },
 
@@ -49,9 +63,9 @@ $(function() {
 
 
   Jia.MainView = Backbone.View.extend({
-    el : $("#visualizations"),
+    el: $("#visualizations"),
 
-    initialize : function() {
+    initialize: function() {
       this.collection = this.options.collection;
       this.listenTo(this.collection, "add", this.addOne);
       this.listenTo(this.collection, "reset", this.addAll);
@@ -59,13 +73,17 @@ $(function() {
       this.render();
     },
 
-    addOne : function(vis) {
+    addOne: function(vis) {
       var view = new Jia.VisView({model: vis});
       this.$el.append(view.render().el);
     },
 
-    addAll : function() {
+    addAll: function() {
       this.collection.each(this.addOne, this);
+    },
+
+    remove: function(view) {
+      this.collection.remove(view);
     },
   });
 });

@@ -36,3 +36,11 @@ input[type=text] {
   bottom: -24px;
   left: -12px;
 }
+
+.remove-vis {
+  margin: 4px;
+}
+
+.csv-link {
+  margin: 4px;
+}
