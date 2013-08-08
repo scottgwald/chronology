@@ -46,7 +46,8 @@ $(function() {
       });
 
       $("#stream-name").autocomplete({
-        source: _.keys(Jia.streams)
+        source: _.keys(Jia.streams),
+        close: populateProperties
       });
     },
     error: function(data) {
