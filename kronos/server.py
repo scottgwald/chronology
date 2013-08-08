@@ -215,7 +215,7 @@ def get_events(environment, start_response, headers):
   backend, configuration = router.backend_to_retrieve(request_json['stream'])
   events_from_backend = backend.retrieve(request_json['stream'],
                                          request_json.get('start_time'),
-                                         request_json['end_time'],
+                                         long(request_json['end_time']),
                                          request_json.get('start_id'),
                                          request_json.get('order',
                                            ResultOrder.ASCENDING),

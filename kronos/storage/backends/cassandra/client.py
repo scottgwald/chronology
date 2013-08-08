@@ -376,9 +376,6 @@ class TimeWidthCassandraStorage(BaseStorage):
     # the first event.
     bucket_start_width = start_time - bucket_start_time
 
-    # Time of the last event to return.
-    end_time = long(end_time)
-
     # Index width is one year. Get all indices pointing to buckets which
     # intersect with our time interval of interest.
     indexes_to_scan = ['%s:%s' % (stream, i) for i in

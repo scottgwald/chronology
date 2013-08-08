@@ -11,7 +11,7 @@ def time_to_kronos_time(time):
   if isinstance(time, datetime):
     time = (time.replace(tzinfo=tzutc()) -
               datetime.utcfromtimestamp(0)).total_seconds()
-  return int(time * 1e7)
+  return int(float(time) * 1e7)
 
 def kronos_time_to_datetime(time, round_up=False):
   time = int(time / 1e7)

@@ -13,6 +13,7 @@ function add_point() {
   data=${(j:,:)data}
   data="{\"fruits\":[{${data}}]}"
   echo "${data}" | lwp-request -m POST "${KRONOS_URL}/1.0/events/put"
+  sleep 1
 }
 
 repeat $N add_point

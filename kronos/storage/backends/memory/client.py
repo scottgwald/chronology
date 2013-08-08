@@ -75,15 +75,22 @@ class InMemoryStorage(BaseStorage):
     events_returned = 0
     start_id_event = Event({ID_FIELD: str(start_id)})
     stream_events = self.db[stream]
+
+    # slice stream_events to just the ones we want to return.
+    lo = bisect.bisect_left(stream_events, start_id_event)
+    stream_events = stream_events[lo:]
+
     if order == ResultOrder.DESCENDING:
       stream_events = reversed(stream_events)
-    for event in stream_events:
-      if event <= start_id_event:
-        continue
-      if event[TIMESTAMP_FIELD] >= end_time:
-        break
-      yield event
-      events_returned += 1
+      for event in stream_events:
+        if event[TIMESTAMP_FIELD] > end_time:
+          continue
+        yield event
+    else:
+      for event in stream_events:
+        if event[TIMESTAMP_FIELD] > end_time:
+          break
+        yield event
 
   def streams(self):
     return self.db.iterkeys()
