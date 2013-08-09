@@ -12,6 +12,9 @@ function populateProperties() {
       $checkboxes.append(box({value: property}));
     })
   }
+
+  var disabled = $("input[name='property-type']:checked").val() == "all";
+  $("#properties-checkboxes input").prop("disabled", disabled);
 }
 
 $(function() {
@@ -23,7 +26,7 @@ $(function() {
     var stream = $("#stream-name").val();
     var start = $("#start-time").val();
     var end = $("#end-time").val();
-    var properties = _.pluck($("#properties:checked"), 'value');
+    var properties = _.pluck($("#properties:checked").not(":disabled"), 'value');
 
     var model = createNewVisualization(type, stream, start, end, properties);
     if (model) {
@@ -31,6 +34,15 @@ $(function() {
     }
 
     return false;
+  });
+
+  $("input[name='property-type']").click(function() {
+    var value = $(this).val();
+    if (value == "all") {
+      $("#properties-checkboxes input").prop("disabled", true);
+    } else if (value == "select") {
+      $("#properties-checkboxes input").prop("disabled", false);
+    }
   });
 
   $("#stream-name").change(populateProperties);

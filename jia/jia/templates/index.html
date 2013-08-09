@@ -12,7 +12,7 @@
             <label class="control-label">Type: </label>
             <div class="controls">
                 <label class="radio">
-                    <input type="radio" name="vistype" value="plot"> plot
+                    <input type="radio" name="vistype" value="plot" checked> plot
                 </label>
                 <label class="radio">
                     <input type="radio" name="vistype" value="table"> table
@@ -41,8 +41,19 @@
             </div>
         </div>
 
-        <div class="control-group" id="properties-checkboxes">
+        <div class="control-group">
           <label class="control-label">Properties:</label>
+          <div class="controls">
+            <label class="radio">
+              <input type="radio" name="property-type" value="all" checked> all properties
+            </label>
+            <label class="radio">
+              <input type="radio" name="property-type" value="select"> select properties
+            </label>
+          </div>
+        </div>
+
+        <div class="control-group" id="properties-checkboxes">
           <div class="controls">
           </div>
         </div>

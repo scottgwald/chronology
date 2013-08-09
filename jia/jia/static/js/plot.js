@@ -23,6 +23,11 @@ function makeGraph(data, $element) {
       renderer: "area",
       min     : 0,
   });
+  graph.series.forEach(function(series) {
+    if (series.name[0] == "$") {
+      series.disabled = true;
+    }
+  });
   graph.render();
 
   var legend = new Rickshaw.Graph.Legend({
@@ -64,7 +69,6 @@ $.tablesorter.addParser({
   },
   type: "numeric"
 });
-
 
 function makeTable(data, element) {
   var $table = $(element.find("table")[0]);
@@ -148,11 +152,6 @@ function createNewVisualization(type, stream, start_time, end_time, properties) 
 
   if (!_.isString(stream) || stream == "") {
     console.log("Invalid stream name.");
-    return false;
-  }
-
-  if (!properties.length) {
-    console.log("Must select at least one property.");
     return false;
   }
 

@@ -51,13 +51,13 @@ $(function() {
     render_plot : function() {
       var template = this.viewTypeToTemplate["plot"];
       this.$el.html(template(this.model.attributes));
-      this.vis = makeGraph(this.model.get("data"), this.$el);
+      makeGraph(this.model.get("data"), this.$el);
     },
 
     render_table : function() {
       var template = this.viewTypeToTemplate["table"];
       this.$el.html(template(this.model.attributes));
-      this.vis = makeTable(this.model.get("data"), this.$el);
+      makeTable(this.model.get("data"), this.$el);
     },
   });
 
