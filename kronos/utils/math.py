@@ -4,6 +4,11 @@ from uuid import (uuid4, UUID)
 
 # Kronos time is the number of 100ns intervals since the UTC epoch.
 
+class UUIDType(object):
+  LOWEST = 'lowest'
+  HIGHEST = 'highest'
+  RANDOM = 'random'
+
 def time_to_kronos_time(time):
   """
   Takes a unix timestamp or a datetime object and returns a Kronos timestamp.
@@ -28,13 +33,12 @@ def uuid_to_kronos_time(uuid):
     raise Exception("Expected type UUID")
   return uuid.time - 0x01b21dd213814000L
 
-def uuid_from_kronos_time(time, lowest=False):
+def uuid_from_kronos_time(time, _type=UUIDType.RANDOM):
   """
   Generate a UUID with the specified time.
   If `lowest` is true, return the lexicographically first UUID for the specified
   time.
   """
-
   # Bit-flipping logic from uuid1 implementation described in:
   # http://stackoverflow.com/questions/7153844/uuid1-from-utc-timestamp-in-python
   # except we use a random UUID to seed the clock sequence to minimize the
@@ -44,10 +48,14 @@ def uuid_from_kronos_time(time, lowest=False):
   time_low = timestamp & 0xffffffffL
   time_mid = (timestamp >> 32L) & 0xffffL
   time_hi_version = (timestamp >> 48L) & 0x0fffL
-  if lowest:
+  if _type == UUIDType.LOWEST:
     clock_seq_low = 0 & 0xffL
     clock_seq_hi_variant = 0 & 0x3fL
     node = 0 & 0xffffffffffffL
+  elif _type == UUIDType.HIGHEST:
+    clock_seq_low = 0xffL
+    clock_seq_hi_variant = 0x3fL
+    node = 0xffffffffffffL
   else:
     randomuuid = uuid4()
     clock_seq_low = randomuuid.clock_seq_low

@@ -9,6 +9,8 @@ TIMESTAMP_FIELD = settings.stream['fields']['timestamp']
 
 from kronos.constants.order import ResultOrder
 from kronos.storage.backends import BaseStorage
+from kronos.utils.math import uuid_from_kronos_time
+from kronos.utils.math import UUIDType
 
 
 class Event(dict):
@@ -67,30 +69,31 @@ class InMemoryStorage(BaseStorage):
         self.db[stream].pop(0)
       bisect.insort(self.db[stream], Event(event))
     
-  def _retrieve(self, stream, start_id, end_time, order, configuration):
+  def _retrieve(self, stream, start_id, end_time, order, limit, configuration):
     """
     Yield events from stream starting after the event with id `start_id` until
     and including events with timestamp `end_time`.
     """
-    events_returned = 0
     start_id_event = Event({ID_FIELD: str(start_id)})
+    end_id_event = Event({ID_FIELD:
+                          str(uuid_from_kronos_time(end_time,
+                                                    _type=UUIDType.HIGHEST))})
     stream_events = self.db[stream]
 
-    # slice stream_events to just the ones we want to return.
+    # Find the interval our events belong to.
     lo = bisect.bisect_left(stream_events, start_id_event)
-    stream_events = stream_events[lo:]
-
+    hi = bisect.bisect_right(stream_events, end_id_event)
+    
     if order == ResultOrder.DESCENDING:
-      stream_events = reversed(stream_events)
-      for event in stream_events:
-        if event[TIMESTAMP_FIELD] > end_time:
-          continue
-        yield event
+      index_it = xrange(hi-1, lo-1, -1)
     else:
-      for event in stream_events:
-        if event[TIMESTAMP_FIELD] > end_time:
-          break
-        yield event
+      index_it = xrange(lo, hi)
+
+    for i in index_it:
+      if limit <= 0:
+        break
+      limit -= 1
+      yield stream_events[i]
 
   def streams(self):
     return self.db.iterkeys()

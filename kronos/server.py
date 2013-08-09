@@ -211,18 +211,25 @@ def get_events(environment, start_response, headers):
   except Exception as e:
     start_response('400 Bad Request', headers)
     yield json.dumps({'@errors' : [repr(e)]})
+    return
 
-  backend, configuration = router.backend_to_retrieve(request_json['stream'])
-  events_from_backend = backend.retrieve(request_json['stream'],
-                                         request_json.get('start_time'),
-                                         long(request_json['end_time']),
-                                         request_json.get('start_id'),
-                                         request_json.get('order',
-                                           ResultOrder.ASCENDING),
-                                         configuration)
+  limit = int(request_json.get('limit', sys.maxint))
+  if limit <= 0:
+    events_from_backend = []
+  else:
+    backend, configuration = router.backend_to_retrieve(request_json['stream'])
+    events_from_backend = backend.retrieve(
+        request_json['stream'],
+        request_json.get('start_time'),
+        long(request_json['end_time']),
+        request_json.get('start_id'),
+        configuration,
+        order=request_json.get('order', ResultOrder.ASCENDING),
+        limit=limit)
+  
   start_response('200 OK', headers)
-  limit = request_json.get('limit', sys.maxint)
   for event in events_from_backend:
+    # TODO(usmanm): Once all backends start respecting limit, remove this check.
     if limit <= 0:
       break
     yield '{0}\r\n'.format(json.dumps(event))

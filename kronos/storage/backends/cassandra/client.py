@@ -62,6 +62,7 @@ from kronos.utils.math import round_down
 from kronos.utils.math import time_to_kronos_time
 from kronos.utils.math import uuid_from_kronos_time
 from kronos.utils.math import uuid_to_kronos_time
+from kronos.utils.match import UUIDType
 
 ID_FIELD = settings.stream['fields']['id']
 TIMESTAMP_FIELD = settings.stream['fields']['timestamp']
@@ -354,7 +355,7 @@ class TimeWidthCassandraStorage(BaseStorage):
     # Send the current batch of operations to Cassandra.
     mutator.send()
     
-  def _retrieve(self, stream, start_id, end_time, order, configuration):
+  def _retrieve(self, stream, start_id, end_time, order, limit, configuration):
     """
     Retrieve events for `stream` between `start_id` and `end_time`.
     `stream` : The stream to return events for.
@@ -397,7 +398,7 @@ class TimeWidthCassandraStorage(BaseStorage):
       for i in xrange(bucket_key[2]):
         intervals.append(BucketInterval(self.event_cf, stream, bucket_key, i))
 
-    end_id = uuid_from_kronos_time(end_time, lowest=False)
+    end_id = uuid_from_kronos_time(end_time, _type=UUIDType.HIGHEST)
     events = SortedShardedEventStream(intervals, start_id, end_id)
     for event in events:
       yield event

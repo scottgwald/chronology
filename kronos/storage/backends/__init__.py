@@ -1,6 +1,9 @@
+import sys
 import uuid
 
+from kronos.constants.order import ResultOrder
 from kronos.utils.math import uuid_from_kronos_time
+from kronos.utils.math import UUIDType
 
 
 class BaseStorage(object):
@@ -27,8 +30,8 @@ class BaseStorage(object):
     raise NotImplementedError('Must implement `insert` method for %s' %
                               self.__class__.__name__)
 
-  def retrieve(self, stream, start_time, end_time, start_id, order,
-               configuration):
+  def retrieve(self, stream, start_time, end_time, start_id, configuration,
+               order=ResultOrder.ASCENDING, limit=sys.maxint):
     """
     Retrieves all the events for `stream` from `start_time` (inclusive) till
     `end_time` (exclusive). Alternatively to `start_time`, `start_id` can be 
@@ -39,12 +42,13 @@ class BaseStorage(object):
     or ResultOrder.DESCENDING.
     """
     if not start_id:
-      start_id = uuid_from_kronos_time(start_time, lowest=True)
+      start_id = uuid_from_kronos_time(start_time, _type=UUIDType.LOWEST)
     else:
       start_id = uuid.UUID(start_id)
-    return self._retrieve(stream, start_id, end_time, order, configuration)
+    return self._retrieve(stream, start_id, end_time, order, limit, 
+                          configuration)
   
-  def _retrieve(self, stream, start_id, end_time, order, configuration):
+  def _retrieve(self, stream, start_id, end_time, order, limit, configuration):
     raise NotImplementedError('Must implement `retrieve` method for %s.' %
                               self.__class__.__name__)
 
