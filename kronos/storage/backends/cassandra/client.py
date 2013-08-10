@@ -166,7 +166,7 @@ class SortedShardedEventStream(object):
   SortedShardedEventStream is an iterable that fetches events from Cassandra and
   returns them in the order defined by CassandraSortedUUID.
   """
-  def __init__(self, intervals, start_id, end_id):
+  def __init__(self, intervals, start_id, end_id, limit):
     """
     `intervals` : A list of BucketIntervals to return events from.
     `start_id` : The UUID of the first event to return.
@@ -174,8 +174,9 @@ class SortedShardedEventStream(object):
     """
     self.start_id = CassandraSortedUUID(str(start_id))
     self.end_id = CassandraSortedUUID(str(end_id))
+    self.limit = limit
 
-    self.ready_heap = []
+    self.event_heap = []
     self.bucket_heap = intervals
     heapq.heapify(self.bucket_heap)
 
@@ -190,46 +191,50 @@ class SortedShardedEventStream(object):
     events = bucket_to_add.fetch()
 
     if events is not None:
-      self.ready_heap.extend(events.items())
-      heapq.heapify(self.ready_heap)
+      self.event_heap.extend(events.items())
+      heapq.heapify(self.event_heap)
 
   def __iter__(self):
     # Load buckets until we have events to return.
-    while not self.ready_heap and self.bucket_heap:
+    while not self.event_heap and self.bucket_heap:
       self.load_next_bucket()
 
     # The result set is empty.
-    if not self.ready_heap:
+    if not self.event_heap:
       raise StopIteration
 
     # Keep going as long as we have events to return or buckets that we haven't 
     # loaded yet.
-    while self.ready_heap or self.bucket_heap:
-      if not self.ready_heap:
+    while self.event_heap or self.bucket_heap:
+      if self.limit <= 0:
+        raise StopIteration
+
+      if not self.event_heap:
         # If no events are ready to return but there are buckets left, fetch a
         # bucket
         self.load_next_bucket()
       else:
         # Get the next event to return.
-        (uuid, event) = heapq.heappop(self.ready_heap)
+        (uuid, event) = heapq.heappop(self.event_heap)
 
         # Yield it if it is in the correct interval, or stop the iteration if we
         # have extended beyond the requested interval.
         if self.end_id < uuid:
           raise StopIteration
         elif self.start_id <= uuid:
+          self.limit -= 1
           yield event
 
         # Load more buckets if they start before the time of the next event in
-        # the ready_heap.
-        if self.ready_heap:
-          (next_uuid, next_event) = self.ready_heap[0]
+        # the event_heap.
+        if self.event_heap:
+          (next_uuid, next_event) = self.event_heap[0]
           while self.bucket_heap:
             next_bucket_start = self.bucket_heap[0].start
-            if next_bucket_start <= next_uuid._kronos_time:
-              self.load_next_bucket()
-            else:
+            if next_bucket_start > next_uuid._kronos_time:
               break
+            self.load_next_bucket()
+
 
 class TimeWidthCassandraStorage(BaseStorage):
   # TODO(meelap): Put `read_size` stuff back so that we can limit how much
@@ -399,7 +404,7 @@ class TimeWidthCassandraStorage(BaseStorage):
         intervals.append(BucketInterval(self.event_cf, stream, bucket_key, i))
 
     end_id = uuid_from_kronos_time(end_time, _type=UUIDType.HIGHEST)
-    events = SortedShardedEventStream(intervals, start_id, end_id)
+    events = SortedShardedEventStream(intervals, start_id, end_id, limit)
     for event in events:
       yield event
 
