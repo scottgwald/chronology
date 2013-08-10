@@ -62,7 +62,7 @@ from kronos.utils.math import round_down
 from kronos.utils.math import time_to_kronos_time
 from kronos.utils.math import uuid_from_kronos_time
 from kronos.utils.math import uuid_to_kronos_time
-from kronos.utils.match import UUIDType
+from kronos.utils.math import UUIDType
 
 ID_FIELD = settings.stream['fields']['id']
 TIMESTAMP_FIELD = settings.stream['fields']['timestamp']
