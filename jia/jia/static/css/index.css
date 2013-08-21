@@ -37,10 +37,13 @@ input[type=text] {
   left: -12px;
 }
 
-.remove-vis {
-  margin: 4px;
+a.btn {
+  margin: 5px;
 }
 
-.csv-link {
-  margin: 4px;
-}
+ .css-form input.ng-invalid.ng-dirty {
+   background-color: #FA787E;
+ }
+ .css-form input.ng-valid.ng-dirty {
+   background-color: #78FA89;
+ }

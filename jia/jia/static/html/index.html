@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang='en' ng-app='jia'>
+  <head>
+    <meta charset='utf-8'>
+    <title>Jia</title>
+
+    <link href='/static/css/bootstrap.min.css' rel='stylesheet'>
+    <link href='/static/css/bootstrap-responsive.min.css' rel='stylesheet'>
+
+    <link href='/static/css/jquery-ui.min.css' rel='stylesheet'>
+    <link href='/static/css/rickshaw.min.css' rel='stylesheet'>
+    <link href='/static/css/tablesorter.theme.default.css' rel='stylesheet'>
+    <link href='/static/css/index.css' rel='stylesheet'>
+  </head>
+
+  <body ng-controller='JiaController' ng-init='init()' ng-cloak>
+    <ul>
+      <li ng-repeat='vis in visualizations' ng-controller='VisController'>
+        <p class='vis-title'>{{vis.formula}}</p>
+          <div class='vis-controls'>
+            <a class='btn' href='' ng-click='removeVis($index)'>Remove this visualization</a><br>
+            <a class='btn' ng-href='{{csvUri}}'>Download as CSV</a>
+          </div>
+        <div class='vis-container' ng-switch='vis.vis_type'>
+          <timeseries-table x-tabular='vis.tabular' ng-switch-when='table'>
+          </timeseries-table>
+          <timeseries-plot x-timeseries='vis.timeseries' ng-switch-when='plot'>
+          </timeseries-plot>
+        </div>
+      </li>
+    </ul>
+
+    <form class='form-horizontal css-form' action='' novalidate>
+      <legend>Create a new visualization</legend>
+
+      <div class='control-group'>
+        <label class='control-label'>Type: </label>
+        <div class='controls'>
+          <label class='radio'>
+              <input type='radio' ng-model='form.vis_type' value='plot' ng-checked=true /> plot
+          </label>
+          <label class='radio'>
+              <input type='radio' ng-model='form.vis_type' value='table' /> table
+          </label>
+        </div>
+      </div>
+
+      <div class='control-group'>
+        <label class='control-label'>Start time:</label>
+        <div class='controls'>
+          <input type=text placeholder='-3months, 4 days ago, YYYY/MM/DD HH:MM:SS' ng-model='form.start_time' date />
+        </div>
+      </div>
+
+      <div class='control-group'>
+        <label class='control-label'>End time:</label>
+        <div class='controls'>
+          <input type=text placeholder='yesterday, today, now, YYYY/MM/DD HH:MM:SS' ng-model='form.end_time' date />
+        </div>
+      </div>
+
+      <div class='control-group'>
+        <label class='control-label'>Stream:</label>
+        <div class='controls'>
+          <input type=text placeholder='locu...' ng-model='form.formula' autocomplete='streams' />
+        </div>
+      </div>
+
+      <div class='control-group'>
+        <label class='control-label'>Properties:</label>
+        <div class='controls'>
+          <label class='radio'>
+            <input type=radio ng-model='form.property_type' value='all' ng-checked=true /> all properties
+          </label>
+          <label class='radio'>
+            <input type=radio ng-model='form.property_type' value='select' /> select properties
+          </label>
+        </div>
+      </div>
+
+      <div class='control-group'>
+        <div class='controls'>
+          <checkbox ng-repeat='property in properties' x-model='property.checked' x-disabled='properties_disabled'>
+            {{property.value}}
+          </checkbox>
+        </div>
+      </div>
+
+      <div class='control-group'>
+        <button class='btn' ng-click='addNewVis(form)'>Add Visualization</button>
+      </div>
+    </form>
+
+    <script src='/static/js/underscore.min.js'></script> 
+    <script src='/static/js/angular.min.js'></script>
+    <script src='/static/js/jquery-2.0.0.min.js'></script>
+
+    <script src='/static/js/date.js'></script>
+    <script src='/static/js/d3.v2.js'></script> 
+    <script src='/static/js/d3.layout.min.js'></script> 
+    <script src='/static/js/rickshaw.min.js'></script> 
+    <script src='/static/js/jquery-ui.min.js'></script>
+    <script src='/static/js/jquery.tablesorter.min.js'></script>
+
+    <script src='/static/js/jia.js'></script>
+  </body>
+</html>
