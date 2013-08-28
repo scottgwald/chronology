@@ -1,3 +1,4 @@
+import os
 import re
 
 DEBUG = True
@@ -10,3 +11,5 @@ OPENID_STATE = '/tmp/jia-openid'
 ALLOWED_USERS = map(re.compile, [
 # Only user id's matching regexes in this list will be allowed to use Jia
 ])
+
+APPROOT = os.path.dirname(os.path.realpath(__file__))

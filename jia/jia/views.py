@@ -1,9 +1,10 @@
 from collections import defaultdict
-from flask import jsonify
-from flask import redirect
-from flask import request
-from flask import url_for
+import os
 from time import mktime
+
+from flask import jsonify
+from flask import request
+from flask import send_from_directory
 
 from jia import app
 
@@ -15,7 +16,7 @@ from lib.kronos.utils import kronos_time_to_datetime
 @app.route('/')
 @require_auth
 def index():
-  return redirect(url_for('static', filename='html/index.html'))
+  return send_from_directory(os.path.join(app.config['APPROOT'], 'jia/static/html'), 'index.html')
 
 @app.route('/get', methods=['POST'])
 @require_auth

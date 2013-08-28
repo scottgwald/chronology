@@ -13,24 +13,22 @@
     <link href='/static/css/index.css' rel='stylesheet'>
   </head>
 
-  <body ng-controller='JiaController' ng-init='init()' ng-cloak>
-    <ul>
-      <li ng-repeat='vis in visualizations' ng-controller='VisController'>
-        <p class='vis-title'>{{vis.formula}}</p>
+  <body ng-cloak>
+    <ul ng-controller='ViewController'>
+      <li ng-repeat='model in getModels()'>
+        <p class='vis-title'>{{model.formula}}</p>
           <div class='vis-controls'>
-            <a class='btn' href='' ng-click='removeVis($index)'>Remove this visualization</a><br>
-            <a class='btn' ng-href='{{csvUri}}'>Download as CSV</a>
+            <a class='btn' href='' ng-click='removeView($index)'>Remove this visualization</a><br>
+            <a class='btn' ng-href='{{model.csvURI}}'>Download as CSV</a>
           </div>
-        <div class='vis-container' ng-switch='vis.vis_type'>
-          <timeseries-table x-tabular='vis.tabular' ng-switch-when='table'>
-          </timeseries-table>
-          <timeseries-plot x-timeseries='vis.timeseries' ng-switch-when='plot'>
-          </timeseries-plot>
+        <div class='vis-container' ng-switch='model.type'>
+          <timeseries-table x-tabular='model.tabular' ng-switch-when='table'></timeseries-table>
+          <timeseries-plot x-timeseries='model.timeseries' ng-switch-when='plot'></timeseries-plot>
         </div>
       </li>
     </ul>
 
-    <form class='form-horizontal css-form' action='' novalidate>
+    <form class='form-horizontal css-form' action='' novalidate ng-controller='FormController' ng-init='init()'>
       <legend>Create a new visualization</legend>
 
       <div class='control-group'>
@@ -90,6 +88,8 @@
         <button class='btn' ng-click='addNewVis(form)'>Add Visualization</button>
       </div>
     </form>
+
+    <div ng-controller='RouteController' ng-hide></div>
 
     <script src='/static/js/underscore.min.js'></script> 
     <script src='/static/js/angular.min.js'></script>
