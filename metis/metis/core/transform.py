@@ -1,6 +1,5 @@
 import inspect
 import json
-import operator
 import re
 import sys
 import types
@@ -49,7 +48,7 @@ class Transform(object):
 
   @classmethod
   def get_name(cls):
-    if cls.NAME:
+    if cls.NAME is not None:
       return str(cls.NAME).upper()
     return cls.__name__.replace('Transform', '').upper()
 
@@ -250,66 +249,85 @@ class GroupByTransform(Transform):
 
 
 class AggregateTransform(Transform):
-  def __init__(self, op, key=None, **kwargs):
-    if key is None:
-      # Only allow `count` aggregate if aggregating over entire event tuple.
-      assert op == 'count'
-    self.op = op
-    self.key = key
+  def __init__(self, aggregates, **kwargs):
+    for aggregate in aggregates:
+      if aggregate.get('key') is None:
+        # Only allow `count` aggregate if aggregating over entire event tuple.
+        assert aggregate['op'] == 'count'
+    self.aggregates = aggregates
+    self.canonical_key_to_alias = {}
+    for aggregate in aggregates:
+      if aggregate.get('alias') is None:
+        continue
+      self.canonical_key_to_alias[
+          (aggregate['op'], aggregate.get('key'))] = str(aggregate['alias'])
 
   def to_dict(self):
     dictionary = super(AggregateTransform, self).serialize()
-    dictionary['op'] = self.op
-    if self.key is not None:
-      dictionary['key'] = self.key
+    dictionary['aggregates'] = self.aggregates
     return dictionary
 
   def apply(self, spark_context, rdd):
-    def _average(a, b):
-      return (a[0] + b[0], a[1] + b[1])
+    @_expand_args
+    def _map(key, event):
+      value = {}
+      for aggregate in self.aggregates:
+        c_key = (aggregate['op'], aggregate.get('key'))
+        op, event_key = c_key
+        if op == 'count':
+          value[c_key] = 1 if (event_key in event or event_key is None) else 0
+        elif op == 'sum':
+          value[c_key] = event.get(event_key, 0)
+        elif op == 'min':
+          value[c_key] = event.get(event_key, float('inf'))
+        elif op == 'max':
+          value[c_key] = event.get(event_key, -float('inf'))
+        elif self.op == 'avg':
+          value[c_key] = (event[event_key], 1) if event_key in event else (0, 0)
+      return (key, value)
 
-    def _create_dict(buckets, value):
+    def _reduce(value1, value2):
+      assert isinstance(value1, dict)
+      assert isinstance(value2, dict)
+      assert set(value1) == set(value2)
+      value = {}
+      for c_key in value1:
+        op = c_key[0]
+        if op in ('count', 'sum'):
+          value[c_key] = value1[c_key] + value2[c_key]
+        elif op == 'min':
+          value[c_key] = min(value1[c_key], value2[c_key])
+        elif op == 'max':
+          value[c_key] = max(value1[c_key], value2[c_key])
+        elif self.op == 'avg':
+          value[c_key] = (value1[c_key][0] + value2[c_key][0],
+                          value1[c_key][1] + value2[c_key][1])
+      return value
+
+    @_expand_args
+    def _map2(buckets, value):
+      c_keys = value.keys()
+      for c_key in c_keys:
+        result = value[c_key]
+        op = c_key[0]
+        if op == 'average':
+          value[c_key] = (result[0]/float(result[1]) if result[1]
+                                  else None)
+        if c_key in self.canonical_key_to_alias:
+          new_key = self.canonical_key_to_alias[c_key]
+        elif c_key[1] is None:
+          new_key = op
+        else:
+          new_key = '%s(%s)' % c_key
+        value[new_key] = value[c_key]
+        del value[c_key]            
       buckets = json.loads(buckets)
       assert len(buckets) > 0
-      # Make first bucket be key to aggregate over.
-      key = json.dumps(buckets.pop(0))
-      return (key,
-              {json.dumps(buckets): value} if buckets else {'$value': value})
+      for bucket in buckets:
+        value.update(bucket)
+      return value
 
-    def _merge_dicts(key, dicts):
-      merged_dict = {}
-      for _dict in dicts:
-        merged_dict.update(_dict)
-      merged_dict.update(json.loads(key))
-      return merged_dict
-
-    if self.op == 'count':
-      if self.key is None:
-        rdd = rdd.map(_expand_args(lambda x, y: (x, 1)))
-      else:
-        rdd = rdd.map(_expand_args(lambda x, y: (x, 1 if self.key in y else 0)))
-      rdd = rdd.reduceByKey(operator.add)
-    elif self.op == 'sum':
-      rdd = (rdd
-             .map(_expand_args(lambda x, y: (x, y.get(self.key, 0))))
-             .reduceByKey(operator.add))
-    elif self.op == 'min':
-      rdd = (rdd
-             .map(_expand_args(lambda x, y: (x, y.get(self.key, float('inf')))))
-             .reduceByKey(min))
-    elif self.op == 'max':
-      rdd = (rdd
-             .map(_expand_args(lambda x, y: (x, y.get(self.key, -float('inf')))))
-             .reduceByKey(max))
-    elif self.op == 'avg':
-      rdd = (rdd
-             .map(_expand_args(lambda x, y: 
-                              (x, (y[self.key], 1)) if self.key in y
-                              else (x, (0, 0))))
-             .reduceByKey(_average)
-             .map(_expand_args(lambda x, y:
-                                (x, y[0]/y[1]) if y[1] else (x, None))))
     return (rdd
-            .map(_expand_args(_create_dict))
-            .groupByKey()
-            .map(_expand_args(_merge_dicts)))
+            .map(_map)
+            .reduceByKey(_reduce)
+            .map(_map2))
