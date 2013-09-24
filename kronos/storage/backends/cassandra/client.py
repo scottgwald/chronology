@@ -56,6 +56,7 @@ from uuid import UUID
 from kronos.conf import settings
 from kronos.core.exceptions import InvalidBucketIntervalComparison
 from kronos.core.exceptions import InvalidUUIDComparison
+from kronos.constants.order import ResultOrder
 from kronos.storage.backends import BaseStorage
 from kronos.utils.cache import InMemoryLRUCache
 from kronos.utils.math import round_down
@@ -72,24 +73,40 @@ LENGTH_OF_YEAR = int(timedelta(days=365.25).total_seconds() * 1e7)
 class CassandraSortedUUID(UUID):
   """
   Columns in Cassandra are identified by a UUID.
-  Override Python's UUID comparator so that time is the first parameter used for
-  sorting.
+  Override Python's UUID comparator so that time is the first parameter used
+  for sorting.
   """
   def __init__(self, *args, **kwargs):
+    """
+    `order`[kwarg]: Whether to return the results in
+             ResultOrder.ASCENDING or ResultOrder.DESCENDING
+             time-order.
+    """
+    # TODO(marcua): Couldn't get `order` to be a named arg (because of
+    # subclassing?).  I don't like the next line.
+    order = kwargs.pop('order')
     super(CassandraSortedUUID, self).__init__(*args, **kwargs)
     self._kronos_time = uuid_to_kronos_time(self)
 
+    # If we want to sort in descending order, we'll multiply our
+    # comparisons by -1 to reverse them.
+    self._cmp_multiplier = 1 if order == ResultOrder.ASCENDING else -1
+    
   def __setattr__(self, name, value):
     # Override UUID's __setattr__ method to make it mutable.
     super(UUID, self).__setattr__(name, value)
 
   def __cmp__(self, other):
+    if isinstance(other, StringTypes):
+      try:
+        other = UUID(other)
+      except (ValueError, AttributeError):
+        return 1
     if isinstance(other, UUID):
-      return cmp((self.time, self.bytes), (other.time, other.bytes))
+      return self._cmp_multiplier * cmp((self.time, self.bytes),
+                                        (other.time, other.bytes))
     if other is None:
       return 1
-    if isinstance(other, StringTypes):
-      return cmp(str(self), other)
     raise InvalidUUIDComparison("Compared CassandraSortedUUID to type {0}"
                                   .format(type(other)))
 
@@ -100,13 +117,15 @@ class BucketInterval(object):
   `bucket_key[0]+bucket_key[1]` ) and are stored on shard `shard`.
   """
 
-  def __init__(self, column_family, stream, bucket_key, shard):
+  def __init__(self, column_family, stream, bucket_key, shard, order):
     """
     `column_family` : The column family from which to fetch data (events or
                       index).
     `stream` : The name of the stream associated with this BucketInterval.
     `bucket_key` : A tuple of start time and interval length.
     `shard` : The id of the shard that this BucketInterval represents.
+    `order` : Whether to return the results in ResultOrder.ASCENDING
+              or ResultOrder.DESCENDING time-order.
     """
     # The name of this BucketInterval as it is stored in Cassandra.
     self.name = BucketInterval.name(stream, bucket_key[0], shard)
@@ -119,30 +138,41 @@ class BucketInterval(object):
 
     self.column_family = column_family
 
+    self.order = order
+
+    # If we want to sort in descending order, compare the end of the
+    # interval.
+    self._cmp_value = self.start if order == ResultOrder.ASCENDING else -self.end
+
   def __cmp__(self, other):
     if other is None:
       return 1
     elif isinstance(other, BucketInterval):
-      return cmp((self.start, self.name), (other.start, other.name))
+      return cmp((self._cmp_value, self.name), (other._cmp_value, other.name))
 
     try:
-      return cmp(self.start, float(other))
+      return cmp(self._cmp_value, float(other))
     except Exception as e:
       raise InvalidBucketIntervalComparison(repr(e))
 
-  def fetch(self):
+  def fetch(self, column_start, column_finish):
     """
     Return all events contained in this BucketInterval as a dictionary mapping
     column name (which is a CassandraSortedUUID) to column value.
+      `column_start`, `column_finish`: For optimization purposes, send the
+        maximum values for column IDs so that Cassandra can filter them
+        before sending back a large bucket.
     """
     try:
       num_cols = self.column_family.get_count(self.name)
-      data = self.column_family.get(self.name, column_count=num_cols)
+      data = self.column_family.get(self.name, column_start=column_start,
+                                    column_finish=column_finish,
+                                    column_count=num_cols)
       result = {}
       for column, event in data.iteritems():
         try:
           event = json.loads(event)
-          result[CassandraSortedUUID(str(column))] = event
+          result[CassandraSortedUUID(str(column), order=self.order)] = event
         except:
           # TODO(meelap): Do something about this error. Log?
           pass
@@ -166,20 +196,44 @@ class SortedShardedEventStream(object):
   SortedShardedEventStream is an iterable that fetches events from Cassandra and
   returns them in the order defined by CassandraSortedUUID.
   """
-  def __init__(self, intervals, start_id, end_id, limit):
+  def __init__(self, intervals, start_id, end_id, limit, order):
     """
     `intervals` : A list of BucketIntervals to return events from.
     `start_id` : The UUID of the first event to return.
     `end_id` : The UUID of the last event to return. Assumes start_id <= end_id.
+    `order` : Whether to return the results in ResultOrder.ASCENDING
+              or ResultOrder.DESCENDING time-order.    
     """
-    self.start_id = CassandraSortedUUID(str(start_id))
-    self.end_id = CassandraSortedUUID(str(end_id))
+    self.order = order
     self.limit = limit
+    self.start_id = CassandraSortedUUID(str(start_id), order=self.order)
+    self.end_id = CassandraSortedUUID(str(end_id), order=self.order)
 
     self.event_heap = []
     self.bucket_heap = intervals
     heapq.heapify(self.bucket_heap)
 
+  def load_next_buckets(self):
+    """
+    Given what the current most recently loaded event is, loads any
+    buckets that might overlap with that event.  Multiple buckets
+    might overlap because they have overlapping time slices or shards.
+    """
+    while (not self.event_heap) and self.bucket_heap:
+      self.load_next_bucket()
+    if self.event_heap:
+      (next_uuid, next_event) = self.event_heap[0]
+      while self.bucket_heap:
+        next_bucket_time = (self.bucket_heap[0].start
+                            if self.order == ResultOrder.ASCENDING
+                            else self.bucket_heap[0].end)
+        if ((self.order == ResultOrder.ASCENDING and
+             next_bucket_time > next_uuid._kronos_time) or
+            (self.order == ResultOrder.DESCENDING and
+             next_bucket_time < next_uuid._kronos_time)):
+          break
+        self.load_next_bucket()
+    
   def load_next_bucket(self):
     if not self.bucket_heap:
       return
@@ -188,16 +242,15 @@ class SortedShardedEventStream(object):
     bucket_to_add = heapq.heappop(self.bucket_heap)
 
     # `events` maps CassandraSortedUUIDs to blobs.
-    events = bucket_to_add.fetch()
-
+    events = bucket_to_add.fetch(self.start_id, self.end_id)
     if events is not None:
       self.event_heap.extend(events.items())
       heapq.heapify(self.event_heap)
-
+    
   def __iter__(self):
     # Load buckets until we have events to return.
-    while not self.event_heap and self.bucket_heap:
-      self.load_next_bucket()
+    while (not self.event_heap) and self.bucket_heap:
+      self.load_next_buckets()
 
     # The result set is empty.
     if not self.event_heap:
@@ -208,34 +261,30 @@ class SortedShardedEventStream(object):
     while self.event_heap or self.bucket_heap:
       if self.limit <= 0:
         raise StopIteration
-
       if not self.event_heap:
         # If no events are ready to return but there are buckets left, fetch a
         # bucket
-        self.load_next_bucket()
+        self.load_next_buckets()
       else:
         # Get the next event to return.
         (uuid, event) = heapq.heappop(self.event_heap)
-
+        
         # Yield it if it is in the correct interval, or stop the iteration if we
         # have extended beyond the requested interval.
-        if self.end_id < uuid:
+        # Note: in ResultOrder.DESCENDING conditions below, we flip `<` for `>`
+        # and `>=` for `<=` UUID comparator logic is flipped.
+        # TODO(marcua): convince myself that the edge cases on DESCENDING
+        # have equality in the correct place for start_id and end_id.
+        if ((self.order == ResultOrder.ASCENDING and self.end_id < uuid) or
+            (self.order == ResultOrder.DESCENDING and self.start_id < uuid)):
           raise StopIteration
-        elif self.start_id <= uuid:
+        elif ((self.order == ResultOrder.ASCENDING and self.start_id <= uuid) or
+              (self.order == ResultOrder.DESCENDING and self.end_id <= uuid)):
           self.limit -= 1
           yield event
 
-        # Load more buckets if they start before the time of the next event in
-        # the event_heap.
-        if self.event_heap:
-          (next_uuid, next_event) = self.event_heap[0]
-          while self.bucket_heap:
-            next_bucket_start = self.bucket_heap[0].start
-            if next_bucket_start > next_uuid._kronos_time:
-              break
-            self.load_next_bucket()
-
-
+        self.load_next_buckets()
+        
 class TimeWidthCassandraStorage(BaseStorage):
   # TODO(meelap): Put `read_size` stuff back so that we can limit how much
   # memory Kronos uses to buffer read data from backends.
@@ -401,10 +450,10 @@ class TimeWidthCassandraStorage(BaseStorage):
     intervals = []
     for bucket_key in itertools.chain.from_iterable(index_keys.itervalues()):
       for i in xrange(bucket_key[2]):
-        intervals.append(BucketInterval(self.event_cf, stream, bucket_key, i))
+        intervals.append(BucketInterval(self.event_cf, stream, bucket_key, i, order))
 
     end_id = uuid_from_kronos_time(end_time, _type=UUIDType.HIGHEST)
-    events = SortedShardedEventStream(intervals, start_id, end_id, limit)
+    events = SortedShardedEventStream(intervals, start_id, end_id, limit, order)
     for event in events:
       yield event
 

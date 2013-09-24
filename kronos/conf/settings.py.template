@@ -7,7 +7,7 @@ storage = {
     'backend': 'cassandra.TimeWidthCassandraStorage',
     'hosts': ['localhost:9160'],
     'keyspace': 'kronos_tw',
-    'replication_factor': 0,
+    'replication_factor': 0, # Set to a value greater than 0 or you will get an UnavailableException
     'default_timewidth_seconds': 86400,
     'default_shards_per_bucket': 5
   },

@@ -1,3 +1,4 @@
+import copy
 import json
 import requests
 import time
@@ -6,6 +7,10 @@ from threading import Thread, Lock
 from collections import defaultdict
 
 from utils import kronos_time_now
+
+class ResultOrder(object):
+  ASCENDING = 'ascending'
+  DESCENDING = 'descending'
 
 
 class KronosClientException(Exception):
@@ -38,6 +43,12 @@ class KronosClient(object):
   def index(self):
     return requests.get(self._index_url).json()
 
+  def time_now(self):
+    """
+    Returns a valid Kronos timestamp that represents the time right now.
+    """
+    return kronos_time_now()
+
   def put(self, event_dict):
     """
     Sends a dictionary of `event_dict` of the form {stream_name:
@@ -57,6 +68,8 @@ class KronosClient(object):
     that data.  Calling `flush` will block until all pending data has
     been acknowledged by the server.
     """
+    # Copy the input, in case we need to modify it by adding a timestamp.
+    event_dict = copy.deepcopy(event_dict)
 
     # Ensure that all events have a timestamp.
     timestamp = kronos_time_now()
@@ -72,17 +85,20 @@ class KronosClient(object):
       self._put_queue.append(event_dict)
       self._put_lock.release()
 
-  def get(self, stream, start_time, end_time, start_id=None, limit=None):
+  def get(self, stream, start_time, end_time, start_id=None, limit=None,
+          order=ResultOrder.ASCENDING):
     """
     Queries a stream with name `stream` for all events between
     `start_time` and `end_time`.  An optional `start_id` allows the
     client to restart from a failure, specifying the last ID they
-    read.  An optional `limit` also limits the maximum number of
-    events returned.
+    read.  An optional `limit` limits the maximum number of
+    events returned.  An optional `order` requests results in `ASCENDING`
+    or `DESCENDING` order.
     """
     stream_params = {
       'stream': stream,
-      'end_time': end_time
+      'end_time': end_time,
+      'order': order,
     }
     if start_id:
       stream_params['start_id'] = start_id
