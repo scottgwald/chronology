@@ -408,7 +408,46 @@ class TimeWidthCassandraStorage(BaseStorage):
 
     # Send the current batch of operations to Cassandra.
     mutator.send()
-    
+
+  def _delete(self, stream, start_id, end_time, configuration):
+    """
+    Delete events for `stream` between `start_id` and `end_time`.
+    `stream` : The stream to delete events for.
+    `start_id` : Delete events with id > `start_id`.
+    `end_time` : Delete events ending <= `end_time`.
+    `configuration` : A dictionary of settings to override any default
+                      settings, such as number of shards or width of a
+                      time interval.
+    """
+    start_time = uuid_to_kronos_time(start_id)
+    bucket_start_time = max(start_time - TimeWidthCassandraStorage.MAX_WIDTH, 0)
+    bucket_start_width = start_time - bucket_start_time
+    indexes_to_scan = ['%s:%s' % (stream, i) for i in
+                       xrange(round_down(bucket_start_time, LENGTH_OF_YEAR),
+                              round_down(end_time, LENGTH_OF_YEAR) +
+                              LENGTH_OF_YEAR,
+                              LENGTH_OF_YEAR)]
+    index_keys = self.index_cf.multiget(indexes_to_scan,
+                                        column_start=(bucket_start_time,
+                                                      bucket_start_width, 0),
+                                        column_finish=(end_time, 0, 0),
+                                        buffer_size=len(indexes_to_scan))
+
+    events_deleted = 0
+    cf_mutator = self.event_cf.batch(queue_size=1000)
+    for bucket_key in itertools.chain.from_iterable(index_keys.itervalues()):
+      for shard in xrange(bucket_key[2]):
+        row_key = BucketInterval.name(stream, bucket_key, shard)
+        events = BucketInterval(self.event_cf, stream, bucket_key, shard)
+        events = map(lambda event: str(event[ID_FIELD]),
+                     filter(lambda event: (event[ID_FIELD] > start_id and 
+                                           event[TIMESTAMP_FIELD] <= end_time),
+                            events))
+        cf_mutator.remove(row_key, events)
+        events_deleted += len(events)
+    cf_mutator.send()
+    return events_deleted
+  
   def _retrieve(self, stream, start_id, end_time, order, limit, configuration):
     """
     Retrieve events for `stream` between `start_id` and `end_time`.

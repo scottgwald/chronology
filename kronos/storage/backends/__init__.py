@@ -30,6 +30,17 @@ class BaseStorage(object):
     raise NotImplementedError('Must implement `insert` method for %s' %
                               self.__class__.__name__)
 
+  def delete(self, stream, start_time, end_time, start_id, configuration):
+    if not start_id:
+      start_id = uuid_from_kronos_time(start_time, _type=UUIDType.LOWEST)
+    else:
+      start_id = uuid.UUID(start_id)
+    return self._delete(stream, start_id, end_time, configuration)
+
+  def _delete(self, stream, start_id, end_time, configuration):
+    raise NotImplementedError('Must implement `_delete` method for %s' %
+                              self.__class__.__name__)
+
   def retrieve(self, stream, start_time, end_time, start_id, configuration,
                order=ResultOrder.ASCENDING, limit=sys.maxint):
     """
@@ -49,7 +60,7 @@ class BaseStorage(object):
                           configuration)
   
   def _retrieve(self, stream, start_id, end_time, order, limit, configuration):
-    raise NotImplementedError('Must implement `retrieve` method for %s.' %
+    raise NotImplementedError('Must implement `_retrieve` method for %s.' %
                               self.__class__.__name__)
 
   def streams(self):

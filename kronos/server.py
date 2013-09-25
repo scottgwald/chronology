@@ -126,7 +126,7 @@ def index(environment, start_response, headers):
   return json.dumps(status)
 
 @endpoint('/1.0/events/put', methods=['POST'])
-def put(environment, start_response, headers):
+def put_events(environment, start_response, headers):
   """
   Store events in backends
   POST body should contain a JSON encoded version of:
@@ -159,7 +159,7 @@ def put(environment, start_response, headers):
   # Spawn greenlets to insert events asynchronously into matching backends.
   greenlets = []
   for stream, events in events_to_insert.iteritems():
-    backends = router.backends_to_insert(stream)
+    backends = router.backends_to_mutate(stream)
     for backend, conf in backends.iteritems():
       greenlet = GREENLET_POOL.spawn(backend.insert, stream, events, conf)
       greenlets.append(greenlet)
@@ -218,7 +218,7 @@ def get_events(environment, start_response, headers):
     backend, configuration = router.backend_to_retrieve(request_json['stream'])
     events_from_backend = backend.retrieve(
         request_json['stream'],
-        request_json.get('start_time'),
+        long(request_json.get('start_time', 0)),
         long(request_json['end_time']),
         request_json.get('start_id'),
         configuration,
@@ -233,6 +233,38 @@ def get_events(environment, start_response, headers):
     yield '{0}\r\n'.format(json.dumps(event))
     limit -= 1
   yield ''
+
+@endpoint('/1.0/events/delete', methods=['POST'])
+def delete_events(environment, start_response, headers):
+  """
+  Delete events
+  POST body should contain a JSON encoded version of:
+    { stream : stream_name,
+      start_time : starting_time_as_kronos_time,
+      end_time : ending_time_as_kronos_time,
+      start_id : only_delete_events_with_id_gte_me,
+    }
+  Either start_time or start_id should be specified. 
+  """
+
+  request_json = environment['json']
+  try:
+    validate_stream(request_json['stream'])
+  except Exception as e:
+    start_response('400 Bad Request', headers)
+    return json.dumps({'@errors' : [repr(e)]})
+
+  backends = router.backends_to_mutate(request_json['stream'])
+  status = {}
+  for backend, conf in backends.iteritems():
+    status[backend.name] = backend.delete(
+        request_json['stream'],
+        long(request_json.get('start_time', 0)),
+        long(request_json['end_time']),
+        request_json.get('start_id'),
+        conf)
+  start_response('200 OK', headers)
+  return json.dumps(status)
 
 @endpoint('/1.0/streams', methods=['GET'])
 def list_streams(environment, start_response, headers):

@@ -69,12 +69,12 @@ class InMemoryStorage(BaseStorage):
         self.db[stream].pop(0)
       bisect.insort(self.db[stream], Event(event))
     
-  def _retrieve(self, stream, start_id, end_time, order, limit, configuration):
+  def _delete(self, stream, start_id, end_time, configuration):
     """
-    Yield events from stream starting after the event with id `start_id` until
-    and including events with timestamp `end_time`.
+    Delete events with id > `start_id` and end_time <= `end_time`.
     """
-    start_id_event = Event({ID_FIELD: str(start_id)})
+    start_id = str(start_id)
+    start_id_event = Event({ID_FIELD: start_id})
     end_id_event = Event({ID_FIELD:
                           str(uuid_from_kronos_time(end_time,
                                                     _type=UUIDType.HIGHEST))})
@@ -82,6 +82,29 @@ class InMemoryStorage(BaseStorage):
 
     # Find the interval our events belong to.
     lo = bisect.bisect_left(stream_events, start_id_event)
+    if stream_events[lo][ID_FIELD] == start_id:
+      lo += 1
+    hi = bisect.bisect_right(stream_events, end_id_event)
+
+    del stream_events[lo:hi]
+    return max(0, hi - lo)
+
+  def _retrieve(self, stream, start_id, end_time, order, limit, configuration):
+    """
+    Yield events from stream starting after the event with id `start_id` until
+    and including events with timestamp `end_time`.
+    """
+    start_id = str(start_id)
+    start_id_event = Event({ID_FIELD: start_id})
+    end_id_event = Event({ID_FIELD:
+                          str(uuid_from_kronos_time(end_time,
+                                                    _type=UUIDType.HIGHEST))})
+    stream_events = self.db[stream]
+
+    # Find the interval our events belong to.
+    lo = bisect.bisect_left(stream_events, start_id_event)
+    if stream_events[lo][ID_FIELD] == start_id:
+      lo += 1
     hi = bisect.bisect_right(stream_events, end_id_event)
     
     if order == ResultOrder.DESCENDING:

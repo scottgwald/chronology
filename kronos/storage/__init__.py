@@ -67,7 +67,7 @@ class StorageRouter(object):
         self.configurations[regex][backend] = configuration or {}
 
   def get_configuration(self, stream, backend):
-    return self.backends_to_insert(stream)[backend]
+    return self.backends_to_mutate(stream)[backend]
 
   def get_matching_pattern(self, stream):
     """
@@ -102,7 +102,7 @@ class StorageRouter(object):
     self.stream_to_pattern_cache[stream] = best_match[0]
     return best_match[0]
     
-  def backends_to_insert(self, stream):
+  def backends_to_mutate(self, stream):
     """
     Return all the backends enabled for writing for `stream`.
     """
