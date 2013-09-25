@@ -1,5 +1,5 @@
 **Don't use this code.  It's hardly in the design phase yet:)**
-
+ 
 # Two use-cases
 
 ## High-throughput logging system
