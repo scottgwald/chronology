@@ -35,10 +35,7 @@ kronos.conf.settings.node = {
   'id': 'test',
   'greenlet_pool_size': 25,
   'log_directory': 'log',
-  'capabilities': map(lambda p: (re.compile(p[0]), frozenset(p[1])), [
-    ('localhost', ('READ',)),
-    ('cawcaw', ('READ',))
-  ])
+  'cors_whitelist_domains': map(re.compile, ['localhost'])
 }
 kronos.conf.settings.stream = {
   'fields': {
@@ -67,7 +64,6 @@ class KronosServerTest(unittest.TestCase):
     data = json.dumps({stream : events})
     resp = self.kronos_client.post(path=self.put_path,
                                    data=data,
-                                   headers=[('Origin', 'localhost')],
                                    buffered=True)
     self.assertEqual(resp.status_code, 200)
     return json.loads(resp.data)
@@ -86,13 +82,11 @@ class KronosServerTest(unittest.TestCase):
     data = json.dumps(data)
     resp = self.kronos_client.post(path=self.get_path,
                                    data=data,
-                                   headers=[('Origin', 'localhost')],
                                    buffered=True)
     return map(json.loads, resp.data.splitlines())
 
   def get_streams(self):
     resp = self.kronos_client.get(self.streams_path,
-                                  headers=[('Origin', 'localhost')],
                                   buffered=True)
     return map(json.loads, resp.data.splitlines())
 
@@ -143,33 +137,26 @@ class KronosServerTest(unittest.TestCase):
     self.assertIn(resp[1]['a'], [event2[0]['a'], event3[0]['a']])    
     
   def test_error_codes(self):
-    resp = self.kronos_client.get(path='/1.0/index',
-                                  headers=[('Origin', 'localhost')])
+    resp = self.kronos_client.get(path='/1.0/index')
     self.assertEqual(resp.status_code, 200)
 
-    resp = self.kronos_client.get(path='/mmmmcheese',
-                                  headers=[('Origin', 'localhost')])
+    resp = self.kronos_client.get(path='/mmmmcheese')
     self.assertEqual(resp.status_code, 404)
 
     # Only POSTing json is allowed.
-    resp = self.kronos_client.get(path=self.put_path,
-                                  headers=[('Origin', 'localhost')])
+    resp = self.kronos_client.get(path=self.put_path)
     self.assertEqual(resp.status_code, 405)
-    resp = self.kronos_client.get(path=self.get_path,
-                                  headers=[('Origin', 'localhost')])
+    resp = self.kronos_client.get(path=self.get_path)
     self.assertEqual(resp.status_code, 405)
-    resp = self.kronos_client.post(path=self.get_path, data='im not json',
-                                   headers=[('Origin', 'localhost')])
+    resp = self.kronos_client.post(path=self.get_path, data='im not json')
     self.assertEqual(resp.status_code, 400)
-    resp = self.kronos_client.post(path=self.put_path, data='im not json',
-                                   headers=[('Origin', 'localhost')])
+    resp = self.kronos_client.post(path=self.put_path, data='im not json')
     self.assertEqual(resp.status_code, 400)
 
   def test_stream_names(self):
     # Test that Kronos validates stream names properly.
     data = json.dumps({'stream': '$#@*', 'start_time': 0, 'end_time': 0})
-    resp = self.kronos_client.post(path=self.get_path, data=data,
-                                   headers=[('Origin', 'localhost')])
+    resp = self.kronos_client.post(path=self.get_path, data=data)
     self.assertEqual(resp.status_code, 400)
 
   def test_weird_time_ranges(self):
@@ -190,32 +177,6 @@ class KronosServerTest(unittest.TestCase):
 
     # Start time < 0 and end time < 0
     self.assertEqual([], self.get(stream, -2000, -1000))
-
-  def test_read_capability(self):
-    stream = "kronos_server_test_{0}".format(random.random())
-    event1 = [{'a': 1, 'b': 2, '@time': 1}]
-
-    # localhost or anyone with CORS can write
-    resp = self.kronos_client.post(path=self.put_path,
-                                   data=json.dumps({stream : event1}),
-                                   headers=[('Origin', 'cawcaw')],
-                                   buffered=True)
-    self.assertEqual(resp.status_code, 200)
-
-    # localhost can read
-    resp = self.get(stream, 0, 2)
-    self.assertEqual(len(resp), 1)
-
-    # everyone else can't read
-    data = {'stream':stream, 'start_time':0, 'end_time':2 }
-    data = json.dumps(data)
-    resp = self.kronos_client.post(path=self.get_path,
-                                   data=data,
-                                   headers=[('Origin', 'somebody')],
-                                   buffered=True)
-    self.assertEqual(resp.status_code, 200)
-    self.assertEqual(resp.data, '')
-
 
   def test_list_streams(self):
     streams = {}

@@ -27,21 +27,20 @@ GREENLET_POOL = gevent.pool.Pool(size=settings.node['greenlet_pool_size'])
 urls = {}
 
 
-def is_remote_allowed(remote, capabilities_required):
+def is_remote_allowed(remote):
   """
-  Check if `remote` has `capabilities_required`.
+  Check if `remote` is allowed to make a CORS request.
   """
-  for (pattern, capabilities) in settings.node['capabilities']:
-    if pattern.match(remote) and capabilities_required.issubset(capabilities):
+  for domain_pattern in settings.node['cors_whitelist_domains']:
+    if domain_pattern.match(remote):
       return True
   return False
 
-def endpoint(url, methods=['GET'], capabilities_required=[]):
+def endpoint(url, methods=['GET']):
   """
   Returns a decorator which when applied a function, causes that function to
   serve `url` and only allows the HTTP methods in `methods`
   """
-  capabilities_required = frozenset(capabilities_required)
   def decorator(function, methods=methods):
     @wraps(function)
     def wrapper(environment, start_response):
@@ -58,13 +57,14 @@ def endpoint(url, methods=['GET'], capabilities_required=[]):
           return json.dumps({'@errors' : [error]})
 
         headers = []
-        remote_origin = environment.get('HTTP_ORIGIN') or environment.get('REMOTE_ADDR')
+        remote_origin = (environment.get('HTTP_ORIGIN') or
+                         environment.get('REMOTE_ADDR'))
         local_origin = '{}://{}'.format(environment['wsgi.url_scheme'],
                                         environment['HTTP_HOST'])
         if remote_origin not in ('127.0.0.1', local_origin):
           # This is a cross domain request, so check that the remote domain is
           # allowed and include CORS headers.
-          if is_remote_allowed(remote_origin, capabilities_required):
+          if is_remote_allowed(remote_origin):
             cors_headers = [
                 ('Access-Control-Allow-Origin', remote_origin),
                 ('Access-Control-Allow-Methods', ', '.join(methods)),
@@ -125,7 +125,7 @@ def index(environment, start_response, headers):
   start_response('200 OK', headers)
   return json.dumps(status)
 
-@endpoint('/1.0/events/put', ['POST'])
+@endpoint('/1.0/events/put', methods=['POST'])
 def put(environment, start_response, headers):
   """
   Store events in backends
@@ -184,9 +184,7 @@ def put(environment, start_response, headers):
   return json.dumps(response)
 
 # TODO(usmanm): gzip compress response stream?
-@endpoint('/1.0/events/get',
-          methods=['POST'],
-          capabilities_required=['READ'])
+@endpoint('/1.0/events/get', methods=['POST'])
 def get_events(environment, start_response, headers):
   """
   Retrieve events
@@ -236,9 +234,7 @@ def get_events(environment, start_response, headers):
     limit -= 1
   yield ''
 
-@endpoint('/1.0/streams',
-          methods=['GET'],
-          capabilities_required=['READ'])
+@endpoint('/1.0/streams', methods=['GET'])
 def list_streams(environment, start_response, headers):
   start_response('200 OK', headers)
   streams_seen_so_far = set()

@@ -89,14 +89,3 @@ def validate_settings(settings):
   node = getattr(settings, 'node', dict)
   get_value(node, 'node', 'greenlet_pool_size', int)
   get_value(node, 'node', 'id', str)
-  capabilities = get_value(node, 'node', 'capabilities', list)
-  for p in capabilities:
-    if not isinstance(p, tuple) or len(p) != 2:
-      raise ImproperlyConfigured(
-          'Each entry in `capabilities` must be a tuple of length 2.')
-    (pattern, capabilities) = p
-    if not isinstance(pattern, re._pattern_type):
-      raise ImproperlyConfigured(
-          'Failed to compile pattern `{}`'.format(p[0]))
-    if not isinstance(capabilities, frozenset):
-      raise ImproperlyConfigured('Capabilities must be an iterable.')
