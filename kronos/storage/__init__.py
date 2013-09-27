@@ -1,8 +1,5 @@
 # TODO(usmanm): Eventually we should move stream configuration to ZK to allow
 # for online changes and easy synchronization between multiple Kronos instances.
-
-import re
-
 from collections import defaultdict
 from importlib import import_module
 
@@ -10,6 +7,7 @@ from kronos.conf import settings
 from kronos.core.exceptions import BackendMissing
 from kronos.core.exceptions import InvalidStreamName
 from kronos.core.validators import validate_stream
+from kronos.utils.cache import InMemoryLRUCache
 
 class StorageRouter(object):
   def __init__(self):
@@ -17,21 +15,10 @@ class StorageRouter(object):
     self.backend_to_read = dict()
     self.default_configuration = (None, dict())
     self.configurations = defaultdict(dict)
-    self.stream_to_pattern_cache = dict()
+    self.stream_to_prefix_cache = InMemoryLRUCache(max_items=1000)
     self.load_backends()
     self.load_configurations()
 
-  def pattern_to_regex(self, stream_pattern):
-    return re.compile('^%s$' % (stream_pattern
-                                  .replace('.', '\.')
-                                  .replace('*', '(.*)'))
-                     , re.I)
-
-  def regex_to_pattern(self, stream_regex):
-    return (stream_regex.pattern[1:-1]
-              .replace('\.', '.')
-              .replace('(.*)', '*'))
-  
   def load_backends(self):
     """
     Loads all the backends setup in settings.py.
@@ -58,64 +45,58 @@ class StorageRouter(object):
     return self.backend_to_read.iteritems()
 
   def load_configurations(self):
-    for pattern, options in settings.streams_to_backends.iteritems():
-      regex = self.pattern_to_regex(pattern)
-      self.backend_to_read[regex] = self.get_backend(options['read_backend'])
+    for prefix, options in settings.streams_to_backends.iteritems():
+      self.backend_to_read[prefix] = self.get_backend(options['read_backend'])
       backends = options['backends']
       for backend_name, configuration in backends.iteritems():
         backend = self.get_backend(backend_name)
-        self.configurations[regex][backend] = configuration or {}
+        self.configurations[prefix][backend] = configuration or {}
 
   def get_configuration(self, stream, backend):
     return self.backends_to_mutate(stream)[backend]
 
-  def get_matching_pattern(self, stream):
+  def get_matching_prefix(self, stream):
     """
-    We look at the stream patterns configured in stream.yaml and match stream
-    to the closest pattern. The closest pattern is defined as the pattern which
-    matches the most `.` in `stream`. The length of the overlap between `stream`
-    and the pattern is used as a tie breaker.
+    We look at the stream prefixs configured in stream.yaml and match stream
+    to the longest prefix.
     """
-    pattern = self.stream_to_pattern_cache.get(stream)
-    if pattern:
-      if isinstance(pattern, Exception):
-        raise pattern
-      return pattern
+    prefix = self.stream_to_prefix_cache.get(stream)
+    if prefix:
+      if isinstance(prefix, Exception):
+        raise prefix
+      return prefix
     try:
       validate_stream(stream)
     except InvalidStreamName, e:
-      self.stream_to_pattern_cache[stream] = e
+      self.stream_to_prefix_cache[stream] = e
       raise e
-    default_regex = self.pattern_to_regex('*')
-    best_match = (default_regex, float('inf'), -float('inf'))
-    for stream_pattern in self.configurations:
-      if stream_pattern == default_regex:
+    default_prefix = ''
+    longest_prefix = default_prefix
+    for prefix in self.configurations:
+      if prefix == default_prefix:
         continue
-      match = stream_pattern.match(stream)
-      if match:
-        literal_pattern = self.regex_to_pattern(stream_pattern)
-        extra_dots = stream.count('.') - literal_pattern.count('.')
-        literal_count = len(literal_pattern.replace('*', ''))
-        if (extra_dots < best_match[1] or
-            (extra_dots == best_match[1] and literal_count > best_match[2])):
-          best_match = (stream_pattern, extra_dots, literal_count)
-    self.stream_to_pattern_cache[stream] = best_match[0]
-    return best_match[0]
+      if not stream.startswith(prefix):
+        continue
+      if len(prefix) <= len(longest_prefix):
+        continue
+      longest_prefix = prefix
+    self.stream_to_prefix_cache[stream] = longest_prefix
+    return longest_prefix
     
   def backends_to_mutate(self, stream):
     """
     Return all the backends enabled for writing for `stream`.
     """
-    return self.configurations[self.get_matching_pattern(stream)]
+    return self.configurations[self.get_matching_prefix(stream)]
 
   def backend_to_retrieve(self, stream):
     """
     Return backend enabled for reading for `stream`.
     """
-    stream_pattern = self.get_matching_pattern(stream)
-    backend_to_read = self.backend_to_read[stream_pattern]
+    stream_prefix = self.get_matching_prefix(stream)
+    backend_to_read = self.backend_to_read[stream_prefix]
     return (backend_to_read,
-            self.configurations[stream_pattern][backend_to_read])
+            self.configurations[stream_prefix][backend_to_read])
 
   def refresh(self):
     self.__init__()

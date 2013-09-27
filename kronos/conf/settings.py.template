@@ -45,7 +45,7 @@ stream = {
 }
 
 streams_to_backends = {
-  '*': {
+  '': {
     'backends': {
       'memory': None
     },

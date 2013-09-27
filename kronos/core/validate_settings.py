@@ -57,28 +57,28 @@ def validate_settings(settings):
   # Validate `streams_to_backends`
   streams_to_backends = get_value(settings, 'settings',
                                   'streams_to_backends', dict)
-  if '*' not in streams_to_backends:
+  if '' not in streams_to_backends:
     raise ImproperlyConfigured(
-        'Must specify backends for the catch-all pattern `*`')
+        'Must specify backends for the null prefix')
 
-  for pattern, options in streams_to_backends.iteritems():
-    # Validate stream pattern by replacing '*' with any legal string.
-    validate_stream(pattern.replace('*', 'x'))
+  for prefix, options in streams_to_backends.iteritems():
+    # Validate stream prefix.
+    validate_stream(prefix)
 
-    backends = get_value(options, 'streams_to_backends[\'{}\']'.format(pattern),
+    backends = get_value(options, 'streams_to_backends[\'{}\']'.format(prefix),
                          'backends', dict)
     for backend in backends.keys():
       if backend not in storage:
         raise ImproperlyConfigured(
             '`{}` backend for `streams_to_backends[{}]` is not configured '+
-            'in `storage`'.format(backend, pattern))
+            'in `storage`'.format(backend, prefix))
 
-    read_backend = get_value(options, 'streams_to_backends[{}]'.format(pattern),
+    read_backend = get_value(options, 'streams_to_backends[{}]'.format(prefix),
                              'read_backend', str)
     if read_backend not in storage:
       raise ImproperlyConfigured(
           '`{}` backend for `streams_to_backends[{}]` is not configured in '+
-          '`storage`'.format(read_backend, pattern))
+          '`storage`'.format(read_backend, prefix))
 
   # Validate `stream`
   stream = getattr(settings, 'stream', dict)
