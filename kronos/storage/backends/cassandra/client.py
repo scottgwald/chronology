@@ -360,7 +360,7 @@ class TimeWidthCassandraStorage(BaseStorage):
     except:
       return False
 
-  def insert(self, stream, events, configuration):
+  def _insert(self, namespace, stream, events, configuration):
     """
     Store the specified events for the named stream.
     `stream` : The name of a stream.
@@ -409,7 +409,7 @@ class TimeWidthCassandraStorage(BaseStorage):
     # Send the current batch of operations to Cassandra.
     mutator.send()
 
-  def _delete(self, stream, start_id, end_time, configuration):
+  def _delete(self, namespace, stream, start_id, end_time, configuration):
     """
     Delete events for `stream` between `start_id` and `end_time`.
     `stream` : The stream to delete events for.
@@ -448,7 +448,8 @@ class TimeWidthCassandraStorage(BaseStorage):
     cf_mutator.send()
     return events_deleted
   
-  def _retrieve(self, stream, start_id, end_time, order, limit, configuration):
+  def _retrieve(self, namespace, stream, start_id, end_time, order, limit,
+                configuration):
     """
     Retrieve events for `stream` between `start_id` and `end_time`.
     `stream` : The stream to return events for.
@@ -496,7 +497,7 @@ class TimeWidthCassandraStorage(BaseStorage):
     for event in events:
       yield event
 
-  def streams(self):
+  def _streams(self, namespace):
     # TODO(usmanm): Ideally, we don't want to keep an in-memory set of all
     # stream names because it could cause memory issues. How to dedup?
     streams = set()

@@ -9,11 +9,19 @@ storage = {
   }
 }
 
-streams_to_backends = {
+default_namespace = 'kronos'
+
+_default_stream_configuration = {
   '': {
     'backends': {
-      'cassandra_timewidth': None
-    },
-    'read_backend': 'cassandra_timewidth'
+      'cassandra': None
+      },
+    'read_backend': 'cassandra'
+    }
   }
-}
+
+namespace_to_streams_configuration = {
+  default_namespace: _default_stream_configuration,
+  'namespace1': _default_stream_configuration,
+  'namespace2': _default_stream_configuration
+  }

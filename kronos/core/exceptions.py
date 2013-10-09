@@ -1,6 +1,9 @@
 class InvalidRequest(Exception):
   pass
 
+class InvalidNamespace(Exception):
+  pass
+
 class InvalidEventId(Exception):
   pass
 

@@ -52,12 +52,12 @@ class InMemoryStorage(BaseStorage):
   def __init__(self, name, **settings):
     super(InMemoryStorage, self).__init__(name, **settings)
     self.default_max_items = int(settings['default_max_items'])
-    self.db = defaultdict(list)
+    self.db = defaultdict(lambda: defaultdict(list))
 
   def is_alive(self):
     return True
   
-  def insert(self, stream, events, configuration):
+  def _insert(self, namespace, stream, events, configuration):
     """
     `stream` is the name of a stream and `events` is a list of events to
     insert. Make room for the events to insert if necessary by deleting the
@@ -65,11 +65,11 @@ class InMemoryStorage(BaseStorage):
     """
     max_items = configuration.get('max_items', self.default_max_items)  
     for event in events:
-      while len(self.db[stream]) >= max_items:
-        self.db[stream].pop(0)
-      bisect.insort(self.db[stream], Event(event))
+      while len(self.db[namespace][stream]) >= max_items:
+        self.db[namespace][stream].pop(0)
+      bisect.insort(self.db[namespace][stream], Event(event))
     
-  def _delete(self, stream, start_id, end_time, configuration):
+  def _delete(self, namespace, stream, start_id, end_time, configuration):
     """
     Delete events with id > `start_id` and end_time <= `end_time`.
     """
@@ -78,7 +78,7 @@ class InMemoryStorage(BaseStorage):
     end_id_event = Event({ID_FIELD:
                           str(uuid_from_kronos_time(end_time,
                                                     _type=UUIDType.HIGHEST))})
-    stream_events = self.db[stream]
+    stream_events = self.db[namespace][stream]
 
     # Find the interval our events belong to.
     lo = bisect.bisect_left(stream_events, start_id_event)
@@ -91,7 +91,8 @@ class InMemoryStorage(BaseStorage):
     del stream_events[lo:hi]
     return max(0, hi - lo)
 
-  def _retrieve(self, stream, start_id, end_time, order, limit, configuration):
+  def _retrieve(self, namespace, stream, start_id, end_time, order, limit,
+                configuration):
     """
     Yield events from stream starting after the event with id `start_id` until
     and including events with timestamp `end_time`.
@@ -101,7 +102,7 @@ class InMemoryStorage(BaseStorage):
     end_id_event = Event({ID_FIELD:
                           str(uuid_from_kronos_time(end_time,
                                                     _type=UUIDType.HIGHEST))})
-    stream_events = self.db[stream]
+    stream_events = self.db[namespace][stream]
 
     # Find the interval our events belong to.
     lo = bisect.bisect_left(stream_events, start_id_event)
@@ -122,5 +123,5 @@ class InMemoryStorage(BaseStorage):
       limit -= 1
       yield stream_events[i]
 
-  def streams(self):
-    return self.db.iterkeys()
+  def _streams(self, namespace):
+    return self.db[namespace].iterkeys()

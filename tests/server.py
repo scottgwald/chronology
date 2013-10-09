@@ -22,20 +22,23 @@ class KronosServerTestCase(unittest.TestCase):
     self.delete_path = '%s/delete' % BASE_PATH
     self.streams_path = '/%s/streams' % VERSION
 
-  def put(self, stream_or_mapping, events=None):
+  def put(self, stream_or_mapping, events=None, namespace=None):
+    data = {}
     if isinstance(stream_or_mapping, dict):
-      data = json.dumps(stream_or_mapping)
+      data['events'] = stream_or_mapping
     else:
       self.assertTrue(events is not None)
-      data = json.dumps({stream_or_mapping: events})
+      data['events'] = {stream_or_mapping: events}
+    if namespace is not None:
+      data['namespace'] = namespace
     response = self.http_client.post(path=self.put_path,
-                                     data=data,
+                                     data=json.dumps(data),
                                      buffered=True)
     self.assertEqual(response.status_code, 200)
     return json.loads(response.data)
 
   def get(self, stream, start_time, end_time, start_id=None, limit=None,
-          order=None):
+          order=None, namespace=None):
     data = {'stream': stream, 'end_time': end_time}
     if start_id:
       data['start_id'] = start_id
@@ -45,26 +48,34 @@ class KronosServerTestCase(unittest.TestCase):
       data['limit'] = limit
     if order is not None:
       data['order'] = order
+    if namespace is not None:
+      data['namespace'] = namespace
     response = self.http_client.post(path=self.get_path,
                                      data=json.dumps(data),
                                      buffered=True)
     self.assertEqual(response.status_code, 200)
     return map(json.loads, response.data.splitlines())
 
-  def delete(self, stream, start_time, end_time, start_id=None):
+  def delete(self, stream, start_time, end_time, start_id=None, namespace=None):
     data = {'stream': stream, 'end_time': end_time}
     if start_id:
       data['start_id'] = start_id
     else:
       data['start_time'] = start_time
+    if namespace is not None:
+      data['namespace'] = namespace
     response = self.http_client.post(path=self.delete_path,
                                      data=json.dumps(data),
                                      buffered=True)
     self.assertEqual(response.status_code, 200)
     return json.loads(response.data)
     
-  def get_streams(self):
-    response = self.http_client.get(self.streams_path,
-                                    buffered=True)
+  def get_streams(self, namespace=None):
+    data = {}
+    if namespace is not None:
+      data['namespace'] = namespace
+    response = self.http_client.post(self.streams_path,
+                                     data=json.dumps(data),
+                                     buffered=True)
     self.assertEqual(response.status_code, 200)
     return dict(map(json.loads, response.data.splitlines()))

@@ -51,9 +51,10 @@ def put_events(environment, start_response, headers):
   """
   Store events in backends
   POST body should contain a JSON encoded version of:
-    { stream_name1 : [event1, event2, ...],
-      stream_name2 : [event1, event2, ...],
-    ...
+    { namespace: namespace_name (optional),
+      events: { stream_name1 : [event1, event2, ...],
+                stream_name2 : [event1, event2, ...],
+                ... }
     }
   Where each event is a dictionary of keys and values.
   """
@@ -61,9 +62,11 @@ def put_events(environment, start_response, headers):
   start_time = time.time()
   errors = []
   events_to_insert = defaultdict(list)
+  request_json = environment['json']
+  namespace = request_json.get('namespace', settings.default_namespace)
 
   # Validate streams and events
-  for stream, events in environment['json'].iteritems():
+  for stream, events in request_json.get('events', {}).iteritems():
     try:
       validate_stream(stream)
     except Exception, e:
@@ -80,9 +83,14 @@ def put_events(environment, start_response, headers):
   # Spawn greenlets to insert events asynchronously into matching backends.
   greenlets = []
   for stream, events in events_to_insert.iteritems():
-    backends = router.backends_to_mutate(stream)
-    for backend, conf in backends.iteritems():
-      greenlet = GREENLET_POOL.spawn(backend.insert, stream, events, conf)
+    backends = router.backends_to_mutate(namespace, stream)
+    for backend, configuration in backends.iteritems():
+      greenlet = GREENLET_POOL.spawn(
+          backend.insert,
+          namespace,
+          stream,
+          events,
+          configuration)
       greenlets.append(greenlet)
 
   # TODO(usmanm): Add async option to API and bypass this wait in that case?
@@ -111,7 +119,8 @@ def get_events(environment, start_response, headers):
   """
   Retrieve events
   POST body should contain a JSON encoded version of:
-    { stream : stream_name,
+    { namespace: namespace_name (optional),
+      stream : stream_name,
       start_time : starting_time_as_kronos_time,
       end_time : ending_time_as_kronos_time,
       start_id : only_return_events_with_id_greater_than_me,
@@ -133,12 +142,15 @@ def get_events(environment, start_response, headers):
     yield json.dumps({'@errors' : [repr(e)]})
     return
 
+  namespace = request_json.get('namespace', settings.default_namespace)
   limit = int(request_json.get('limit', sys.maxint))
   if limit <= 0:
     events_from_backend = []
   else:
-    backend, configuration = router.backend_to_retrieve(request_json['stream'])
+    backend, configuration = router.backend_to_retrieve(namespace,
+                                                        request_json['stream'])
     events_from_backend = backend.retrieve(
+        namespace,
         request_json['stream'],
         long(request_json.get('start_time', 0)),
         long(request_json['end_time']),
@@ -162,7 +174,8 @@ def delete_events(environment, start_response, headers):
   """
   Delete events
   POST body should contain a JSON encoded version of:
-    { stream : stream_name,
+    { namespace: namespace_name (optional),
+      stream : stream_name,
       start_time : starting_time_as_kronos_time,
       end_time : ending_time_as_kronos_time,
       start_id : only_delete_events_with_id_gte_me,
@@ -177,10 +190,12 @@ def delete_events(environment, start_response, headers):
     start_response('400 Bad Request', headers)
     return json.dumps({'@errors' : [repr(e)]})
 
-  backends = router.backends_to_mutate(request_json['stream'])
+  namespace = request_json.get('namespace', settings.default_namespace)
+  backends = router.backends_to_mutate(namespace, request_json['stream'])
   status = {}
   for backend, conf in backends.iteritems():
     status[backend.name] = backend.delete(
+        namespace,
         request_json['stream'],
         long(request_json.get('start_time', 0)),
         long(request_json['end_time']),
@@ -189,16 +204,23 @@ def delete_events(environment, start_response, headers):
   start_response('200 OK', headers)
   return json.dumps(status)
 
-
-@endpoint('/1.0/streams', methods=['GET'])
+@endpoint('/1.0/streams', methods=['POST'])
 def list_streams(environment, start_response, headers):
+  """
+  List all streams and their properties that can be read from Kronos right now.
+  POST body should contain a JSON encoded version of:
+    { namespace: namespace_name (optional)
+    }
+  """
+
   start_response('200 OK', headers)
   streams_seen_so_far = set()
-  for pattern, backend in router.get_backend_to_read():
-    for stream in backend.streams():
-      if stream.startswith(pattern) and stream not in streams_seen_so_far:
+  namespace = environment['json'].get('namespace', settings.default_namespace)
+  for prefix, backend in router.get_read_backends(namespace):
+    for stream in backend.streams(namespace):
+      if stream.startswith(prefix) and stream not in streams_seen_so_far:
         streams_seen_so_far.add(stream)
-        properties = get_stream_properties(stream)
+        properties = get_stream_properties(namespace, stream)
         yield '{0}\r\n'.format(json.dumps((stream, properties)))
   yield ''
 

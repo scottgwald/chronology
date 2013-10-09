@@ -1,10 +1,24 @@
 import sys
 import uuid
 
+from functools import wraps
+
 from kronos.constants.order import ResultOrder
+from kronos.core.exceptions import InvalidNamespace
 from kronos.utils.math import uuid_from_kronos_time
 from kronos.utils.math import uuid_to_kronos_time
 from kronos.utils.math import UUIDType
+
+
+def _ensure_namespace(method):
+  @wraps(method)
+  def wrapper(self, namespace, *args, **kwargs):
+    from kronos.storage import router
+    if namespace not in router.namespaces:
+      raise InvalidNamespace('`{}` namespace is not configured'
+                             .format(namespace))
+    return method(self, namespace, *args, **kwargs)
+  return wrapper
 
 
 class BaseStorage(object):
@@ -27,25 +41,32 @@ class BaseStorage(object):
     raise NotImplementedError('Must implement `is_alive` method for %s' %
                               self.__class__.__name__)    
 
-  def insert(self, stream, events, configuration):
-    raise NotImplementedError('Must implement `insert` method for %s' %
+  @_ensure_namespace
+  def insert(self, namespace, stream, events, configuration):
+    self._insert(namespace, stream, events, configuration)
+
+  def _insert(self, namespace, stream, events, configuration):
+    raise NotImplementedError('Must implement `_insert` method for %s' %
                               self.__class__.__name__)
 
-  def delete(self, stream, start_time, end_time, start_id, configuration):
+  @_ensure_namespace
+  def delete(self, namespace, stream, start_time, end_time, start_id,
+             configuration):
     if not start_id:
       start_id = uuid_from_kronos_time(start_time, _type=UUIDType.LOWEST)
     else:
       start_id = uuid.UUID(start_id)
     if uuid_to_kronos_time(start_id) > end_time:
       return 0      
-    return self._delete(stream, start_id, end_time, configuration)
+    return self._delete(namespace, stream, start_id, end_time, configuration)
 
-  def _delete(self, stream, start_id, end_time, configuration):
+  def _delete(self, stream, start_id, end_time, configuration, namespace):
     raise NotImplementedError('Must implement `_delete` method for %s' %
                               self.__class__.__name__)
 
-  def retrieve(self, stream, start_time, end_time, start_id, configuration,
-               order=ResultOrder.ASCENDING, limit=sys.maxint):
+  @_ensure_namespace
+  def retrieve(self, namespace, stream, start_time, end_time, start_id,
+               configuration, order=ResultOrder.ASCENDING, limit=sys.maxint):
     """
     Retrieves all the events for `stream` from `start_time` (inclusive) till
     `end_time` (exclusive). Alternatively to `start_time`, `start_id` can be 
@@ -61,13 +82,18 @@ class BaseStorage(object):
       start_id = uuid.UUID(start_id)
     if uuid_to_kronos_time(start_id) > end_time:
       return []
-    return self._retrieve(stream, start_id, end_time, order, limit, 
+    return self._retrieve(namespace, stream, start_id, end_time, order, limit, 
                           configuration)
   
-  def _retrieve(self, stream, start_id, end_time, order, limit, configuration):
+  def _retrieve(self, namespace, stream, start_id, end_time, order, limit,
+                configuration):
     raise NotImplementedError('Must implement `_retrieve` method for %s.' %
                               self.__class__.__name__)
 
-  def streams(self):
-    raise NotImplementedError('Must implement `streams` method for %s' %
+  @_ensure_namespace
+  def streams(self, namespace):
+    return self._streams(namespace)
+
+  def _streams(self, namespace):
+    raise NotImplementedError('Must implement `_streams` method for %s' %
                               self.__class__.__name__)

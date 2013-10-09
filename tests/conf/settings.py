@@ -30,7 +30,6 @@ stream = {
   'format': re.compile(r'^[a-z0-9\_]+(\.[a-z0-9\_]+)*$', re.I)
 }
 
-
 def configure(configuration_name):
   # Proxy all non-native attributes of the current module and the module
   # at `tests.conf.<configuration_name>` to `kronos.conf.settings`.

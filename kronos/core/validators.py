@@ -143,35 +143,40 @@ def validate_settings(settings):
     validate_storage_settings(getattr(module, cls), options)
 
   # Validate `streams_to_backends`
-  streams_to_backends = _validate_and_get_value(settings, 'settings',
-                                                'streams_to_backends', dict)
-  if '' not in streams_to_backends:
-    raise ImproperlyConfigured(
-        'Must specify backends for the null prefix')
-
-  for prefix, options in streams_to_backends.iteritems():
-    if prefix != '':
-      # Validate stream prefix.
-      validate_stream(prefix)
-
-    backends = _validate_and_get_value(
-        options, 
-        'streams_to_backends[\'{}\']'.format(prefix),
-        'backends', dict)
-    for backend in backends.keys():
-      if backend not in storage:
-        raise ImproperlyConfigured(
-            '`{}` backend for `streams_to_backends[{}]` is not configured '+
-            'in `storage`'.format(backend, prefix))
-
-    read_backend = _validate_and_get_value(
-        options,
-        'streams_to_backends[{}]'.format(prefix),
-        'read_backend', str)
-    if read_backend not in storage:
+  namespace_to_streams_configuration = _validate_and_get_value(
+      settings, 'settings', 'namespace_to_streams_configuration', dict)
+  for namespace, prefix_confs in namespace_to_streams_configuration.iteritems():
+    if '' not in prefix_confs:
       raise ImproperlyConfigured(
-          '`{}` backend for `streams_to_backends[{}]` is not configured in '+
-          '`storage`'.format(read_backend, prefix))
+          'Must specify backends for the null prefix')
+
+    for prefix, options in prefix_confs.iteritems():
+      if prefix != '':
+        # Validate stream prefix.
+        validate_stream(prefix)
+
+      backends = _validate_and_get_value(
+          options, 
+          "namespace_to_streams_configuration['{}']['{}']".format(namespace, 
+                                                                  prefix),
+          'backends', dict)
+      for backend in backends.keys():
+        if backend not in storage:
+          raise ImproperlyConfigured(
+              "`{}` backend for `namespace_to_streams_configuration['{}']"
+              "['{}']` is not configured in `storage`"
+              .format(backend, namespace, prefix))
+
+      read_backend = _validate_and_get_value(
+          options,
+          "namespace_to_streams_configuration['{}']['{}']".format(namespace, 
+                                                                  prefix),
+          'read_backend', str)
+      if read_backend not in storage:
+          raise ImproperlyConfigured(
+              "`{}` backend for `namespace_to_streams_configuration['{}']"
+              "['{}']` is not configured in `storage`"
+              .format(read_backend, namespace, prefix))
 
   # Validate `stream`
   stream = getattr(settings, 'stream', dict)

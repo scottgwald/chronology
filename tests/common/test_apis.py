@@ -204,3 +204,38 @@ class TestKronosAPIs(KronosServerTestCase):
     for stream, properties in streams.iteritems():
       n = stream.replace('TestKronosAPIs_test_streams_', '')
       self.assertEqual(set(properties), {n, 'lol'})
+
+  def test_namespaces(self):
+    namespace1 = 'namespace1'
+    namespace2 = 'namespace2'
+    stream = 'TestKronosAPIs_test_namespaces'
+    events1 = [{'ns': 1, TIMESTAMP_FIELD: 1},
+               {'ns': 1, TIMESTAMP_FIELD: 2},
+               {'ns': 1, TIMESTAMP_FIELD: 10}]
+    events2 = [{'ns': 2, TIMESTAMP_FIELD: 2},
+               {'ns': 2, TIMESTAMP_FIELD: 5},
+               {'ns': 2, TIMESTAMP_FIELD: 7}]
+
+    # Check that both namespace1 and namespace2 are empty.
+    self.assertEqual(len(self.get_streams(namespace=namespace1)), 0)
+    self.assertEqual(len(self.get_streams(namespace=namespace2)), 0)
+
+    # Put events into namespace1.
+    self.put(stream, events1, namespace=namespace1)
+    self.assertEqual(len(self.get_streams(namespace=namespace1)), 1)
+    self.assertEqual(len(self.get_streams(namespace=namespace2)), 0)
+    self.assertEqual(len(self.get(stream, 0, 10, namespace=namespace1)), 3)
+    self.assertEqual(len(self.get(stream, 0, 10, namespace=namespace2)), 0)
+    self.assertTrue(all(e['ns'] == 1
+                        for e in self.get(stream, 0, 10, namespace=namespace1)))
+
+    # Put events into namespace2.
+    self.put(stream, events2, namespace=namespace2)
+    self.assertEqual(len(self.get_streams(namespace=namespace1)), 1)
+    self.assertEqual(len(self.get_streams(namespace=namespace2)), 1)
+    self.assertEqual(len(self.get(stream, 0, 10, namespace=namespace1)), 3)
+    self.assertEqual(len(self.get(stream, 0, 10, namespace=namespace2)), 3)
+    self.assertTrue(all(e['ns'] == 1
+                        for e in self.get(stream, 0, 10, namespace=namespace1)))
+    self.assertTrue(all(e['ns'] == 2
+                        for e in self.get(stream, 0, 10, namespace=namespace2)))

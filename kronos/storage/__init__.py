@@ -12,12 +12,13 @@ from kronos.utils.cache import InMemoryLRUCache
 class StorageRouter(object):
   def __init__(self):
     self.backends = dict()
-    self.backend_to_read = dict()
-    self.default_configuration = (None, dict())
-    self.configurations = defaultdict(dict)
-    self.stream_to_prefix_cache = InMemoryLRUCache(max_items=1000)
+    self.prefix_read_backends = dict()
+    self.prefix_confs = dict()
+    self.stream_to_prefix_cache = defaultdict(lambda: 
+                                              InMemoryLRUCache(max_items=500))
+    self.namespaces = set()
     self.load_backends()
-    self.load_configurations()
+    self.load_prefix_configurations()
 
   def load_backends(self):
     """
@@ -41,27 +42,32 @@ class StorageRouter(object):
   def get_backends(self):
     return self.backends.iteritems()
 
-  def get_backend_to_read(self):
-    return self.backend_to_read.iteritems()
+  def get_read_backends(self, namespace):
+    return self.prefix_read_backends[namespace].iteritems()
 
-  def load_configurations(self):
-    for prefix, options in settings.streams_to_backends.iteritems():
-      self.backend_to_read[prefix] = self.get_backend(options['read_backend'])
-      backends = options['backends']
-      for backend_name, configuration in backends.iteritems():
-        backend = self.get_backend(backend_name)
-        self.configurations[prefix][backend] = configuration or {}
+  def load_prefix_configurations(self):
+    for namespace, streams_conf in (settings.namespace_to_streams_configuration
+                                    .iteritems()):
+      prefix_read_backends = self.prefix_read_backends[namespace] = dict()
+      prefix_confs  = self.prefix_confs[namespace] = defaultdict(dict)
+      for prefix, options in streams_conf.iteritems():
+        prefix_read_backends[prefix] = self.get_backend(options['read_backend'])
+        backends = options['backends']
+        for backend_name, configuration in backends.iteritems():
+          backend = self.get_backend(backend_name)
+          prefix_confs[prefix][backend] = configuration or {}
+      self.namespaces.add(namespace)
 
-  def get_configuration(self, stream, backend):
-    return self.backends_to_mutate(stream)[backend]
+  def get_configuration(self, namespace, stream, backend):
+    return self.backends_to_mutate(namespace, stream)[backend]
 
-  def get_matching_prefix(self, stream):
+  def get_matching_prefix(self, namespace, stream):
     """
     We look at the stream prefixs configured in stream.yaml and match stream
     to the longest prefix.
     """
     try:
-      prefix = self.stream_to_prefix_cache.get(stream)
+      prefix = self.stream_to_prefix_cache[namespace].get(stream)
       if prefix:
         if isinstance(prefix, Exception):
           raise prefix
@@ -71,11 +77,11 @@ class StorageRouter(object):
     try:
       validate_stream(stream)
     except InvalidStreamName, e:
-      self.stream_to_prefix_cache[stream] = e
+      self.stream_to_prefix_cache[namespace][stream] = e
       raise e
     default_prefix = ''
     longest_prefix = default_prefix
-    for prefix in self.configurations:
+    for prefix in self.prefix_confs[namespace]:
       if prefix == default_prefix:
         continue
       if not stream.startswith(prefix):
@@ -83,23 +89,24 @@ class StorageRouter(object):
       if len(prefix) <= len(longest_prefix):
         continue
       longest_prefix = prefix
-    self.stream_to_prefix_cache.set(stream, longest_prefix)
+    self.stream_to_prefix_cache[namespace].set(stream, longest_prefix)
     return longest_prefix
     
-  def backends_to_mutate(self, stream):
+  def backends_to_mutate(self, namespace, stream):
     """
     Return all the backends enabled for writing for `stream`.
     """
-    return self.configurations[self.get_matching_prefix(stream)]
+    return self.prefix_confs[namespace][self.get_matching_prefix(namespace,
+                                                                 stream)]
 
-  def backend_to_retrieve(self, stream):
+  def backend_to_retrieve(self, namespace, stream):
     """
     Return backend enabled for reading for `stream`.
     """
-    stream_prefix = self.get_matching_prefix(stream)
-    backend_to_read = self.backend_to_read[stream_prefix]
-    return (backend_to_read,
-            self.configurations[stream_prefix][backend_to_read])
+    stream_prefix = self.get_matching_prefix(namespace, stream)
+    read_backend = self.prefix_read_backends[namespace][stream_prefix]
+    return (read_backend,
+            self.prefix_confs[namespace][stream_prefix][read_backend])
 
       
 router = StorageRouter()
