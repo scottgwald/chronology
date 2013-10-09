@@ -1,23 +1,10 @@
+import importlib
 import re
+import sys
+
 from uuid import getnode
 
 debug = True
-
-# Backends.
-storage = {
-  'cassandra_timewidth': {
-    'backend': 'cassandra.TimeWidthCassandraStorage',
-    'hosts': ['localhost:9160'],
-    'keyspace': 'kronos_tw',
-    'replication_factor': 0, # Set to a value greater than 0 or you will get an UnavailableException
-    'default_timewidth_seconds': 86400,
-    'default_shards_per_bucket': 5
-  },
-  'memory': {
-    'backend': 'memory.InMemoryStorage',
-    'default_max_items': 1000
-  },
-}
 
 # Node related settings. `id` should be a unique name that identifies this
 # Kronos instance, while `name` is simply a more human readable name.
@@ -25,10 +12,7 @@ node = {
   'id':  hex(getnode()), # Unique ID for this Kronos server.
   'greenlet_pool_size': 20, # Greenlet poolsize per process.
   'log_directory': 'log',
-  'cors_whitelist_domains' : map(re.compile, [
-    # Domains that match any regex in this list will be allowed to talk to this
-    # Kronos instance
-  ])
+  'cors_whitelist_domains': map(re.compile, ['localhost'])
 }
 
 # Stream settings.
@@ -46,14 +30,22 @@ stream = {
   'format': re.compile(r'^[a-z0-9\_]+(\.[a-z0-9\_]+)*$', re.I)
 }
 
-streams_to_backends = {
-  '': {
-    'backends': {
-      'memory': None
-    },
-    'read_backend': 'memory'
-  }
-}
 
-# TODO(usmanm): Add configuration for logging events for Kronos itself.
+def configure(configuration_name):
+  # Proxy all non-native attributes of the current module and the module
+  # at `tests.conf.<configuration_name>` to `kronos.conf.settings`.
+  import kronos.conf.settings
 
+  shared_module = sys.modules[__name__]
+  for attr in dir(shared_module):
+    if attr.startswith('__') or attr == 'patch':
+      continue
+    setattr(kronos.conf.settings, attr, getattr(shared_module, attr))
+
+  # Do this afterwards in case the patch module wants to override something
+  # set in this module.
+  patch_module = importlib.import_module('tests.conf.%s' % configuration_name)
+  for attr in dir(patch_module):
+    if attr.startswith('__'):
+      continue
+    setattr(kronos.conf.settings, attr, getattr(patch_module, attr))

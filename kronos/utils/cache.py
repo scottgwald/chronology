@@ -34,6 +34,6 @@ class InMemoryLRUCache(object):
       self.mark_as_lru(entry)
 
   def get(self, key):
-    entry = self.cache[key]
+    entry = self.cache[key]      
     self.mark_as_lru(entry)
     return entry[0]

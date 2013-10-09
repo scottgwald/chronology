@@ -6,103 +6,24 @@ import sys
 import time
 
 from collections import defaultdict
-from functools import wraps
 from gunicorn.app.base import Application
 
 import kronos
 
-# Validate settings before importing anything else
-from kronos.core.validate_settings import validate_settings
+# Validate settings before importing anything else.
+from kronos.core.validators import validate_settings
 from kronos.conf import settings; validate_settings(settings)
 
 from kronos.constants.order import ResultOrder
 from kronos.core.validators import validate_event
 from kronos.core.validators import validate_stream
 from kronos.storage import router
+from kronos.utils.decorators import endpoint
+from kronos.utils.decorators import ENDPOINTS
 from kronos.utils.streams import get_stream_properties
 
 GREENLET_POOL = gevent.pool.Pool(size=settings.node['greenlet_pool_size'])
 
-# map URLs to the functions that serve them
-urls = {}
-
-
-def is_remote_allowed(remote):
-  """
-  Check if `remote` is allowed to make a CORS request.
-  """
-  for domain_pattern in settings.node['cors_whitelist_domains']:
-    if domain_pattern.match(remote):
-      return True
-  return False
-
-def endpoint(url, methods=['GET']):
-  """
-  Returns a decorator which when applied a function, causes that function to
-  serve `url` and only allows the HTTP methods in `methods`
-  """
-  def decorator(function, methods=methods):
-    @wraps(function)
-    def wrapper(environment, start_response):
-      try:
-        req_method = environment['REQUEST_METHOD']
-
-        # If the request method is not allowed, return 405.
-        # Always allow OPTIONS since any non-simple CORS request will need it.
-        if req_method != 'OPTIONS' and req_method not in methods:
-          start_response('405 Method Not Allowed',
-                         [('Allow', ', '.join(methods)),
-                          ('Content-Type', 'application/json')])
-          error = '{0} method not allowed'.format(req_method)
-          return json.dumps({'@errors' : [error]})
-
-        headers = []
-        remote_origin = (environment.get('HTTP_ORIGIN') or
-                         environment.get('REMOTE_ADDR'))
-        local_origin = '{}://{}'.format(environment['wsgi.url_scheme'],
-                                        environment['HTTP_HOST'])
-        if remote_origin not in ('127.0.0.1', local_origin):
-          # This is a cross domain request, so check that the remote domain is
-          # allowed and include CORS headers.
-          if is_remote_allowed(remote_origin):
-            cors_headers = [
-                ('Access-Control-Allow-Origin', remote_origin),
-                ('Access-Control-Allow-Methods', ', '.join(methods)),
-                ('Access-Control-Allow-Headers', ', '.join(
-                  ('Accept', 'Content-Type', 'Origin', 'X-Requested-With')))
-                ]
-            if req_method == 'OPTIONS':
-              # We just tell the client that CORS is ok. Client will follow up
-              # with another request to get the answer.
-              start_response('200 OK', cors_headers)
-              return ''
-            else:
-              # We return the answer to the request along with CORS headers.
-              headers.extend(cors_headers)
-          else:
-            # Remote domain is not allowed.
-            start_response('200 OK', [])
-            return ''
-
-        # All POST bodies must be json, so decode it here.
-        if req_method == 'POST':
-          environment['json'] = json.loads(environment['wsgi.input'].read())
-
-        # All responses are JSON.
-        headers.append(('Content-Type', 'application/json'))
-
-        return function(environment, start_response, headers)
-      except Exception, e:
-        start_response('400 Bad Request', headers)
-        return json.dumps({'@errors' : [repr(e)]})
-
-    # map the URL to serve to this function
-    global urls
-    urls[url] = wrapper
-
-    return wrapper
-
-  return decorator
 
 @endpoint('/1.0/index')
 def index(environment, start_response, headers):
@@ -183,6 +104,7 @@ def put_events(environment, start_response, headers):
   start_response('200 OK', headers)
   return json.dumps(response)
 
+
 # TODO(usmanm): gzip compress response stream?
 @endpoint('/1.0/events/get', methods=['POST'])
 def get_events(environment, start_response, headers):
@@ -234,6 +156,7 @@ def get_events(environment, start_response, headers):
     limit -= 1
   yield ''
 
+
 @endpoint('/1.0/events/delete', methods=['POST'])
 def delete_events(environment, start_response, headers):
   """
@@ -266,25 +189,28 @@ def delete_events(environment, start_response, headers):
   start_response('200 OK', headers)
   return json.dumps(status)
 
+
 @endpoint('/1.0/streams', methods=['GET'])
 def list_streams(environment, start_response, headers):
   start_response('200 OK', headers)
   streams_seen_so_far = set()
-  for regex, backend in router.get_backend_to_read():
+  for pattern, backend in router.get_backend_to_read():
     for stream in backend.streams():
-      if regex.match(stream) and stream not in streams_seen_so_far:
+      if stream.startswith(pattern) and stream not in streams_seen_so_far:
         streams_seen_so_far.add(stream)
         properties = get_stream_properties(stream)
         yield '{0}\r\n'.format(json.dumps((stream, properties)))
   yield ''
 
+
 def wsgi_application(environment, start_response):
   path = environment.get('PATH_INFO', '').rstrip('/')
-  if path in urls:
-    return urls[path](environment, start_response)
+  if path in ENDPOINTS:
+    return ENDPOINTS[path](environment, start_response)
   else:
     start_response('404 NOT FOUND', [('Content-Type', 'text/plain')])
     return "Four, oh, four :'(."
+
 
 class GunicornApplication(Application):
   def __init__(self, options={}):

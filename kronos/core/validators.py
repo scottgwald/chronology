@@ -2,9 +2,11 @@ import re
 import time
 
 from uuid import UUID
+from importlib import import_module
 
 from kronos.conf import settings
 
+from kronos.core.exceptions import ImproperlyConfigured
 from kronos.core.exceptions import InvalidEventId
 from kronos.core.exceptions import InvalidEventTime
 from kronos.core.exceptions import InvalidStreamName
@@ -12,9 +14,38 @@ from kronos.utils.math import time_to_kronos_time
 from kronos.utils.math import uuid_to_kronos_time
 from kronos.utils.math import uuid_from_kronos_time
 
-TIMESTAMP_FIELD = settings.stream['fields']['timestamp']
 ID_FIELD = settings.stream['fields']['id']
+TIMESTAMP_FIELD = settings.stream['fields']['timestamp']
 STREAM_REGEX = re.compile(r'^[a-z0-9\_]+(\.[a-z0-9\_]+)*$', re.I)
+
+
+def _validate_and_get_value(options, options_name, key, _type):
+  """
+  Check that `options` has a value for `key` with type
+  `_type`. Return that value. `options_name` is a string representing a
+  human-readable name for `options` to be used when printing errors.
+  """
+  if isinstance(options, dict):
+    has = lambda k: options.has_key(k)
+    get = lambda k: options[k]
+  elif isinstance(options, object):
+    has = lambda k: hasattr(options, k)
+    get = lambda k: getattr(options, k)
+  else:
+    raise ImproperlyConfigured(
+        '`{}` must be a dictionary-like object.'.format(options_name))
+
+  if not has(key):
+    raise ImproperlyConfigured(
+        '`{}` must be specified in `{}`'.format(key, options_name))
+
+  value = get(key)
+  if not isinstance(value, _type):
+    raise ImproperlyConfigured(
+        '`{}` in `{}` must be a {}'.format(key, options_name, repr(_type)))
+
+  return value
+
 
 def validate_event(event):
   """
@@ -52,7 +83,7 @@ def validate_event(event):
                               .format(event[TIMESTAMP_FIELD], uuid))
 
     event_id = str(uuid)
-  
+
   event[TIMESTAMP_FIELD] = int(event_time)
   event[ID_FIELD] = event_id
 
@@ -61,7 +92,6 @@ def validate_stream(stream):
   """
   Check that the stream name is well-formed.
   """
-
   if not STREAM_REGEX.match(stream):
     raise InvalidStreamName(stream)
 
@@ -90,3 +120,65 @@ def validate_storage_settings(storage_class, settings):
       raise ImproperlyConfigured(
           '{}: invalid value for {}'.format(storage_class, setting))
 
+
+def validate_settings(settings):
+  """
+  `settings` is either a dictionary or an object containing Kronos settings
+  (e.g., the contents of conf/settings.py). This function checks that all
+  required settings are present and valid.
+  """
+
+  # Validate `storage`
+  storage = _validate_and_get_value(settings, 'settings', 'storage', dict)
+  for name, options in storage.iteritems():
+    if 'backend' not in options:
+      raise ImproperlyConfigured(
+          '`storage[\'{}\'] must contain a `backend` key'.format(name))
+
+    path = 'kronos.storage.backends.%s' % options['backend']
+    module, cls = path.rsplit('.', 1)
+    module = import_module(module)
+    if not hasattr(module, cls):
+      raise NotImplementedError('`{}` not implemented.'.format(cls))
+    validate_storage_settings(getattr(module, cls), options)
+
+  # Validate `streams_to_backends`
+  streams_to_backends = _validate_and_get_value(settings, 'settings',
+                                                'streams_to_backends', dict)
+  if '' not in streams_to_backends:
+    raise ImproperlyConfigured(
+        'Must specify backends for the null prefix')
+
+  for prefix, options in streams_to_backends.iteritems():
+    if prefix != '':
+      # Validate stream prefix.
+      validate_stream(prefix)
+
+    backends = _validate_and_get_value(
+        options, 
+        'streams_to_backends[\'{}\']'.format(prefix),
+        'backends', dict)
+    for backend in backends.keys():
+      if backend not in storage:
+        raise ImproperlyConfigured(
+            '`{}` backend for `streams_to_backends[{}]` is not configured '+
+            'in `storage`'.format(backend, prefix))
+
+    read_backend = _validate_and_get_value(
+        options,
+        'streams_to_backends[{}]'.format(prefix),
+        'read_backend', str)
+    if read_backend not in storage:
+      raise ImproperlyConfigured(
+          '`{}` backend for `streams_to_backends[{}]` is not configured in '+
+          '`storage`'.format(read_backend, prefix))
+
+  # Validate `stream`
+  stream = getattr(settings, 'stream', dict)
+  _validate_and_get_value(stream, 'stream', 'fields', dict)
+  _validate_and_get_value(stream, 'stream', 'format', re._pattern_type)
+
+  # Validate `node`
+  node = getattr(settings, 'node', dict)
+  _validate_and_get_value(node, 'node', 'greenlet_pool_size', int)
+  _validate_and_get_value(node, 'node', 'id', str)

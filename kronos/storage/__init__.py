@@ -60,11 +60,14 @@ class StorageRouter(object):
     We look at the stream prefixs configured in stream.yaml and match stream
     to the longest prefix.
     """
-    prefix = self.stream_to_prefix_cache.get(stream)
-    if prefix:
-      if isinstance(prefix, Exception):
-        raise prefix
-      return prefix
+    try:
+      prefix = self.stream_to_prefix_cache.get(stream)
+      if prefix:
+        if isinstance(prefix, Exception):
+          raise prefix
+        return prefix
+    except KeyError:
+      pass
     try:
       validate_stream(stream)
     except InvalidStreamName, e:
@@ -80,7 +83,7 @@ class StorageRouter(object):
       if len(prefix) <= len(longest_prefix):
         continue
       longest_prefix = prefix
-    self.stream_to_prefix_cache[stream] = longest_prefix
+    self.stream_to_prefix_cache.set(stream, longest_prefix)
     return longest_prefix
     
   def backends_to_mutate(self, stream):
@@ -98,7 +101,5 @@ class StorageRouter(object):
     return (backend_to_read,
             self.configurations[stream_prefix][backend_to_read])
 
-  def refresh(self):
-    self.__init__()
       
 router = StorageRouter()

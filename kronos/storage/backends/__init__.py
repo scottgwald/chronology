@@ -3,6 +3,7 @@ import uuid
 
 from kronos.constants.order import ResultOrder
 from kronos.utils.math import uuid_from_kronos_time
+from kronos.utils.math import uuid_to_kronos_time
 from kronos.utils.math import UUIDType
 
 
@@ -35,6 +36,8 @@ class BaseStorage(object):
       start_id = uuid_from_kronos_time(start_time, _type=UUIDType.LOWEST)
     else:
       start_id = uuid.UUID(start_id)
+    if uuid_to_kronos_time(start_id) > end_time:
+      return 0      
     return self._delete(stream, start_id, end_time, configuration)
 
   def _delete(self, stream, start_id, end_time, configuration):
@@ -56,6 +59,8 @@ class BaseStorage(object):
       start_id = uuid_from_kronos_time(start_time, _type=UUIDType.LOWEST)
     else:
       start_id = uuid.UUID(start_id)
+    if uuid_to_kronos_time(start_id) > end_time:
+      return []
     return self._retrieve(stream, start_id, end_time, order, limit, 
                           configuration)
   
