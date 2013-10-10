@@ -2,6 +2,7 @@ import re
 from uuid import getnode
 
 debug = True
+collector_mode = False
 
 # Backends.
 storage = {

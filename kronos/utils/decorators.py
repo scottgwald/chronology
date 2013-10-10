@@ -86,9 +86,11 @@ def endpoint(url, methods=['GET']):
         start_response('400 Bad Request', headers)
         return json.dumps({'@errors' : [repr(e)]})
 
-    # Map the URL to serve to this function
+    # Map the URL to serve to this function. If running in `collector_mode`,
+    # then only map the `put_events` function.
     global ENDPOINTS
-    ENDPOINTS[url] = wrapper
+    if not (settings.collector_mode and function.func_name != 'put_events'):
+      ENDPOINTS[url] = wrapper
 
     return wrapper
 

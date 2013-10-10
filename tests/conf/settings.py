@@ -5,6 +5,7 @@ import sys
 from uuid import getnode
 
 debug = True
+collector_mode = False
 
 # Node related settings. `id` should be a unique name that identifies this
 # Kronos instance, while `name` is simply a more human readable name.

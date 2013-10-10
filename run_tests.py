@@ -36,6 +36,7 @@ def test_against(*configs):
           for namespace in (router.get_backend('cassandra').namespaces
                             .itervalues()):
             namespace._drop()
+    wrapper.wrapped_function = function
     return wrapper
   return decorator
 
@@ -48,6 +49,12 @@ def test_common():
   runner = unittest.TextTestRunner()
   for test_suite in test_suites:
     runner.run(test_suite)
+
+
+@test_against('cassandra')
+def test_cassandra():
+  # Run all the common tests on Cassandra.
+  test_common.wrapped_function()
 
 
 def run_test(test_name):

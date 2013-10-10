@@ -10,6 +10,7 @@ import werkzeug.serving
 
 from argparse import ArgumentParser
 
+from kronos.conf import settings
 from kronos.server import GunicornApplication, wsgi_application
 
 if __name__ == "__main__":
@@ -21,7 +22,14 @@ if __name__ == "__main__":
   parser.add_argument('--num-proc', action='store',
                       default=multiprocessing.cpu_count() * 2 + 1,
                       help='number of processes to run')
+  parser.add_argument('--collector-mode', action='store_true',
+                      help='only open the put endpoint?')
   args = parser.parse_args()
+
+  # Copy over some args to settings.py.
+  for arg in ('debug', 'collector_mode'):
+    setattr(settings, arg, getattr(args, arg))
+  
   if args.debug:
     (host, port) = args.bind.split(':')
     werkzeug.serving.run_with_reloader(
