@@ -16,7 +16,7 @@ class StorageRouter(object):
     self.prefix_confs = dict()
     self.stream_to_prefix_cache = defaultdict(lambda: 
                                               InMemoryLRUCache(max_items=500))
-    self.namespaces = set()
+    self.namespaces = settings.namespace_to_streams_configuration.keys()
     self.load_backends()
     self.load_prefix_configurations()
 
@@ -31,7 +31,9 @@ class StorageRouter(object):
 
       # Create an instance of the configured backend.
       backend_constructor = getattr(backend_module, backend_cls)
-      self.backends[name] = backend_constructor(name, **backend_settings)
+      self.backends[name] = backend_constructor(name,
+                                                namespaces=self.namespaces,
+                                                **backend_settings)
 
   def get_backend(self, name):
     try:
@@ -56,7 +58,9 @@ class StorageRouter(object):
         for backend_name, configuration in backends.iteritems():
           backend = self.get_backend(backend_name)
           prefix_confs[prefix][backend] = configuration or {}
-      self.namespaces.add(namespace)
+
+  def get_namespaces(self):
+    return self.namespaces
 
   def get_configuration(self, namespace, stream, backend):
     return self.backends_to_mutate(namespace, stream)[backend]

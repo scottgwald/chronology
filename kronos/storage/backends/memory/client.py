@@ -46,7 +46,6 @@ class InMemoryStorage(BaseStorage):
 
   SETTINGS_VALIDATORS = {
     'default_max_items': lambda x: int(x) > 0,
-    'backend': lambda x: x == 'memory.InMemoryStorage',
   }
   
   def __init__(self, name, **settings):

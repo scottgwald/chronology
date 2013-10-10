@@ -50,6 +50,7 @@ from datetime import timedelta
 from pycassa import ColumnFamily, ConnectionPool, NotFoundException, types
 from pycassa.batch import Mutator
 from pycassa.system_manager import SIMPLE_STRATEGY, SystemManager
+from thrift.transport.TTransport import TTransportException
 from types import StringTypes
 from uuid import UUID
 
@@ -142,7 +143,8 @@ class BucketInterval(object):
 
     # If we want to sort in descending order, compare the end of the
     # interval.
-    self._cmp_value = self.start if order == ResultOrder.ASCENDING else -self.end
+    self._cmp_value = (self.start if order == ResultOrder.ASCENDING
+                       else -self.end)
 
   def __cmp__(self, other):
     if other is None:
@@ -181,7 +183,7 @@ class BucketInterval(object):
       # Nothing was stored with this key.
       # This might happen if some events were stored with a sharding factor of
       # `s`, but less than `s` shards were actually used.
-      return None
+      return {}
 
   @staticmethod
   def name(stream, start_time, shard):
@@ -284,69 +286,100 @@ class SortedShardedEventStream(object):
           yield event
 
         self.load_next_buckets()
-        
+
+
+class Namespace(object):
+  EVENT_CF = 'events'
+  INDEX_CF = 'index'
+
+  def __init__(self, system_manager, keyspace_name, replication_factor,
+               hosts=None):
+    self.system_manager = system_manager
+    self.keyspace_name = keyspace_name
+    self.replication_factor = replication_factor;
+    self.hosts = hosts or [system_manager._conn.server]
+    self.setup()
+
+  def setup(self):
+    if self.keyspace_name not in self.system_manager.list_keyspaces():
+      self.system_manager.create_keyspace(
+          self.keyspace_name,
+          SIMPLE_STRATEGY,
+          {'replication_factor': str(self.replication_factor)})
+      self.system_manager.create_column_family(
+          self.keyspace_name,
+          Namespace.EVENT_CF,
+          comparator_type=types.TimeUUIDType())
+      self.system_manager.create_column_family(
+          self.keyspace_name,
+          Namespace.INDEX_CF,
+          # Column key: (start_time, width, shard).
+          comparator_type=types.CompositeType(types.LongType(),
+                                              types.IntegerType(),
+                                              types.IntegerType()))
+    self.pool = ConnectionPool(keyspace=self.keyspace_name,
+                               server_list=self.hosts)
+    self.index_cf = ColumnFamily(self.pool, Namespace.INDEX_CF)
+    self.event_cf = ColumnFamily(self.pool, Namespace.EVENT_CF)
+    self.index_cache = InMemoryLRUCache(max_items=1000)
+
+  def _drop(self):
+    self.system_manager.drop_keyspace(self.keyspace_name)
+
+
 class TimeWidthCassandraStorage(BaseStorage):
   # TODO(meelap): Put `read_size` stuff back so that we can limit how much
   # memory Kronos uses to buffer read data from backends.
-  EVENT_CF = 'events'
-  INDEX_CF = 'index'
   MAX_WIDTH = LENGTH_OF_YEAR / 2 # Too big, small, necessary?
 
   SETTINGS_VALIDATORS = {
     'default_timewidth_seconds': 
          lambda x: (int(x) > 0 and 
-                    time_to_kronos_time(int(x)) <= TimeWidthCassandraStorage.MAX_WIDTH),
+                    time_to_kronos_time(int(x)) <=
+                      TimeWidthCassandraStorage.MAX_WIDTH),
     'default_shards_per_bucket': lambda x: int(x) > 0,
     'hosts': lambda x: isinstance(x, list),
-    'keyspace': lambda x: len(str(x)) > 0,
-    'replication_factor': lambda x: int(x) >= 0,
-    'backend': lambda x: x == 'cassandra.TimeWidthCassandraStorage',
+    'keyspace_prefix': lambda x: len(str(x)) > 0,
+    'replication_factor': lambda x: int(x) >= 1
   }  
 
-  def __init__(self, name, **settings):
+  def __init__(self, name, namespaces=None, **settings):
     """
     Check that settings contains all of the required parameters in the right
     format, then setup a connection to the specified Cassandra instance.
     """
     super(TimeWidthCassandraStorage, self).__init__(name, **settings)
     required_params = ('hosts',
-                       'keyspace',
+                       'keyspace_prefix',
                        'replication_factor',
                        'default_timewidth_seconds',
                        'default_shards_per_bucket')
     for param in required_params:
       setattr(self, param, settings[param])
 
-    self.index_cache = InMemoryLRUCache() # 1000-entry LRU cache.
-    self.setup_cassandra()
+    self.namespaces = dict()
+    self.setup_cassandra(namespaces)
     
-  def setup_cassandra(self):
+  def setup_cassandra(self, namespaces):
     """
     Set up a connection pool to the specified Cassandra instances and create the
     specified keyspace if it does not exist.
     """
     # TODO(meelap) Don't assume we can connect to the first host. Round robin
     # across hosts until we can connect to one.
-    self.system_manager = SystemManager(self.hosts[0])
-    if self.keyspace not in self.system_manager.list_keyspaces():
-      self.system_manager.create_keyspace(
-          self.keyspace,
-          SIMPLE_STRATEGY,
-          {'replication_factor': str(self.replication_factor)})
-      self.system_manager.create_column_family(
-          self.keyspace,
-          TimeWidthCassandraStorage.EVENT_CF,
-          comparator_type=types.TimeUUIDType())
-      self.system_manager.create_column_family(
-          self.keyspace,
-          TimeWidthCassandraStorage.INDEX_CF,
-          # Column key: (start_time, width, shard).
-          comparator_type=types.CompositeType(types.LongType(),
-                                              types.IntegerType(),
-                                              types.IntegerType()))
-    self.pool = ConnectionPool(keyspace=self.keyspace, server_list=self.hosts)
-    self.index_cf = ColumnFamily(self.pool, TimeWidthCassandraStorage.INDEX_CF)
-    self.event_cf = ColumnFamily(self.pool, TimeWidthCassandraStorage.EVENT_CF)
+    for host in self.hosts:
+      try:
+        self.system_manager = SystemManager(host)
+        break
+      except TTransportException:
+        pass
+
+    for namespace_name in namespaces:
+      # Shit, this looks like such a baller smiley.
+      keyspace = '{}_{}'.format(self.keyspace_prefix, namespace_name)
+      namespace = Namespace(self.system_manager, keyspace,
+                            self.replication_factor, hosts=self.hosts)
+      self.namespaces[namespace_name] = namespace
     
   def is_alive(self):
     """
@@ -354,7 +387,8 @@ class TimeWidthCassandraStorage(BaseStorage):
     """
     try:
       connection = self.pool.get()
-      connection.describe_keyspace(self.keyspace) # Fake *ping* Cassandra?
+      # Fake *ping* Cassandra?
+      connection.describe_keyspace(self.keyspace_prefix)
       connection.return_to_pool()
       return True
     except:
@@ -368,13 +402,18 @@ class TimeWidthCassandraStorage(BaseStorage):
     `configuration` : A dictionary of settings to override any default settings,
                       such as number of shards or width of a time interval.
     """
-    width = configuration.get('timewidth_seconds', self.default_timewidth_seconds)
+    namespace = self.namespaces[namespace]
+    width = configuration.get('timewidth_seconds',
+                              self.default_timewidth_seconds)
     width = time_to_kronos_time(width)
-    shards = int(configuration.get('shards_per_bucket', self.default_shards_per_bucket))
+    shards = int(configuration.get('shards_per_bucket',
+                                   self.default_shards_per_bucket))
     shard = random.randint(0, shards - 1)
 
-    index_to_buckets = defaultdict(dict) # (stream, index_start) => [(stream, bucket_start, shard)]
-    bucket_to_events = defaultdict(dict) # (stream, bucket_start, shard) => {id => properties}
+    # (stream, index_start) => [(stream, bucket_start, shard)]
+    index_to_buckets = defaultdict(dict)
+    # (stream, bucket_start, shard) => {id => properties}
+    bucket_to_events = defaultdict(dict)
 
     # Group together all events that are in the same bucket so that
     # bucket_to_events maps bucketnames to { column_name==UUID : event, ... }.
@@ -386,25 +425,25 @@ class TimeWidthCassandraStorage(BaseStorage):
       index = '%s:%s' % (stream, index_start_time)
       index_to_buckets[index][(bucket_start_time, width, shards)] = ''
 
-    mutator = Mutator(self.pool, queue_size=1000)
+    mutator = Mutator(namespace.pool, queue_size=1000)
 
     # Add all event writes to the batch of operations.
     for bucket_name, events in bucket_to_events.iteritems():
-      mutator.insert(self.event_cf, bucket_name, events)
+      mutator.insert(namespace.event_cf, bucket_name, events)
 
     # Add all index writes to the batch of operations.
     for index, buckets in index_to_buckets.iteritems():
       try:
-        cached_index_value = self.index_cache.get(index)
+        cached_index_value = namespace.index_cache.get(index)
         new_index_value = set(buckets) | cached_index_value
         if new_index_value != cached_index_value:
           # Write the new buckets covered by this index entry.
-          mutator.insert(self.index_cf, index,
+          mutator.insert(namespace.index_cf, index,
                          dict.fromkeys(new_index_value - cached_index_value, ''))
-          self.index_cache.set(index, new_index_value)
+          namespace.index_cache.set(index, new_index_value)
       except KeyError:
-        mutator.insert(self.index_cf, index, buckets)
-        self.index_cache.set(index, set(buckets))
+        mutator.insert(namespace.index_cf, index, buckets)
+        namespace.index_cache.set(index, set(buckets))
 
     # Send the current batch of operations to Cassandra.
     mutator.send()
@@ -419,6 +458,7 @@ class TimeWidthCassandraStorage(BaseStorage):
                       settings, such as number of shards or width of a
                       time interval.
     """
+    namespace = self.namespaces[namespace]
     start_time = uuid_to_kronos_time(start_id)
     bucket_start_time = max(start_time - TimeWidthCassandraStorage.MAX_WIDTH, 0)
     bucket_start_width = start_time - bucket_start_time
@@ -427,23 +467,25 @@ class TimeWidthCassandraStorage(BaseStorage):
                               round_down(end_time, LENGTH_OF_YEAR) +
                               LENGTH_OF_YEAR,
                               LENGTH_OF_YEAR)]
-    index_keys = self.index_cf.multiget(indexes_to_scan,
-                                        column_start=(bucket_start_time,
-                                                      bucket_start_width, 0),
-                                        column_finish=(end_time, 0, 0),
-                                        buffer_size=len(indexes_to_scan))
-
+    index_keys = namespace.index_cf.multiget(indexes_to_scan,
+                                             column_start=(bucket_start_time,
+                                                           bucket_start_width,
+                                                           0),
+                                             column_finish=(end_time, 0, 0),
+                                             buffer_size=len(indexes_to_scan))
+    end_id = uuid_from_kronos_time(end_time, _type=UUIDType.HIGHEST)
     events_deleted = 0
-    cf_mutator = self.event_cf.batch(queue_size=1000)
+    cf_mutator = namespace.event_cf.batch(queue_size=1000)
     for bucket_key in itertools.chain.from_iterable(index_keys.itervalues()):
       for shard in xrange(bucket_key[2]):
-        row_key = BucketInterval.name(stream, bucket_key, shard)
-        events = BucketInterval(self.event_cf, stream, bucket_key, shard)
-        events = map(lambda event: str(event[ID_FIELD]),
-                     filter(lambda event: (event[ID_FIELD] > start_id and 
-                                           event[TIMESTAMP_FIELD] <= end_time),
-                            events))
-        cf_mutator.remove(row_key, events)
+        row_key = BucketInterval.name(stream, bucket_key[0], shard)
+        bucket_interval = BucketInterval(namespace.event_cf, stream, bucket_key,
+                                         shard, ResultOrder.ASCENDING)
+        events = bucket_interval.fetch(start_id, end_id)
+        if not events:
+          continue
+        events.pop(start_id, None)
+        cf_mutator.remove(row_key, events.iterkeys())
         events_deleted += len(events)
     cf_mutator.send()
     return events_deleted
@@ -461,6 +503,8 @@ class TimeWidthCassandraStorage(BaseStorage):
                       settings, such as number of shards or width of a
                       time interval.
     """
+    namespace = self.namespaces[namespace]
+    
     # Time of the first event to return
     start_time = uuid_to_kronos_time(start_id)
 
@@ -480,28 +524,40 @@ class TimeWidthCassandraStorage(BaseStorage):
                              LENGTH_OF_YEAR)]
 
     # Get all buckets which might contain events of interest.
-    index_keys = self.index_cf.multiget(indexes_to_scan,
-                                        column_start=(bucket_start_time,
-                                                      bucket_start_width, 0),
-                                        column_finish=(end_time, 0, 0),
-                                        buffer_size=len(indexes_to_scan))
+    index_keys = namespace.index_cf.multiget(indexes_to_scan,
+                                             column_start=(bucket_start_time,
+                                                           bucket_start_width,
+                                                           0),
+                                             column_finish=(end_time, 0, 0),
+                                             buffer_size=len(indexes_to_scan))
 
     # Construct a list of BucketIntervals to scan for matching events.
     intervals = []
     for bucket_key in itertools.chain.from_iterable(index_keys.itervalues()):
       for i in xrange(bucket_key[2]):
-        intervals.append(BucketInterval(self.event_cf, stream, bucket_key, i, order))
+        intervals.append(BucketInterval(namespace.event_cf, stream, bucket_key,
+                                        i, order))
 
     end_id = uuid_from_kronos_time(end_time, _type=UUIDType.HIGHEST)
     events = SortedShardedEventStream(intervals, start_id, end_id, limit, order)
-    for event in events:
-      yield event
+    try:
+      events = events.__iter__()
+      event = events.next()
+      # If first event's ID is equal to `start_id`, skip it.
+      if event[ID_FIELD] != str(start_id):
+        yield event
+      while True:
+        yield events.next()
+    except StopIteration:
+      pass
 
   def _streams(self, namespace):
     # TODO(usmanm): Ideally, we don't want to keep an in-memory set of all
     # stream names because it could cause memory issues. How to dedup?
+    namespace = self.namespaces[namespace]
     streams = set()
-    for index in self.index_cf.get_range(column_count=0, filter_empty=False):
+    for index in namespace.index_cf.get_range(column_count=0,
+                                              filter_empty=False):
       stream = index[0].split(':')[0]
       if stream not in streams:
         streams.add(stream)

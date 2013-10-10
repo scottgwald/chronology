@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import functools
 import os
 import subprocess
 import sys
@@ -7,46 +8,64 @@ import unittest
 
 from argparse import ArgumentParser
 
+def test_against(*configs):
+  def decorator(function):
+    @functools.wraps(function)
+    def wrapper():
+      if 'KRONOS_CONFIG' not in os.environ:
+        # Run test for each configuration.
+        for config in configs:
+          name = function.func_name.lstrip('test_')
+          args = [sys.executable, sys.argv[0], name]
+          new_env = os.environ.copy()
+          new_env['KRONOS_CONFIG'] = config
+          # Need this so that for each configuration we spawn off a completely
+          # new Kronos server. We shouldn't persist state when testing different
+          # configurations.
+          subprocess.call(args, env=new_env)
+      else:
+        # Configure Kronos with the right settings before running the tests.
+        from tests.conf import settings
+        config = os.environ['KRONOS_CONFIG']
+        settings.configure(config)
+        # Run the wrapped test function.
+        function()
+        # Do any teardown needed for some Kronos configurations.
+        if config == 'cassandra':
+          from kronos.storage import router
+          for namespace in (router.get_backend('cassandra').namespaces
+                            .itervalues()):
+            namespace._drop()
+    return wrapper
+  return decorator
 
-def _configure_kronos(config_name='default'):
-  from tests.conf import settings
-  settings.configure(config_name)
+
+@test_against('memory', 'cassandra')
+def test_common():
+  test_suites = unittest.defaultTestLoader.discover(
+    start_dir=os.path.join(os.path.dirname(__file__), 'tests/common'),
+    pattern='test_*.py')
+  runner = unittest.TextTestRunner()
+  for test_suite in test_suites:
+    runner.run(test_suite)
 
 
-def run_common_tests():
-  # Need this so that for each configuration we spawn off a completely
-  # new Kronos server. We shouldn't persist state when testing different
-  # configurations.
-  if 'KRONOS_CONFIG' not in os.environ:
-    # Run common tests with all configurations.
-    for config in ('memory', ):#'cassandra'):
-      args = [sys.executable]
-      args.extend(sys.argv)
-      if '--common' not in args:
-        args.append('--common')
-      new_env = os.environ.copy()
-      new_env['KRONOS_CONFIG'] = config
-      subprocess.call(args, env=new_env)
-  else:
-    # Configure Kronos with the right settings before running the tests.
-    _configure_kronos(os.environ['KRONOS_CONFIG'])
-    test_suites = unittest.defaultTestLoader.discover(
-      start_dir=os.path.join(os.path.dirname(__file__), 'tests/common'),
-      pattern='test_*.py')
-    runner = unittest.TextTestRunner()
-    for test_suite in test_suites:
-      runner.run(test_suite)
+def run_test(test_name):
+  test_function = getattr(sys.modules[__name__], 'test_%s' % test_name)
+  test_function()
+
 
 if __name__ == '__main__':
   parser = ArgumentParser(description='Kronos test runner.')
-  parser.add_argument('--common', action='store_true',
-                      help='run common tests only?')
-  parser.add_argument('--cassandra', action='store_true',
-                      help='run Cassandra tests only?')
+  parser.add_argument('tests', nargs='+', help='tests to run')
   args = parser.parse_args()
 
-  if args.common:
-    run_common_tests()
+  if 'against' in args.tests:
+    raise ValueError
+
+  if 'all' in args.tests:
+    # Run all tests
+    run_test('common')
   else:
-    # Run all tests.
-    run_common_tests()
+    for test in args.tests:
+      run_test(test)
