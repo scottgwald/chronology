@@ -110,6 +110,7 @@ def validate_storage_settings(storage_class, settings):
         '{}: storage class must define `SETTINGS_VALIDATORS`'.format(storage_class))
 
   settings_validators = getattr(storage_class, 'SETTINGS_VALIDATORS')
+  settings = settings.copy()
   settings.pop('backend', None) # No need to validate the `backend` key.
   invalid_settings = set(settings.keys()) - set(settings_validators.keys())
   if invalid_settings:

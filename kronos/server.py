@@ -232,33 +232,3 @@ def wsgi_application(environment, start_response):
   else:
     start_response('404 NOT FOUND', [('Content-Type', 'text/plain')])
     return "Four, oh, four :'(."
-
-
-class GunicornApplication(Application):
-  def __init__(self, options={}):
-    # Try creating log directory, if missing.
-    log_dir = settings.node['log_directory'].rstrip('/')
-    if not os.path.exists(log_dir):
-      os.makedirs(log_dir)
-
-    # Default options
-    self.options = {'worker_class': 'gevent',
-                    'accesslog': '{0}/{1}'.format(log_dir, 'access.log'),
-                    'errorlog': '{0}/{1}'.format(log_dir, 'error.log'),
-                    'log_level': 'info',
-                    'name': 'kronosd'}
-
-    # Apply user specified options
-    self.options.update(options)
-
-    super(GunicornApplication, self).__init__()
-
-  def init(self, *args):
-    config = {}
-    for key, value in self.options.iteritems():
-      if key in self.cfg.settings and value is not None:
-        config[key] = value
-    return config
-  
-  def load(self):
-    return wsgi_application

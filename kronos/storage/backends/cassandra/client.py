@@ -386,10 +386,7 @@ class TimeWidthCassandraStorage(BaseStorage):
     Is our connection to Cassandra alive?
     """
     try:
-      connection = self.pool.get()
-      # Fake *ping* Cassandra?
-      connection.describe_keyspace(self.keyspace_prefix)
-      connection.return_to_pool()
+      self.system_manager.list_keyspaces()
       return True
     except:
       return False

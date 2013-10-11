@@ -5,15 +5,16 @@ import gevent.pywsgi
 import geventhttpclient.httplib; geventhttpclient.httplib.patch()
 
 import multiprocessing
-import sys
+import subprocess
 import werkzeug.serving
+import os
 
 from argparse import ArgumentParser
 
 from kronos.conf import settings
-from kronos.server import GunicornApplication, wsgi_application
+from kronos.server import wsgi_application
 
-if __name__ == "__main__":
+if __name__ == '__main__':
   parser = ArgumentParser(description='Kronos HTTP server.')
   parser.add_argument('--debug', action='store_true', help='debug mode?')
   parser.add_argument('--bind', action='store', default='0.0.0.0:8150',
@@ -36,8 +37,17 @@ if __name__ == "__main__":
         lambda: gevent.pywsgi.WSGIServer((host, int(port)),
                                          wsgi_application).serve_forever())
   else:
-    # Clear command line arguments, so that GunicornApplication doesn't try to 
-    # parse them.
-    del sys.argv[1:]
-    GunicornApplication({'bind': args.bind,
-                         'workers': int(args.num_proc)}).run()
+    # Try creating log directory, if missing.
+    log_dir = settings.node['log_directory'].rstrip('/')
+    if not os.path.exists(log_dir):
+      os.makedirs(log_dir)
+
+    argv = ['gunicorn', 'kronos.server:wsgi_application',
+            '--worker-class', 'gevent',
+            '--log-level', 'info',
+            '--name', 'kronosd',
+            '--access-logfile', '{0}/{1}'.format(log_dir, 'access.log'),
+            '--error-logfile', '{0}/{1}'.format(log_dir, 'error.log'),
+            '--workers', str(args.num_proc),
+            '--bind', args.bind]
+    subprocess.call(argv)

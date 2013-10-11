@@ -1,10 +1,7 @@
-#sudo apt-get install libevent-dev
-#sudo apt-get install python-all-dev
-greenlet
-gevent
-geventhttpclient
-gunicorn
-pycassa
-python-cjson
-werkzeug
-requests>=1.2.0
+greenlet==0.4.1
+gevent==0.13.8
+geventhttpclient==1.0a
+gunicorn==18.0
+pycassa==1.9.1
+werkzeug==0.9.4
+requests==1.2.3
