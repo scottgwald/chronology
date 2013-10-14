@@ -3,9 +3,10 @@ import time
 
 from collections import defaultdict
 
-from kronos.constants.order import ResultOrder
+from kronos.conf.constants import ID_FIELD
+from kronos.conf.constants import ResultOrder
+from kronos.conf.constants import TIMESTAMP_FIELD
 from kronos.utils.math import time_to_kronos_time
-from kronos.core.validators import ID_FIELD, TIMESTAMP_FIELD
 from tests.server import KronosServerTestCase
 
 BASE_PATH = '/1.0/events'

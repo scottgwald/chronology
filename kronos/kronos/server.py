@@ -1,12 +1,10 @@
 import gevent
 import gevent.pool
 import json
-import os
 import sys
 import time
 
 from collections import defaultdict
-from gunicorn.app.base import Application
 
 import kronos
 
@@ -14,7 +12,7 @@ import kronos
 from kronos.core.validators import validate_settings
 from kronos.conf import settings; validate_settings(settings)
 
-from kronos.constants.order import ResultOrder
+from kronos.conf.constants import ResultOrder
 from kronos.core.validators import validate_event
 from kronos.core.validators import validate_stream
 from kronos.storage import router
@@ -35,7 +33,6 @@ def index(environment, start_response, headers):
   status = {'service': 'kronosd',
             'version': kronos.get_version(),
             'id': settings.node['id'],
-            'fields': settings.stream['fields'],
             'storage': {}}
 
   # Check if each backend is alive

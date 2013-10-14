@@ -54,10 +54,11 @@ from thrift.transport.TTransport import TTransportException
 from types import StringTypes
 from uuid import UUID
 
-from kronos.conf import settings
+from kronos.conf.constants import ID_FIELD
+from kronos.conf.constants import ResultOrder
+from kronos.conf.constants import TIMESTAMP_FIELD
 from kronos.core.exceptions import InvalidBucketIntervalComparison
 from kronos.core.exceptions import InvalidUUIDComparison
-from kronos.constants.order import ResultOrder
 from kronos.storage.backends import BaseStorage
 from kronos.utils.cache import InMemoryLRUCache
 from kronos.utils.math import round_down
@@ -66,8 +67,6 @@ from kronos.utils.math import uuid_from_kronos_time
 from kronos.utils.math import uuid_to_kronos_time
 from kronos.utils.math import UUIDType
 
-ID_FIELD = settings.stream['fields']['id']
-TIMESTAMP_FIELD = settings.stream['fields']['timestamp']
 LENGTH_OF_YEAR = int(timedelta(days=365.25).total_seconds() * 1e7)
 
 

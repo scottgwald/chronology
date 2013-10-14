@@ -3,7 +3,7 @@ import uuid
 
 from functools import wraps
 
-from kronos.constants.order import ResultOrder
+from kronos.conf.constants import ResultOrder
 from kronos.core.exceptions import InvalidNamespace
 from kronos.utils.math import uuid_from_kronos_time
 from kronos.utils.math import uuid_to_kronos_time

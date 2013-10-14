@@ -3,11 +3,8 @@ import bisect
 from collections import defaultdict
 from uuid import UUID
 
-from kronos.conf import settings
-ID_FIELD = settings.stream['fields']['id']
-TIMESTAMP_FIELD = settings.stream['fields']['timestamp']
-
-from kronos.constants.order import ResultOrder
+from kronos.conf.constants import ID_FIELD
+from kronos.conf.constants import ResultOrder
 from kronos.storage.backends import BaseStorage
 from kronos.utils.math import uuid_from_kronos_time
 from kronos.utils.math import UUIDType

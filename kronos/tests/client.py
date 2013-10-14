@@ -1,10 +1,9 @@
-import itertools
 import json
 import sys; import os; sys.path.append(os.path.abspath(os.getcwd()))
 import time
 
 from kronos.client import KronosClient
-from kronos.constants.order import ResultOrder
+from kronos.conf.constants import ResultOrder
 
 class TestClient:
   def __init__(self, hostname):

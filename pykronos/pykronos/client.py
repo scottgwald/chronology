@@ -8,6 +8,10 @@ from collections import defaultdict
 
 from utils import kronos_time_now
 
+# These are constants, do not modify them.
+ID_FIELD = '@id'
+TIMESTAMP_FIELD = '@time'
+
 class ResultOrder(object):
   ASCENDING = 'ascending'
   DESCENDING = 'descending'
@@ -26,11 +30,8 @@ class KronosClient(object):
     a background thread that flushes events to the server.
   """
 
-  # These are constants, do not modify them.
-  TIMESTAMP_FIELD = '@time'
-  ID_FIELD = '@id'
-
   def __init__(self, http_url, blocking=True, sleep_block=0.1):
+    http_url = http_url.rstrip('/')
     self._put_url = '%s/1.0/events/put' % http_url
     self._get_url = '%s/1.0/events/get' % http_url
     self._index_url = '%s/1.0/index' % http_url
@@ -75,8 +76,8 @@ class KronosClient(object):
     timestamp = kronos_time_now()
     for events in event_dict.itervalues():
       for event in events:
-        if KronosClient.TIMESTAMP_FIELD not in event:
-          event[KronosClient.TIMESTAMP_FIELD] = timestamp
+        if TIMESTAMP_FIELD not in event:
+          event[TIMESTAMP_FIELD] = timestamp
 
     if self._blocking:
       return self._put(event_dict)
@@ -121,7 +122,7 @@ class KronosClient(object):
         for line in response.iter_lines():
           if line:
             event = json.loads(line)
-            last_id = event[KronosClient.ID_FIELD]
+            last_id = event[ID_FIELD]
             yield event
         break
       except Exception, e:
