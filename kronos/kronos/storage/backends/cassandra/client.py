@@ -47,7 +47,11 @@ import random
 
 from collections import defaultdict
 from datetime import timedelta
-from pycassa import ColumnFamily, ConnectionPool, NotFoundException, types
+from pycassa import (ColumnFamily,
+                     ConnectionPool,
+                     ConsistencyLevel,
+                     NotFoundException,
+                     types)
 from pycassa.batch import Mutator
 from pycassa.system_manager import SIMPLE_STRATEGY, SystemManager
 from thrift.transport.TTransport import TTransportException
@@ -320,6 +324,9 @@ class Namespace(object):
                                server_list=self.hosts)
     self.index_cf = ColumnFamily(self.pool, Namespace.INDEX_CF)
     self.event_cf = ColumnFamily(self.pool, Namespace.EVENT_CF)
+    # Index cache is a write cache: it prevents us from writing to the
+    # bucket index if we've already updated it in a previous
+    # operation.
     self.index_cache = InMemoryLRUCache(max_items=1000)
 
   def _drop(self):
@@ -406,7 +413,7 @@ class TimeWidthCassandraStorage(BaseStorage):
                                    self.default_shards_per_bucket))
     shard = random.randint(0, shards - 1)
 
-    # (stream, index_start) => [(stream, bucket_start, shard)]
+    # 'stream:index_start' => [(stream, bucket_start, shard)]
     index_to_buckets = defaultdict(dict)
     # (stream, bucket_start, shard) => {id => properties}
     bucket_to_events = defaultdict(dict)
@@ -421,27 +428,34 @@ class TimeWidthCassandraStorage(BaseStorage):
       index = '%s:%s' % (stream, index_start_time)
       index_to_buckets[index][(bucket_start_time, width, shards)] = ''
 
+    # Batch and wait on all index writes.
     mutator = Mutator(namespace.pool, queue_size=1000)
-
-    # Add all event writes to the batch of operations.
-    for bucket_name, events in bucket_to_events.iteritems():
-      mutator.insert(namespace.event_cf, bucket_name, events)
-
-    # Add all index writes to the batch of operations.
+    index_updates = {}
     for index, buckets in index_to_buckets.iteritems():
       try:
-        cached_index_value = namespace.index_cache.get(index)
+        cached_index_value = index_updates.get(index)
+        if cached_index_value is None:
+          cached_index_value = namespace.index_cache.get(index)
         new_index_value = set(buckets) | cached_index_value
         if new_index_value != cached_index_value:
           # Write the new buckets covered by this index entry.
           mutator.insert(namespace.index_cf, index,
-                         dict.fromkeys(new_index_value - cached_index_value, ''))
-          namespace.index_cache.set(index, new_index_value)
+              dict.fromkeys(new_index_value - cached_index_value, ''))
+          index_updates[index] = new_index_value
       except KeyError:
+        # If we haven't written to this index before, write which
+        # buckets have been updated.
         mutator.insert(namespace.index_cf, index, buckets)
-        namespace.index_cache.set(index, set(buckets))
+        index_updates[index] = set(buckets)        
+    mutator.send(ConsistencyLevel.ALL, atomic=True)
 
-    # Send the current batch of operations to Cassandra.
+    # Cache the indices whose buckets we've updated.
+    for index, buckets in index_updates.iteritems():
+      namespace.index_cache.set(index, buckets)
+
+    # Add all event writes to the batch of operations.
+    for bucket_name, events in bucket_to_events.iteritems():
+      mutator.insert(namespace.event_cf, bucket_name, events)
     mutator.send()
 
   def _delete(self, namespace, stream, start_id, end_time, configuration):
