@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import json
 import sys
 import time
@@ -5,8 +7,8 @@ import time
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
-from client import KronosClient
-from utils import kronos_time_now
+from pykronos.client import KronosClient
+from pykronos.utils.time import kronos_time_now
 
 class KronosLoggingMiddleware(object):
   def __init__(self):

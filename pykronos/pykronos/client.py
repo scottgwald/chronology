@@ -10,7 +10,7 @@ from threading import Lock
 from threading import Thread
 from collections import defaultdict
 
-from utils import kronos_time_now
+from pykronos.utils.time import kronos_time_now
 
 # These are constants, do not modify them.
 ID_FIELD = '@id'
