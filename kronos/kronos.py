@@ -4,6 +4,7 @@ import gevent.monkey; gevent.monkey.patch_all()
 import gevent.pywsgi
 import geventhttpclient.httplib; geventhttpclient.httplib.patch()
 
+import imp
 import multiprocessing
 import subprocess
 import werkzeug.serving
@@ -25,9 +26,15 @@ if __name__ == '__main__':
                       help='number of processes to run')
   parser.add_argument('--collector-mode', action='store_true',
                       help='only open the put endpoint?')
+  parser.add_argument('--config', action='store',
+                      help='path of config file to use')
   args = parser.parse_args()
 
-  # Copy over some args to settings.py.
+  # If a config file path is given, import that as the `settings` module.
+  if args.config:
+    imp.load_source('kronos.conf.settings', args.config)
+
+  # Override the `debug` and `collector_mode` attributes of the settings module.
   for arg in ('debug', 'collector_mode'):
     setattr(settings, arg, getattr(args, arg))
   

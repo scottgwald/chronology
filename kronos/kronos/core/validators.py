@@ -180,7 +180,6 @@ def validate_settings(settings):
 
   # Validate `stream`
   stream = getattr(settings, 'stream', dict)
-  _validate_and_get_value(stream, 'stream', 'fields', dict)
   _validate_and_get_value(stream, 'stream', 'format', re._pattern_type)
 
   # Validate `node`

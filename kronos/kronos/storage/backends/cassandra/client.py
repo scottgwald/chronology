@@ -486,6 +486,8 @@ class TimeWidthCassandraStorage(BaseStorage):
     end_id = uuid_from_kronos_time(end_time, _type=UUIDType.HIGHEST)
     events_deleted = 0
     cf_mutator = namespace.event_cf.batch(queue_size=1000)
+    # TODO(usmanm): What if all events in the bucket are removed? Should we
+    # delete the bucket row and entry in the index CF?
     for bucket_key in itertools.chain.from_iterable(index_keys.itervalues()):
       for shard in xrange(bucket_key[2]):
         row_key = BucketInterval.name(stream, bucket_key[0], shard)
