@@ -31,6 +31,7 @@ class InMemoryLRUCache(object):
       entry = [value, self.sentinel, old_first]
       old_first[1] = self.sentinel[2] = self.cache[key] = entry 
     else:
+      entry[0] = value
       self.mark_as_lru(entry)
 
   def get(self, key):

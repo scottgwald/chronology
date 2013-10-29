@@ -9,8 +9,6 @@ from kronos.conf.constants import TIMESTAMP_FIELD
 from kronos.utils.math import time_to_kronos_time
 from tests.server import KronosServerTestCase
 
-BASE_PATH = '/1.0/events'
-
 
 class TestKronosAPIs(KronosServerTestCase):
   def test_put(self):

@@ -24,6 +24,9 @@ def kronos_time_to_datetime(time, round_up=False):
     time += 1
   return datetime.utcfromtimestamp(time)
 
+def kronos_time_to_time(kronos_time):
+  return float(kronos_time) / 1e7
+
 def uuid_to_kronos_time(uuid):
   """
   UUIDs contain a time field. Convert it to kronos time and return.

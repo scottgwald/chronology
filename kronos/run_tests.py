@@ -36,6 +36,7 @@ def test_against(*configs):
           for namespace in (router.get_backend('cassandra').namespaces
                             .itervalues()):
             namespace._drop()
+    # Do this so we have a reference to the undecorated function.
     wrapper.wrapped_function = function
     return wrapper
   return decorator
@@ -53,8 +54,13 @@ def test_common():
 
 @test_against('cassandra')
 def test_cassandra():
-  # Run all the common tests on Cassandra.
-  test_common.wrapped_function()
+  test_suites = unittest.defaultTestLoader.discover(
+    start_dir=os.path.join(os.path.dirname(__file__),
+                           'tests/backends/cassandra'),
+    pattern='test_*.py')
+  runner = unittest.TextTestRunner()
+  for test_suite in test_suites:
+    runner.run(test_suite)
 
 
 def run_test(test_name):
@@ -71,8 +77,9 @@ if __name__ == '__main__':
     raise ValueError
 
   if 'all' in args.tests:
-    # Run all tests
+    # Run all tests.
     run_test('common')
+    run_test('cassandra')
   else:
     for test in args.tests:
       run_test(test)

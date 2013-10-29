@@ -1,43 +1,40 @@
-# The Cassandra storage backend uses (stream_name, time interval) as
-# rowkeys and UUIDs as column names. UUIDs serve as precise timestamps, but also
-# differentiates two events that occured at the same time. This ensures that
-# Kronos will never store more than one event at a given (rowkey, column) pair.
-#
-#
-### Storing an event
-#
-# Suppose we want to store an event that occured at time `t` in a stream named
-# 'clicks'.
-#   - The first part of the rowkey is 'clicks'.
-#   - From settings.py, we get the default width of a time interval `w`.  We
-#     find which of the intervals [0,w), [w,2w), ... that `t` lies in to construct
-#     the second part of the rowkey.
-# Also from settings.py, we get the sharding factor `s`. Kronos will spread the
-# load for a given rowkey across `s` different shards. For each event, Kronos
-# will pick one of the `s` shards at random to store the event.
-#
-# The client should have included a UUID for the event based on the time and
-# the client's hardware address which Kronos will use as the column.
-#
-#
-### Retrieving events
-#
-# Now suppose we want to retrieve all events in a stream named `s` that occured
-# in a time interval [a,b). For each time interval `i` of [0,w), [2w,w), ...
-# that intersects [a,b) we read the row with key (`s`, `i`) from all shards.
-# Reading a row in Cassandra returns all (column, value) pairs in that row, and
-# we stream these values back to the caller in UUID order. Note that we may need
-# to prune some events out of this stream if they occured in an intersecting
-# interval but <a or >=b.
-#
-#
-#
-### Indices
-#
-# Indices help determine which buckets need to be scanned to retrieve events
-# between a given start and end time.
-# TODO(meelap): Finish documenting indexes.
+"""
+The Cassandra storage backend uses (stream_name, time interval) as
+rowkeys and UUIDs as column names. UUIDs serve as precise timestamps, but also
+differentiates two events that occured at the same time. This ensures that
+Kronos will never store more than one event at a given (rowkey, column) pair.
 
+# Storing an event
+
+Suppose we want to store an event that occured at time `t` in a stream named
+'clicks'.
+  - The first part of the rowkey is 'clicks'.
+  - From settings.py, we get the default width of a time interval `w`.  We
+    find which of the intervals [0,w), [w,2w), ... that `t` lies in to construct
+    the second part of the rowkey.
+Also from settings.py, we get the sharding factor `s`. Kronos will spread the
+load for a given rowkey across `s` different shards. For each event, Kronos
+will pick one of the `s` shards at random to store the event.
+
+The client should have included a UUID for the event based on the time and
+the client's hardware address which Kronos will use as the column.
+
+# Retrieving events
+
+Now suppose we want to retrieve all events in a stream named `s` that occured
+in a time interval [a,b). For each time interval `i` of [0,w), [2w,w), ...
+that intersects [a,b) we read the row with key (`s`, `i`) from all shards.
+Reading a row in Cassandra returns all (column, value) pairs in that row, and
+we stream these values back to the caller in UUID order. Note that we may need
+to prune some events out of this stream if they occured in an intersecting
+interval but <a or >=b.
+
+# Indices
+
+Indices help determine which buckets need to be scanned to retrieve events
+between a given start and end time.
+TODO(meelap): Finish documenting indexes.
+"""
 
 # TODO(usmanm): Cython some code to speed it?
 import heapq
@@ -194,8 +191,9 @@ class BucketInterval(object):
     Return the string used as the rowkey for the BucketInterval with the
     specified attributes.
     """
-    return '{0}:{1}:{2}'.format(stream, start_time, shard)
+    return '{0}:{1}:{2}'.format(stream, start_time, shard)  
   
+
 class SortedShardedEventStream(object):
   """
   SortedShardedEventStream is an iterable that fetches events from Cassandra and
@@ -336,7 +334,8 @@ class Namespace(object):
 class TimeWidthCassandraStorage(BaseStorage):
   # TODO(meelap): Put `read_size` stuff back so that we can limit how much
   # memory Kronos uses to buffer read data from backends.
-  MAX_WIDTH = LENGTH_OF_YEAR / 2 # Too big, small, necessary?
+  INDEX_WIDTH = LENGTH_OF_YEAR
+  MAX_WIDTH = INDEX_WIDTH / 2 # Too big, small, necessary?
 
   SETTINGS_VALIDATORS = {
     'default_timewidth_seconds': 
@@ -432,21 +431,21 @@ class TimeWidthCassandraStorage(BaseStorage):
     mutator = Mutator(namespace.pool, queue_size=1000)
     index_updates = {}
     for index, buckets in index_to_buckets.iteritems():
+      buckets_set = set(buckets)
       try:
-        cached_index_value = index_updates.get(index)
-        if cached_index_value is None:
-          cached_index_value = namespace.index_cache.get(index)
-        new_index_value = set(buckets) | cached_index_value
-        if new_index_value != cached_index_value:
+        cached_index_value = index_updates.get(index,
+                                               namespace.index_cache.get(index))
+        new_buckets_set = buckets_set - cached_index_value
+        if new_buckets_set:
           # Write the new buckets covered by this index entry.
           mutator.insert(namespace.index_cf, index,
-              dict.fromkeys(new_index_value - cached_index_value, ''))
-          index_updates[index] = new_index_value
+                         dict.fromkeys(new_buckets_set, ''))
+          index_updates[index] = buckets_set | cached_index_value
       except KeyError:
         # If we haven't written to this index before, write which
         # buckets have been updated.
         mutator.insert(namespace.index_cf, index, buckets)
-        index_updates[index] = set(buckets)        
+        index_updates[index] = buckets_set
     mutator.send(ConsistencyLevel.ALL, atomic=True)
 
     # Cache the indices whose buckets we've updated.
@@ -488,17 +487,23 @@ class TimeWidthCassandraStorage(BaseStorage):
     cf_mutator = namespace.event_cf.batch(queue_size=1000)
     # TODO(usmanm): What if all events in the bucket are removed? Should we
     # delete the bucket row and entry in the index CF?
+    intervals = dict()
     for bucket_key in itertools.chain.from_iterable(index_keys.itervalues()):
       for shard in xrange(bucket_key[2]):
-        row_key = BucketInterval.name(stream, bucket_key[0], shard)
         bucket_interval = BucketInterval(namespace.event_cf, stream, bucket_key,
                                          shard, ResultOrder.ASCENDING)
-        events = bucket_interval.fetch(start_id, end_id)
-        if not events:
+        name = bucket_interval.name
+        if (getattr(intervals.get(name), 'end', -float('inf')) >=
+            bucket_interval.end):
           continue
-        events.pop(start_id, None)
-        cf_mutator.remove(row_key, events.iterkeys())
-        events_deleted += len(events)
+        intervals[name] = bucket_interval
+    for row_key, bucket_interval in intervals.iteritems():
+      events = bucket_interval.fetch(start_id, end_id)
+      if not events:
+        continue
+      events.pop(start_id, None)
+      cf_mutator.remove(row_key, events.iterkeys())
+      events_deleted += len(events)
     cf_mutator.send()
     return events_deleted
   
@@ -525,7 +530,7 @@ class TimeWidthCassandraStorage(BaseStorage):
 
     # Smallest possible width of the oldest bucket that could possibly contain
     # the first event.
-    bucket_start_width = start_time - bucket_start_time
+    bucket_start_width = int(start_time - bucket_start_time)
 
     # Index width is one year. Get all indices pointing to buckets which
     # intersect with our time interval of interest.
@@ -544,14 +549,20 @@ class TimeWidthCassandraStorage(BaseStorage):
                                              buffer_size=len(indexes_to_scan))
 
     # Construct a list of BucketIntervals to scan for matching events.
-    intervals = []
+    intervals = dict()
     for bucket_key in itertools.chain.from_iterable(index_keys.itervalues()):
       for i in xrange(bucket_key[2]):
-        intervals.append(BucketInterval(namespace.event_cf, stream, bucket_key,
-                                        i, order))
+        bucket_interval = BucketInterval(namespace.event_cf, stream, bucket_key,
+                                         i, order)
+        name = bucket_interval.name
+        if (getattr(intervals.get(name), 'end', -float('inf')) >=
+            bucket_interval.end):
+          continue
+        intervals[name] = bucket_interval
 
     end_id = uuid_from_kronos_time(end_time, _type=UUIDType.HIGHEST)
-    events = SortedShardedEventStream(intervals, start_id, end_id, limit, order)
+    events = SortedShardedEventStream(intervals.values(), start_id, end_id,
+                                      limit, order)
     try:
       events = events.__iter__()
       event = events.next()
