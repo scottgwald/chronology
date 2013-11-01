@@ -12,7 +12,7 @@ collector_mode = False
 node = {
   'id':  hex(getnode()), # Unique ID for this Kronos server.
   'greenlet_pool_size': 20, # Greenlet poolsize per process.
-  'log_directory': 'logs',
+  'log_directory': 'log',
   'cors_whitelist_domains': map(re.compile, ['localhost'])
 }
 

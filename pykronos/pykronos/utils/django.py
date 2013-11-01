@@ -4,7 +4,6 @@ import json
 import sys
 import time
 
-from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 from pykronos.client import KronosClient
@@ -16,6 +15,8 @@ class KronosLoggingMiddleware(object):
                          'HTTP_X_FORWARDED_SERVER'}
   
   def __init__(self):
+    from django.conf import settings
+
     if not hasattr(settings, 'KRONOS_MIDDLEWARE'):
       raise ImproperlyConfigured
     kronos_config = settings.KRONOS_MIDDLEWARE
@@ -23,19 +24,19 @@ class KronosLoggingMiddleware(object):
       raise ImproperlyConfigured
     if 'host' not in kronos_config:
       raise ImproperlyConfigured
-    if 'stream_name' not in kronos_config:
+    if 'stream' not in kronos_config:
       raise ImproperlyConfigured
     self.client = KronosClient(
       kronos_config['host'],
       blocking=kronos_config.get('blocking', False),
       sleep_block=kronos_config.get('sleep_block', 0.1))
-    self.stream_name = kronos_config['stream_name']
+    self.stream = kronos_config['stream']
     self.namespace = kronos_config.get('namespace')
     self.log_traceback = kronos_config.get('log_traceback')
 
   def _get_ip(self, request):
-    if not KronosLoggingMiddleware.FORWARDED_FOR_FIELDS & set(request.META):
-      return request.META.get('REMOTE_ADDR').strip()
+    if not KronosLoggingMiddleware.FORWARDED_IP_FIELDS & set(request.META):
+      return request.META.get('REMOTE_ADDR', '').strip()
     for field in KronosLoggingMiddleware.FORWARDED_IP_FIELDS:
       if field in request.META:
         return request.META[field].split(',')[-1].strip()
@@ -44,10 +45,10 @@ class KronosLoggingMiddleware(object):
     request._kronos_event = {
       'start_time': time.time(),
       '@time': kronos_time_now(),
-      'method': request.method,
+      'method': request.method.upper(),
       'path': request.path,
-      'scheme': request.scheme,
-      'query_params': request.REQUEST.dict(),
+      'get_params': request.GET.dict(),
+      'post_params': request.POST.dict(),
       'client_ip': self._get_ip(request)
       }
     if request.body:
@@ -59,11 +60,11 @@ class KronosLoggingMiddleware(object):
   def process_exception(self, request, exception):
     self.client._log_exception(
       request._kronos_event, exception,
-      sys.last_traceback if self.log_traceback else None)
+      sys.exc_info()[2] if self.log_traceback else None)
 
   def process_response(self, request, response):
     start_time = request._kronos_event.pop('start_time')
     request._kronos_event['duration'] = time.time() - start_time
-    self.client.put({self.stream_name: [request._kronos_event]},
+    self.client.put({self.stream: [request._kronos_event]},
                     namespace=self.namespace)
     return response

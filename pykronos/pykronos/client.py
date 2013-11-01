@@ -155,6 +155,7 @@ class KronosClient(object):
     request_dict = {'events': event_dict}
     if namespace is not None:
       request_dict['namespace'] = namespace
+    
     response = requests.post(self._put_url, data=json.dumps(request_dict))
     if response.status_code != requests.codes.ok:
       raise KronosClientException('Received response code %s with errors %s' %
@@ -255,9 +256,9 @@ class KronosClient(object):
     request_dict = {}
     if namespace is not None:
       request_dict['namespace'] = namespace
-    response = requests.get(self._streams_url,
-                            data=json.dumps(request_dict),
-                            stream=True)
+    response = requests.post(self._streams_url,
+                             data=json.dumps(request_dict),
+                             stream=True)
     if response.status_code != requests.codes.ok:
       raise KronosClientException('Bad server response code %d' %
                                   response.status_code)

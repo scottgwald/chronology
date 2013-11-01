@@ -1,10 +1,8 @@
-import importlib
 import re
-import sys
 
 from uuid import getnode
 
-debug = True
+debug = False
 collector_mode = False
 
 # Node related settings. `id` should be a unique name that identifies this
@@ -31,21 +29,26 @@ stream = {
   'format': re.compile(r'^[a-z0-9\_]+(\.[a-z0-9\_]+)*$', re.I)
 }
 
-def configure(configuration_name):
-  # Proxy all non-native attributes of the current module and the module
-  # at `tests.conf.<configuration_name>` to `kronos.conf.settings`.
-  import kronos.conf.settings
+storage = {
+  'memory': {
+    'backend': 'memory.InMemoryStorage',
+    'default_max_items': 50000
+  },
+}
 
-  shared_module = sys.modules[__name__]
-  for attr in dir(shared_module):
-    if attr.startswith('__') or attr == 'patch':
-      continue
-    setattr(kronos.conf.settings, attr, getattr(shared_module, attr))
+default_namespace = 'kronos'
 
-  # Do this afterwards in case the patch module wants to override something
-  # set in this module.
-  patch_module = importlib.import_module('tests.conf.%s' % configuration_name)
-  for attr in dir(patch_module):
-    if attr.startswith('__'):
-      continue
-    setattr(kronos.conf.settings, attr, getattr(patch_module, attr))
+_default_stream_configuration = {
+  '': {
+    'backends': {
+      'memory': None
+      },
+    'read_backend': 'memory'
+    }
+  }
+
+namespace_to_streams_configuration = {
+  default_namespace: _default_stream_configuration,
+  'namespace1': _default_stream_configuration,
+  'namespace2': _default_stream_configuration
+  }

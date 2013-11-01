@@ -28,15 +28,22 @@ if __name__ == '__main__':
                       help='only open the put endpoint?')
   parser.add_argument('--config', action='store',
                       help='path of config file to use')
+  parser.add_argument('--print-pid', action='store_true', help='print PID?')
   args = parser.parse_args()
 
   # If a config file path is given, import that as the `settings` module.
   if args.config:
     imp.load_source('kronos.conf.settings', args.config)
 
-  # Override the `debug` and `collector_mode` attributes of the settings module.
-  for arg in ('debug', 'collector_mode'):
-    setattr(settings, arg, getattr(args, arg))
+  # Override the `debug` and `collector_mode` attributes of the settings
+  # module and `debug` for `args`.
+  setattr(settings, 'debug',
+          getattr(args, 'debug') | getattr(settings, 'debug', False))
+  setattr(settings, 'collector_mode',
+          getattr(args, 'collector_mode') |
+          getattr(settings, 'collector_mode', False))
+  setattr(args, 'debug',
+          getattr(args, 'debug') | getattr(settings, 'debug', False))
   
   if args.debug:
     (host, port) = args.bind.split(':')
@@ -57,4 +64,6 @@ if __name__ == '__main__':
             '--error-logfile', '{0}/{1}'.format(log_dir, 'error.log'),
             '--workers', str(args.num_proc),
             '--bind', args.bind]
-    subprocess.call(argv)
+    proc = subprocess.Popen(argv)
+    if args.print_pid:
+      print proc.pid
