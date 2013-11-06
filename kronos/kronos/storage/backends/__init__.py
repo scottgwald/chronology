@@ -1,24 +1,10 @@
 import sys
 import uuid
 
-from functools import wraps
-
 from kronos.conf.constants import ResultOrder
-from kronos.core.exceptions import InvalidNamespace
 from kronos.utils.math import uuid_from_kronos_time
 from kronos.utils.math import uuid_to_kronos_time
 from kronos.utils.math import UUIDType
-
-
-def _ensure_namespace(method):
-  @wraps(method)
-  def wrapper(self, namespace, *args, **kwargs):
-    from kronos.storage import router
-    if namespace not in router.namespaces:
-      raise InvalidNamespace('`{}` namespace is not configured'
-                             .format(namespace))
-    return method(self, namespace, *args, **kwargs)
-  return wrapper
 
 
 class BaseStorage(object):
@@ -41,7 +27,6 @@ class BaseStorage(object):
     raise NotImplementedError('Must implement `is_alive` method for %s' %
                               self.__class__.__name__)    
 
-  @_ensure_namespace
   def insert(self, namespace, stream, events, configuration):
     self._insert(namespace, stream, events, configuration)
 
@@ -49,7 +34,6 @@ class BaseStorage(object):
     raise NotImplementedError('Must implement `_insert` method for %s' %
                               self.__class__.__name__)
 
-  @_ensure_namespace
   def delete(self, namespace, stream, start_time, end_time, start_id,
              configuration):
     if not start_id:
@@ -64,7 +48,6 @@ class BaseStorage(object):
     raise NotImplementedError('Must implement `_delete` method for %s' %
                               self.__class__.__name__)
 
-  @_ensure_namespace
   def retrieve(self, namespace, stream, start_time, end_time, start_id,
                configuration, order=ResultOrder.ASCENDING, limit=sys.maxint):
     """
@@ -90,7 +73,6 @@ class BaseStorage(object):
     raise NotImplementedError('Must implement `_retrieve` method for %s.' %
                               self.__class__.__name__)
 
-  @_ensure_namespace
   def streams(self, namespace):
     return self._streams(namespace)
 

@@ -6,8 +6,10 @@ from importlib import import_module
 from kronos.conf import settings
 from kronos.core.exceptions import BackendMissing
 from kronos.core.exceptions import InvalidStreamName
+from kronos.core.exceptions import NamespaceMissing
 from kronos.core.validators import validate_stream
 from kronos.utils.cache import InMemoryLRUCache
+
 
 class StorageRouter(object):
   def __init__(self):
@@ -100,6 +102,9 @@ class StorageRouter(object):
     """
     Return all the backends enabled for writing for `stream`.
     """
+    if namespace not in self.namespaces:
+      raise NamespaceMissing('`{}` namespace is not configured'
+                             .format(namespace))
     return self.prefix_confs[namespace][self.get_matching_prefix(namespace,
                                                                  stream)]
 
@@ -107,6 +112,9 @@ class StorageRouter(object):
     """
     Return backend enabled for reading for `stream`.
     """
+    if namespace not in self.namespaces:
+      raise NamespaceMissing('`{}` namespace is not configured'
+                             .format(namespace))
     stream_prefix = self.get_matching_prefix(namespace, stream)
     read_backend = self.prefix_read_backends[namespace][stream_prefix]
     return (read_backend,
