@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 import json
+import logging
 import sys
 import time
 
@@ -8,6 +9,9 @@ from django.core.exceptions import ImproperlyConfigured
 
 from pykronos.client import KronosClient
 from pykronos.utils.time import kronos_time_now
+
+log = logging.getLogger(__name__)
+
 
 class KronosLoggingMiddleware(object):
   FORWARDED_IP_FIELDS = {'HTTP_X_FORWARDED_FOR',
@@ -32,7 +36,8 @@ class KronosLoggingMiddleware(object):
       sleep_block=kronos_config.get('sleep_block', 0.1))
     self.stream = kronos_config['stream']
     self.namespace = kronos_config.get('namespace')
-    self.log_traceback = kronos_config.get('log_traceback')
+    self.log_traceback = kronos_config.get('log_traceback', False)
+    self.fail_silently = kronos_config.get('fail_silently', False)
 
   def _get_ip(self, request):
     if not KronosLoggingMiddleware.FORWARDED_IP_FIELDS & set(request.META):
@@ -65,6 +70,13 @@ class KronosLoggingMiddleware(object):
   def process_response(self, request, response):
     start_time = request._kronos_event.pop('start_time')
     request._kronos_event['duration'] = time.time() - start_time
-    self.client.put({self.stream: [request._kronos_event]},
-                    namespace=self.namespace)
+    try:
+      self.client.put({self.stream: [request._kronos_event]},
+                      namespace=self.namespace)
+    except:
+      if self.fail_silently:
+        log.error('Failed to log event to Kronos.', exc_info=True)
+      else:
+        raise
+    
     return response
