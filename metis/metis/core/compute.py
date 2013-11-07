@@ -4,7 +4,7 @@ from pyspark import SparkContext
 
 from metis import app
 from metis.core import transform
-from metis.lib.kronos.client import KronosClient
+from pykronos.client import KronosClient
 from metis.utils.decorators import async
 
 KRONOS = KronosClient(app.config['KRONOS_SERVER'])

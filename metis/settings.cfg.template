@@ -1,0 +1,5 @@
+DEBUG = True
+KRONOS_SERVER = 'http://localhost:8151'
+NUM_WORKERS = 20
+SPARK_HOME = '/Users/marcua/adamdata/programs/kronos/kronos/incubator-spark'
+SPARK_MASTER = 'local'

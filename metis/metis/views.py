@@ -14,27 +14,20 @@ def index():
       })
 
 # TODO(usmanm): Add error handling everywhere.
-@app.route('/1.0/compute', methods=['POST'])
-def _compute():
+@app.route('/1.0/get', methods=['POST'])
+def get():
   # TODO(usmanm): `force` doesn't seem to work. Still need to send the correct
   # application/json header.
   request_json = request.get_json(force=True)
-  stream = request_json['stream_in']
+  stream = request_json['stream']
   start_time = request_json['start_time']
   end_time = request_json['end_time']
   transforms = request_json.get('transforms', [])
-  stream_out = request_json.get('stream_out')
   response = {'status': 'ok'}
-  if stream_out is None:
-    response.update({
-        'async': False,
-        'result': compute.execute_compute_task(stream, start_time, end_time,
-                                               transforms, stream_out)
-        })
-  else:
-    response['async'] = True
-    compute.async_execute_compute_task(stream, start_time, end_time, transforms,
-                                       stream_out)
+  response.update({
+      'result': compute.execute_compute_task(stream, start_time, end_time,
+                                             transforms, stream_out)
+      })
   return jsonify(response)
 
 # TODO(usmanm): Remove after testing.
