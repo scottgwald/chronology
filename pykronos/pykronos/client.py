@@ -9,12 +9,14 @@ import sys
 from threading import Lock
 from threading import Thread
 from collections import defaultdict
+from contextlib import contextmanager
 
 from pykronos.utils.time import kronos_time_now
 
 # These are constants, do not modify them.
 ID_FIELD = '@id'
 TIMESTAMP_FIELD = '@time'
+
 
 class ResultOrder(object):
   ASCENDING = 'ascending'
@@ -46,28 +48,6 @@ class KronosClient(object):
     if not blocking:
       self._sleep_block = sleep_block
       self._setup_nonblocking()
-
-    me = self
-    class LogScope(object):
-      def __init__(self, stream_name, properties={}, log_traceback=False,
-                   namespace=None):
-        self.stream_name = stream_name
-        self.event = properties.copy()
-        self.namespace = namespace
-        self.log_traceback = log_traceback
-        self.kronos_client = me
-        
-      def __enter__(self):
-        self.start_time = time.time()
-
-      def __exit__(self, exc_type, exc_value, _traceback):
-        self.event['duration'] = time.time() - self.start_time
-        if exc_type is not None:
-          me._log_exception(self.event, exc_value,
-                            _traceback if self.log_traceback else None)
-        self.kronos_client.put({self.stream_name: [self.event]},
-                               namespace=self.namespace)
-    self._log_scope = LogScope
 
   def _setup_nonblocking(self):
     self._put_queue = []
@@ -302,8 +282,9 @@ class KronosClient(object):
       return wrapper
     return decorator
 
-  @property
-  def log_scope(self):
+  @contextmanager
+  def log_scope(self, stream_name, properties={}, log_traceback=False,
+                namespace=None):
     """
     Identical to `log_function` except that `log_scope` is used to log blocks
     of code. The API is identical except that keys in `properties` are mapped to
@@ -313,4 +294,12 @@ class KronosClient(object):
                                    log_traceback=True):
         <some code here>
     """
-    return self._log_scope
+    start_time = time.time()
+    event = properties.copy()
+    try:
+      yield event
+    except Exception, exception:
+      self._log_exception(event, exception,
+                          sys.last_traceback if log_traceback else None)
+    event['duration'] = time.time() - start_time
+    self.put({stream_name: [event]}, namespace=namespace)

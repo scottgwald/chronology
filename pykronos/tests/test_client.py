@@ -122,8 +122,10 @@ class KronosClientTest(unittest.TestCase):
     y = 2
 
     start = time.time()
-    with self.client.log_scope(self.stream, properties={'x': x, 'y': y}):
-      pass
+    with self.client.log_scope(self.stream, properties={'x': x,
+                                                        'y': y}) as event:
+      event['hello'] = 'world'
+      raise Exception('boom')
     end = time.time()
 
     time.sleep(self.sleep_time)
@@ -136,3 +138,7 @@ class KronosClientTest(unittest.TestCase):
     self.assertEqual(event['x'], 1)
     self.assertEqual(event['y'], 2)
     self.assertTrue(event['duration'] < end - start )
+    self.assertEqual(event['hello'], 'world')
+    self.assertTrue('exception' in event)
+    self.assertEqual(event['exception']['class'], 'Exception')
+    self.assertEqual(event['exception']['message'], 'boom')

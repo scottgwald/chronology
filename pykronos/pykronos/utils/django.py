@@ -5,8 +5,6 @@ import logging
 import sys
 import time
 
-from django.core.exceptions import ImproperlyConfigured
-
 from pykronos.client import KronosClient
 from pykronos.utils.time import kronos_time_now
 
@@ -20,7 +18,8 @@ class KronosLoggingMiddleware(object):
   
   def __init__(self):
     from django.conf import settings
-
+    from django.core.exceptions import ImproperlyConfigured
+    
     if not hasattr(settings, 'KRONOS_MIDDLEWARE'):
       raise ImproperlyConfigured
     kronos_config = settings.KRONOS_MIDDLEWARE
