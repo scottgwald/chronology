@@ -44,8 +44,7 @@ if __name__ == '__main__':
   setattr(settings, 'collector_mode',
           getattr(args, 'collector_mode') |
           getattr(settings, 'collector_mode', False))
-  setattr(args, 'debug',
-          getattr(args, 'debug') | getattr(settings, 'debug', False))
+  setattr(args, 'debug', settings.debug)
   
   if args.debug:
     (host, port) = args.bind.split(':')
@@ -61,6 +60,7 @@ if __name__ == '__main__':
     if args.behind_nginx:
       port = args.bind
       args.bind = 'unix:/tmp/kronos.%s.sock' % port
+      # TODO(usmanm): Use some helper template rendering function.
       with open('kronos/conf/kronos.nginx.template') as nginx_template:
         nginx_conf = nginx_template.read()
         nginx_conf = nginx_conf.replace('{{ socket_path }}', args.bind)

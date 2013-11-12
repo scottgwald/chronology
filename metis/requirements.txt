@@ -1,4 +1,4 @@
-flask
+flask==0.10.1
 py4j
 # pykronos---for now, a symlink to the parent dir
 # pyspark---temporarily done by cloning the spark repo, copy pyspark locally

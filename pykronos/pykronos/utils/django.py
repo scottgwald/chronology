@@ -57,24 +57,24 @@ class KronosLoggingMiddleware(object):
     if get_dict:
       request._kronos_event['get_params'] = get_dict
     try:
-      request.body
+      if not request.body:
+        return
     except:
       # The following exception is thrown if the body could not be read.
       # Exception("You cannot access body after reading from request's data
       #           stream")
       return
-    if request.body:
-      post_dict = request.POST.dict()
-      if (len(post_dict) == 1 and
-          post_dict.values()[0] == '' and
-          post_dict.keys()[0] == request.body):
-        # There is no real *form* POST.
-        try:
-          request._kronos_event['body'] = json.loads(request.body)
-        except ValueError:
-          request._kronos_event['body'] = request.body
-      else:
-        request._kronos_event['post_params'] = post_dict
+    post_dict = request.POST.dict()
+    if (len(post_dict) == 1 and
+        post_dict.values()[0] == '' and
+        post_dict.keys()[0] == request.body):
+      # There is no real *form* POST.
+      try:
+        request._kronos_event['body'] = json.loads(request.body)
+      except ValueError:
+        request._kronos_event['body'] = request.body
+    else:
+      request._kronos_event['post_params'] = post_dict
 
   def process_exception(self, request, exception):
     self.client._log_exception(
