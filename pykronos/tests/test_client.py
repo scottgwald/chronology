@@ -8,7 +8,8 @@ from pykronos.utils.time import kronos_time_now
 
 class KronosClientTest(unittest.TestCase):
   def setUp(self):
-    self.blocking_client = KronosClient('http://localhost:9191/', blocking=True)
+    self.blocking_client = KronosClient('http://localhost:9191/',
+                                        blocking=True)
     self.nonblocking_client = KronosClient('http://localhost:9191/',
                                            blocking=False,
                                            sleep_block=0.2)

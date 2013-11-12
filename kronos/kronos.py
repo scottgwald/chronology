@@ -29,6 +29,8 @@ if __name__ == '__main__':
   parser.add_argument('--config', action='store',
                       help='path of config file to use')
   parser.add_argument('--print-pid', action='store_true', help='print PID?')
+  parser.add_argument('--behind-nginx', action='store_true',
+                      help='running behind Nginx?')
   args = parser.parse_args()
 
   # If a config file path is given, import that as the `settings` module.
@@ -56,6 +58,22 @@ if __name__ == '__main__':
     if not os.path.exists(log_dir):
       os.makedirs(log_dir)
 
+    if args.behind_nginx:
+      port = args.bind
+      args.bind = 'unix:/tmp/kronos.%s.sock' % port
+      with open('kronos/conf/kronos.nginx.template') as nginx_template:
+        nginx_conf = nginx_template.read()
+        nginx_conf = nginx_conf.replace('{{ socket_path }}', args.bind)
+        nginx_conf = nginx_conf.replace('{{ port }}', port)
+        with open('kronos.nginx.conf', 'w') as conf:
+          conf.write(nginx_conf)
+        nginx_conf_path = '/etc/nginx/sites-enabled/kronos.%s.conf' % port
+        if os.path.lexists(nginx_conf_path):
+          os.remove(nginx_conf_path)
+        os.symlink(os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                                'kronos.nginx.conf')),
+                   nginx_conf_path)
+
     argv = ['gunicorn', 'kronos.server:wsgi_application',
             '--worker-class', 'gevent',
             '--log-level', 'info',
@@ -67,3 +85,7 @@ if __name__ == '__main__':
     proc = subprocess.Popen(argv)
     if args.print_pid:
       print proc.pid
+
+    if args.behind_nginx:
+      # Reload nginx.
+      subprocess.call(['service', 'nginx', 'reload'])
