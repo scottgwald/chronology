@@ -50,25 +50,21 @@ class SparkContextManager(object):
 CONTEXT_MANAGER = SparkContextManager()
 
 
-def _get_kronos_rdd(spark_context, stream, start_time, end_time):
-  events = KRONOS.get(stream, start_time, end_time)
+def _get_kronos_rdd(spark_context, stream, namespace, start_time, end_time):
+  events = KRONOS.get(stream, start_time, end_time, namespace=namespace)
   return spark_context.parallelize(events)
 
 
-def execute_compute_task(stream_in, start_time, end_time, transforms,
-                         stream_out):
+def execute_compute_task(stream_in, namespace, start_time, end_time,
+                         transforms):
   spark_context = CONTEXT_MANAGER.get_context()
-  rdd = _get_kronos_rdd(spark_context, stream_in, start_time, end_time)
+  rdd = _get_kronos_rdd(spark_context, stream_in, namespace, start_time,
+                        end_time)
   for json_transform in transforms:
     metis_transform = transform.parse(json_transform)
     rdd = metis_transform.apply(spark_context, rdd)
   result = rdd.collect()
   CONTEXT_MANAGER.release_context(spark_context)
-  if stream_out is not None:
-    min_time = min(event['time'] for event in result)
-    max_time = max(event['time'] for event in result)
-    # TODO(usmanm): Delete events in `stream_out` from `min_time` to `max_time`.
-    KRONOS.put({stream_out: result})
   return result
 
 async_execute_compute_task = async(execute_compute_task)

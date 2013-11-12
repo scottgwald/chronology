@@ -72,7 +72,7 @@ class ProjectionTransform(Transform):
     self.keys.add(constants.TIMESTAMP_FIELD)
     
   def to_dict(self):
-    dictionary = super(ProjectionTransform, self).serialize()
+    dictionary = super(ProjectionTransform, self).to_dict()
     dictionary['keys'] = list(self.keys)
     return dictionary
 
@@ -96,7 +96,7 @@ class FilterTransform(Transform):
     self.value = value
 
   def to_dict(self):
-    dictionary = super(FilterTransform, self).serialize()
+    dictionary = super(FilterTransform, self).to_dict()
     dictionary.update({'key': self.key,
                        'op': self.op, 
                        'value': self.value})
@@ -155,7 +155,7 @@ class GroupByTimeTransform(Transform):
     self.time_width = time_width
 
   def to_dict(self):
-    dictionary = super(GroupByTimeTransform, self).serialize()
+    dictionary = super(GroupByTimeTransform, self).to_dict()
     dictionary['time_width'] = self.time_width
     return dictionary
 
@@ -182,7 +182,7 @@ class OrderByTransform(Transform):
     self.reverse = reverse
 
   def to_dict(self):
-    dictionary = super(OrderByTransform, self).serialize()
+    dictionary = super(OrderByTransform, self).to_dict()
     dictionary['keys'] = self.keys
     return dictionary
 
@@ -210,7 +210,7 @@ class LimitTransform(Transform):
     self.limit = int(limit)
 
   def to_dict(self):
-    dictionary = super(LimitTransform, self).serialize()
+    dictionary = super(LimitTransform, self).to_dict()
     dictionary['limit'] = self.limit
     return dictionary
 
@@ -233,7 +233,7 @@ class GroupByTransform(Transform):
     self.keys = keys
     
   def to_dict(self):
-    dictionary = super(GroupByTransform, self).serialize()
+    dictionary = super(GroupByTransform, self).to_dict()
     dictionary['keys'] = self.keys
     return dictionary
 
@@ -263,7 +263,7 @@ class AggregateTransform(Transform):
           (aggregate['op'], aggregate.get('key'))] = str(aggregate['alias'])
 
   def to_dict(self):
-    dictionary = super(AggregateTransform, self).serialize()
+    dictionary = super(AggregateTransform, self).to_dict()
     dictionary['aggregates'] = self.aggregates
     return dictionary
 

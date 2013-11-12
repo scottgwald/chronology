@@ -9,9 +9,9 @@ from flask import send_from_directory
 from jia import app
 
 from auth import require_auth
-from lib.kronos.client import KronosClient
-from lib.kronos.utils import is_kronos_reserved_key
-from lib.kronos.utils import kronos_time_to_datetime
+from pykronos.client import KronosClient
+from pykronos.utils.time import is_kronos_reserved_key
+from pykronos.utils.time import kronos_time_to_datetime
 
 @app.route('/')
 @require_auth

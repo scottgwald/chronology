@@ -1,5 +1,6 @@
 DEBUG = True
+DEFAULT_READ_NAMESPACE = 'kronos'
 KRONOS_SERVER = 'http://localhost:8151'
 NUM_WORKERS = 20
-SPARK_HOME = '/Users/marcua/adamdata/programs/kronos/kronos/incubator-spark'
+SPARK_HOME = '/u/marcua/kronos-metis-update/incubator-spark'
 SPARK_MASTER = 'local'
