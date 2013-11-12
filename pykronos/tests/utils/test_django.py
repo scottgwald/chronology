@@ -28,7 +28,31 @@ class KronosLoggingMiddlewareTest(unittest.TestCase):
     self.request.META['REMOTE_ADDR'] = '127.0.0.1'
     self.request.GET = QueryDict('hello=world&lol=cat')
     self.request.POST = QueryDict('potayto=potahto&adam=b')
-    self.request._body = json.dumps({'foo': 'baz'})
+    self.request._body = 'potayto=potahto&adam=b'
+
+  def test_body_parsing(self):
+    body = '{"foo": "baz"}'
+    self.request._body = body
+    self.request.POST = QueryDict(body)
+    self.middleware.process_request(self.request)
+    self.assertEqual(self.request._kronos_event['body'],
+                     json.loads(body))
+    self.assertTrue('post_params' not in self.request._kronos_event)
+
+    body = 'bleurgh'
+    self.request._body = body
+    self.request.POST = QueryDict(body)
+    self.middleware.process_request(self.request)
+    self.assertEqual(self.request._kronos_event['body'], body)
+    self.assertTrue('post_params' not in self.request._kronos_event)
+
+    body = 'lol=cat&hello=world'
+    self.request._body = body
+    self.request.POST = QueryDict(body)
+    self.middleware.process_request(self.request)
+    self.assertEqual(self.request._kronos_event['post_params'],
+                     {'lol': 'cat', 'hello': 'world'})
+    self.assertTrue('body' not in self.request._kronos_event)
 
   def test_request_flow(self, with_exception=False):
     start_low = kronos_time_now()
@@ -56,7 +80,6 @@ class KronosLoggingMiddlewareTest(unittest.TestCase):
     self.assertEqual(event['get_params'], {'hello': 'world', 'lol': 'cat'})
     self.assertEqual(event['post_params'], {'potayto': 'potahto', 'adam': 'b'})
     self.assertEqual(event['method'], 'POST')
-    self.assertEqual(event['body'], {'foo': 'baz'})
 
     if with_exception:
       exception = event['exception']
