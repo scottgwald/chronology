@@ -56,6 +56,7 @@ if __name__ == '__main__':
     log_dir = settings.node['log_directory'].rstrip('/')
     if not os.path.exists(log_dir):
       os.makedirs(log_dir)
+    access_log = '{0}/{1}'.format(log_dir, 'access.log')
 
     if args.behind_nginx:
       if ':' in args.bind:
@@ -76,19 +77,21 @@ if __name__ == '__main__':
         os.symlink(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                 'kronos.nginx.conf')),
                    nginx_conf_path)
+      access_log = None
 
     argv = ['gunicorn', 'kronos.server:wsgi_application',
             '--worker-class', 'gevent',
             '--log-level', 'info',
             '--name', 'kronosd',
-            '--access-logfile', '{0}/{1}'.format(log_dir, 'access.log'),
             '--error-logfile', '{0}/{1}'.format(log_dir, 'error.log'),
             '--workers', str(args.num_proc),
             '--bind', args.bind]
+    if access_log:
+      argv.extend(['--access-logfile', access_log])
     proc = subprocess.Popen(argv)
     if args.print_pid:
       print proc.pid
 
     if args.behind_nginx:
       # Reload nginx.
-      subprocess.call(['service', 'nginx', 'reload'])
+      subprocess.call(['service', 'nginx', 'restart'])
