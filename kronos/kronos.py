@@ -58,7 +58,10 @@ if __name__ == '__main__':
       os.makedirs(log_dir)
 
     if args.behind_nginx:
-      port = args.bind
+      if ':' in args.bind:
+        port = args.bind.split(':')[1]
+      else:
+        port = args.bind
       args.bind = 'unix:/tmp/kronos.%s.sock' % port
       # TODO(usmanm): Use some helper template rendering function.
       with open('kronos/conf/kronos.nginx.template') as nginx_template:

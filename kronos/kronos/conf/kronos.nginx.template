@@ -1,16 +1,16 @@
-upstream kronos {
-  server unix:/tmp/kronos.8149.sock;
+upstream kronos_{{ port }} {
+  server {{ socket_path }};
 }
 
 server {
-  access_log /var/log/nginx/access.kronos.log;
-  error_log /var/log/nginx/error.kronos.log;
+  access_log /var/log/nginx/access.kronos.{{ port }}.log;
+  error_log /var/log/nginx/error.kronos.{{ port }}.log;
 
-  server_name kronos;
-  listen 8149;
+  server_name kronos_{{ port }};
+  listen {{ port }};
 
   location / {
-    proxy_pass http://kronos;
+    proxy_pass http://kronos_{{ port }};
     proxy_buffering off;
     proxy_pass_request_headers on;
     proxy_pass_request_body on;
