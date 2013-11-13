@@ -89,10 +89,9 @@ def endpoint(url, methods=['GET']):
     # Map the URL to serve to this function. If running in `collector_mode`,
     # then only map the `put_events` function.
     global ENDPOINTS
-    if (settings.collector_mode and
-        function.func_name not in ('put_events', 'index')):
-      continue
-    ENDPOINTS[url] = wrapper
+    if not (settings.collector_mode and
+            function.func_name not in ('put_events', 'index')):
+      ENDPOINTS[url] = wrapper
 
     return wrapper
 
