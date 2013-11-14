@@ -3,8 +3,8 @@ upstream kronos_{{ port }} {
 }
 
 server {
-  access_log /var/log/nginx/access.kronos.{{ port }}.log;
-  error_log /var/log/nginx/error.kronos.{{ port }}.log;
+  access_log /mnt/logs/nginx/access.kronos.{{ port }}.log;
+  error_log /mnt/logs/nginx/error.kronos.{{ port }}.log;
 
   server_name kronos_{{ port }};
   listen {{ port }};
