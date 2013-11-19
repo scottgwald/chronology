@@ -1,13 +1,11 @@
 import threading
 
-from pyspark import SparkContext
-
 from metis import app
 from metis.core import transform
 from pykronos.client import KronosClient
 from metis.utils.decorators import async
 
-KRONOS = KronosClient(app.config['KRONOS_SERVER'])
+KRONOS = KronosClient(app.config['KRONOS_SERVER'], blocking=True)
 
 class SparkContextManager(object):
   def __init__(self):
@@ -28,9 +26,10 @@ class SparkContextManager(object):
   def _create_context(self):
     # Also ship the metis zip file so worker nodes can deserialize metis
     # internal objects.
+    from pyspark import SparkContext
     context = SparkContext(app.config['SPARK_MASTER'],
                            'Metis-%s' % self._contexts_created,
-                           pyFiles=[app.config['METIS_ZIP_FILE']])
+                           pyFiles=[app.config['METIS_LIB_FILE']])
     return context
 
   def get_context(self):
@@ -55,10 +54,14 @@ def _get_kronos_rdd(spark_context, stream, namespace, start_time, end_time):
   return spark_context.parallelize(events)
 
 
-def execute_compute_task(stream_in, namespace, start_time, end_time,
+def execute_compute_task(stream, namespace, start_time, end_time,
                          transforms):
+  if not transforms:
+    # If there are no tranforms then simply return the Kronos stream.
+    return KRONOS.get(stream, start_time, end_time, namespace=namespace)
+  
   spark_context = CONTEXT_MANAGER.get_context()
-  rdd = _get_kronos_rdd(spark_context, stream_in, namespace, start_time,
+  rdd = _get_kronos_rdd(spark_context, stream, namespace, start_time,
                         end_time)
   for json_transform in transforms:
     metis_transform = transform.parse(json_transform)

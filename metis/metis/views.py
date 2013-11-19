@@ -1,5 +1,7 @@
+from flask import json
 from flask import jsonify
 from flask import request
+from flask import Response
 
 import metis
 
@@ -25,9 +27,10 @@ def get():
   transforms = request_json.get('transforms', [])
   namespace = request_json.get('namespace',
                                app.config['DEFAULT_READ_NAMESPACE'])
-  response = {'status': 'ok'}
-  response.update({
-      'result': compute.execute_compute_task(stream, namespace, start_time,
-                                             end_time, transforms)
-      })
-  return jsonify(response)
+  return Response(('%s\r\n' % json.dumps(event)
+                   for event in compute.execute_compute_task(stream,
+                                                             namespace,
+                                                             start_time,
+                                                             end_time,
+                                                             transforms)),
+                  mimetype='application/json')
