@@ -39,6 +39,7 @@ TODO(meelap): Finish documenting indexes.
 # TODO(usmanm): Cython some code to speed it?
 import heapq
 import itertools
+import logging
 import json
 import random
 
@@ -67,6 +68,8 @@ from kronos.utils.math import time_to_kronos_time
 from kronos.utils.math import uuid_from_kronos_time
 from kronos.utils.math import uuid_to_kronos_time
 from kronos.utils.math import UUIDType
+
+log = logging.getLogger(__name__) 
 
 LENGTH_OF_YEAR = int(timedelta(days=365.25).total_seconds() * 1e7)
 
@@ -377,6 +380,7 @@ class TimeWidthCassandraStorage(BaseStorage):
         self.system_manager = SystemManager(host)
         break
       except TTransportException:
+        log.error('Error creating system manager', exc_info=True)
         pass
 
     for namespace_name in namespaces:

@@ -5,6 +5,7 @@ import gevent.pywsgi
 import geventhttpclient.httplib; geventhttpclient.httplib.patch()
 
 import imp
+import logging; logging.basicConfig()
 import multiprocessing
 import subprocess
 import werkzeug.serving

@@ -10,6 +10,7 @@ from jia import app
 
 from auth import require_auth
 from pykronos.client import KronosClient
+from pykronos.client import TIMESTAMP_FIELD
 from pykronos.utils.time import is_kronos_reserved_key
 from pykronos.utils.time import kronos_time_to_datetime
 
@@ -34,7 +35,7 @@ def get():
     # TODO(meelap): Optimization - pass desired properties to Kronos
     kronosclient = KronosClient(app.config['KRONOS_URL'], blocking=False)
     kronosdata = kronosclient.get(stream, start, end)
-
+    
     # Convert events returned by Kronos to a format suitable for rickshaw
     # Kronos format is a list of dicts where each dict contains '@time' and
     # various other key/value pairs.
@@ -43,7 +44,7 @@ def get():
     # of the stream name at that timestamp.
     timeseries = defaultdict(list)
     for point in kronosdata:
-      time = kronos_time_to_datetime(point[KronosClient.TIMESTAMP_FIELD])
+      time = kronos_time_to_datetime(point[TIMESTAMP_FIELD])
       time = int(mktime(time.timetuple()))
       for key,value in point.iteritems():
         if properties and key not in properties:
