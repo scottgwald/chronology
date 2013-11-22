@@ -11,7 +11,19 @@ from collections import defaultdict
 from datetime import datetime
 from datetime import timedelta
 from dateutil.tz import tzutc
-from metis.convenience import cohort_queryplan
+from metis import app
+from metis.convenience.cohort import cohort_queryplan
+from metis.convenience.query_primitives import agg
+from metis.convenience.query_primitives import aggop
+from metis.convenience.query_primitives import c
+from metis.convenience.query_primitives import filt_cond
+from metis.convenience.query_primitives import filt
+from metis.convenience.query_primitives import kstream
+from metis.convenience.query_primitives import p
+from metis.convenience.query_primitives import proj
+from metis.convenience.query_primitives import Comparison
+from metis.convenience.query_primitives import ID
+from metis.convenience.query_primitives import TIME
 from pykronos import KronosClient
 from pykronos.utils.time import datetime_to_kronos_time
 from random import randint
@@ -22,8 +34,9 @@ import requests
 
 class EndpointTest(object):
 
-  def __init__(self, client, metis_url):
+  def __init__(self, client, kronos_url, metis_url):
     self._client = client
+    self._kronos_url = kronos_url
     self._metis_url = metis_url
 
   def clear_data(self):
@@ -69,27 +82,23 @@ class GetTest(EndpointTest):
 
 
   def run_test(self):
-    transforms = [
-                   {'key': 'group2', 'value': 'angela', 'op': 'eq',
-                    'transform': 'FILTER'},
-                   {'keys': ['@id', '@time', 'group1', 'group2',
-                             'group3', 'value'],
-                    'transform': 'PROJECTION'},
-                   {'time_width': 100, 'transform': 'GROUPBYTIME'},
-                   {'keys': ['group1'], 'transform': 'GROUPBY'},
-                   {'aggregates': [{'alias': 'sum_of_values', 'key': 'value',
-                                    'op': 'sum'}], 'transform': 'AGGREGATE'}
-                 ]
-    response = requests.post('%s/1.0/events/get' % self._metis_url,
-                             data=json.dumps({'stream': GetTest.STREAM,
-                                              'start_time': 0,
-                                              'end_time': GetTest.SECONDS,
-                                              'transforms': transforms}),
+    plan = [kstream(GetTest.STREAM, 0, GetTest.SECONDS,
+                    self._kronos_url, app.config['DEFAULT_READ_NAMESPACE']),
+            filt(filt_cond(p('group2'), c('angela'), Comparison.EQUAL)),
+            proj([p(ID), p(TIME), p('group1'), p('group2'),
+                  p('group3'), p('value')]),
+#                 {'time_width': 100, 'transform': 'GROUPBYTIME'},
+            agg([p('group1')],
+                [aggop('sum', [p('value')], alias='sum_of_values')])]
+               
+    response = requests.post('%s/1.0/query' % self._metis_url,
+                             data=json.dumps({'plan': plan}),
                              stream=True)
-    print response.json()['result']
+    for line in response.iter_lines():
+      print line
 
   def description(self):
-    return 'basic /get/'
+    return 'basic /query'
 
 
 class CohortTest(EndpointTest):
@@ -165,7 +174,8 @@ class CohortTest(EndpointTest):
   def run_test(self):
     plan = cohort_queryplan({'cohort': {'stream': CohortTest.EMAIL_STREAM,
                                         'transform': [],
-                                        'start': CohortTest.START_DATETIME,
+                                        'start':
+                                          CohortTest.START_DATETIME.date(),
                                         'cohorts': len(CohortTest.EMAIL_WEEKS),
                                         'unit': 'weeks',
                                         'grouping_key': 'user'},
@@ -174,10 +184,10 @@ class CohortTest(EndpointTest):
                                         'repetitions': CohortTest.ACTION_REPETITION_DAYS,
                                         'unit': 'days',
                                         'grouping_key': 'user_id'}})
-    response = requests.post('%s/1.0/events/get' % self._metis_url,
+    response = requests.post('%s/1.0/query' % self._metis_url,
                              data=json.dumps(plan),
                              stream=True)  
-    print response
+    print response.text
   
   def description(self):
     return 'cohort analysis'
@@ -193,8 +203,8 @@ if __name__ == '__main__':
 
   client = KronosClient(args.kronos_url, blocking=False)
   for test in [
-    GetTest(client, args.metis_url),
-#    CohortTest(client, args.metis_url)
+    GetTest(client, args.kronos_url, args.metis_url),
+#    CohortTest(client, args.kronos_url, args.metis_url)
     ]:
     print 'Testing %s' % (test.description())
     print '...generating data'

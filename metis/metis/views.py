@@ -16,21 +16,12 @@ def index():
       })
 
 # TODO(usmanm): Add error handling everywhere.
-@app.route('/1.0/events/get', methods=['POST'])
+@app.route('/1.0/query', methods=['POST'])
 def get():
   # TODO(usmanm): `force` doesn't seem to work. Still need to send the correct
   # application/json header.
   request_json = request.get_json(force=True)
-  stream = request_json['stream']
-  start_time = request_json['start_time']
-  end_time = request_json['end_time']
-  transforms = request_json.get('transforms', [])
-  namespace = request_json.get('namespace',
-                               app.config['DEFAULT_READ_NAMESPACE'])
+  plan = request_json.get('plan', [])
   return Response(('%s\r\n' % json.dumps(event)
-                   for event in compute.execute_compute_task(stream,
-                                                             namespace,
-                                                             start_time,
-                                                             end_time,
-                                                             transforms)),
+                   for event in compute.execute_compute_task(plan)),
                   mimetype='application/json')

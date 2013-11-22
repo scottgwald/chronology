@@ -5,8 +5,9 @@ import sys
 import types
 
 from metis.conf import constants
+from pykronos.client import KronosClient
 
-TRANSFORM_MAP = {}
+OPERATOR_MAP = {}
 
 
 def _expand_args(func):
@@ -28,43 +29,44 @@ def _get_key_value(arg):
 
 
 def parse(value):
-  if not 'transform' in value:
+  if not 'operator' in value:
     raise ValueError
-  if not TRANSFORM_MAP:
-    # Create transform name to class map.
+  if not OPERATOR_MAP:
+    # Create operator name to class map.
     for name, obj in inspect.getmembers(sys.modules[__name__]):
-      if (obj == Transform or
+      if (obj == Operator or
           not inspect.isclass(obj) or
-          not issubclass(obj, Transform)):
+          not issubclass(obj, Operator)):
         continue
-      TRANSFORM_MAP[obj.get_name()] = obj
-  if value['transform'] not in TRANSFORM_MAP:
+      OPERATOR_MAP[obj.get_name()] = obj
+  print value, OPERATOR_MAP.keys()
+  if value['operator'] not in OPERATOR_MAP:
     raise ValueError
-  return TRANSFORM_MAP[value['transform']](**value)
+  return OPERATOR_MAP[value['operator']](**value)
 
 
-class Transform(object):
+class Operator(object):
   NAME = None # Optional override of name.
 
   @classmethod
   def get_name(cls):
     if cls.NAME is not None:
       return str(cls.NAME).upper()
-    return cls.__name__.replace('Transform', '').upper()
+    return cls.__name__.replace('Operator', '').upper()
 
   def to_dict(self):
-    return {'transform': self.get_name()}
+    return {'operator': self.get_name()}
 
   def apply(self, spark_context, rdd):
     raise NotImplemented
 
 
-class NullTransform(Transform):
+class NullOperator(Operator):
   def apply(self, rdd):
     return rdd
 
 
-class ProjectionTransform(Transform):
+class ProjectionOperator(Operator):
   def __init__(self, keys, **kwargs):
     self.keys = set(keys)
     # Always project id and timestamp fields.
@@ -72,7 +74,7 @@ class ProjectionTransform(Transform):
     self.keys.add(constants.TIMESTAMP_FIELD)
     
   def to_dict(self):
-    dictionary = super(ProjectionTransform, self).to_dict()
+    dictionary = super(ProjectionOperator, self).to_dict()
     dictionary['keys'] = list(self.keys)
     return dictionary
 
@@ -88,18 +90,38 @@ class ProjectionTransform(Transform):
     return rdd.map(self._project)
 
 
-class FilterTransform(Transform):
-  def __init__(self, key, op, value, **kwargs):
+class KronosOperator(Operator):
+  def __init__(self, stream, start, end, namespace, server, **kwargs):
+    self._stream = stream
+    self._start = start
+    self._end = end
+    self._namespace = namespace
+    self._server = server
+    self._client = KronosClient(self._server, blocking=True)
+    
+  def to_dict(self):
+    dictionary = super(KronosOperator, self).to_dict()
+    dictionary['stream'] = self._stream
+    dictionary['start'] = self._start
+    dictionary['end'] = self._end
+    dictionary['server'] = self._server
+    dictionary['namespace'] = self._namespace     
+    return dictionary
+
+  def apply(self, spark_context, rdd):
+    events = self._client.get(self._stream, self._start, self._end,
+                              namespace=self._namespace)
+    return spark_context.parallelize(events)
+  
+
+class FilterOperator(Operator):
+  def __init__(self, conditions, **kwargs):
     # TODO(usmanm): Validate op & value.
-    self.key = key
-    self.op = op
-    self.value = value
+    self._conditions = conditions
 
   def to_dict(self):
-    dictionary = super(FilterTransform, self).to_dict()
-    dictionary.update({'key': self.key,
-                       'op': self.op, 
-                       'value': self.value})
+    dictionary = super(FilterOperator, self).to_dict()
+    dictionary.update({'conditions': self._conditions})
     return dictionary
 
   def _safe_lambda(self, filter_function, _type=None):
@@ -150,12 +172,12 @@ class FilterTransform(Transform):
                             _type=types.StringType))
 
 
-class GroupByTimeTransform(Transform):
+class GroupByTimeOperator(Operator):
   def __init__(self, time_width, **kwargs):
     self.time_width = time_width
 
   def to_dict(self):
-    dictionary = super(GroupByTimeTransform, self).to_dict()
+    dictionary = super(GroupByTimeOperator, self).to_dict()
     dictionary['time_width'] = self.time_width
     return dictionary
 
@@ -175,14 +197,14 @@ class GroupByTimeTransform(Transform):
     return rdd.map(self._map_into_time_buckets)
 
 
-class OrderByTransform(Transform):
+class OrderByOperator(Operator):
   def __init__(self, keys, reverse=False, **kwargs):
     assert len(set(keys)) == len(keys)
     self.keys = keys
     self.reverse = reverse
 
   def to_dict(self):
-    dictionary = super(OrderByTransform, self).to_dict()
+    dictionary = super(OrderByOperator, self).to_dict()
     dictionary['keys'] = self.keys
     return dictionary
 
@@ -205,12 +227,12 @@ class OrderByTransform(Transform):
     return spark_context.parallelize(iterator())
 
 
-class LimitTransform(Transform):
+class LimitOperator(Operator):
   def __init__(self, limit, **kwargs):
     self.limit = int(limit)
 
   def to_dict(self):
-    dictionary = super(LimitTransform, self).to_dict()
+    dictionary = super(LimitOperator, self).to_dict()
     dictionary['limit'] = self.limit
     return dictionary
 
@@ -227,13 +249,13 @@ class LimitTransform(Transform):
                        [(key, value) for value in values[:self.limit]]))
 
 
-class GroupByTransform(Transform):
+class GroupByOperator(Operator):
   def __init__(self, keys, **kwargs):
     assert len(set(keys)) == len(keys)
     self.keys = keys
     
   def to_dict(self):
-    dictionary = super(GroupByTransform, self).to_dict()
+    dictionary = super(GroupByOperator, self).to_dict()
     dictionary['keys'] = self.keys
     return dictionary
 
@@ -248,7 +270,7 @@ class GroupByTransform(Transform):
     return rdd.map(_map)
 
 
-class AggregateTransform(Transform):
+class AggregateOperator(Operator):
   def __init__(self, aggregates, **kwargs):
     for aggregate in aggregates:
       if aggregate.get('key') is None:
@@ -263,7 +285,7 @@ class AggregateTransform(Transform):
           (aggregate['op'], aggregate.get('key'))] = str(aggregate['alias'])
 
   def to_dict(self):
-    dictionary = super(AggregateTransform, self).to_dict()
+    dictionary = super(AggregateOperator, self).to_dict()
     dictionary['aggregates'] = self.aggregates
     return dictionary
 

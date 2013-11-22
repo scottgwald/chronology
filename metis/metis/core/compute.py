@@ -2,10 +2,7 @@ import threading
 
 from metis import app
 from metis.core import transform
-from pykronos.client import KronosClient
 from metis.utils.decorators import async
-
-KRONOS = KronosClient(app.config['KRONOS_SERVER'], blocking=True)
 
 class SparkContextManager(object):
   def __init__(self):
@@ -49,23 +46,12 @@ class SparkContextManager(object):
 CONTEXT_MANAGER = SparkContextManager()
 
 
-def _get_kronos_rdd(spark_context, stream, namespace, start_time, end_time):
-  events = KRONOS.get(stream, start_time, end_time, namespace=namespace)
-  return spark_context.parallelize(events)
-
-
-def execute_compute_task(stream, namespace, start_time, end_time,
-                         transforms):
-  if not transforms:
-    # If there are no tranforms then simply return the Kronos stream.
-    return KRONOS.get(stream, start_time, end_time, namespace=namespace)
-  
+def execute_compute_task(plan):
   spark_context = CONTEXT_MANAGER.get_context()
-  rdd = _get_kronos_rdd(spark_context, stream, namespace, start_time,
-                        end_time)
-  for json_transform in transforms:
-    metis_transform = transform.parse(json_transform)
-    rdd = metis_transform.apply(spark_context, rdd)
+  rdd = None
+  for json_operator in plan:
+    metis_operator = transform.parse(json_operator)
+    rdd = metis_operator.apply(spark_context, rdd)
   result = rdd.collect()
   CONTEXT_MANAGER.release_context(spark_context)
   return result
