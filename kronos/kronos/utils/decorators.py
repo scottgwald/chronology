@@ -47,12 +47,12 @@ def endpoint(url, methods=['GET']):
           return json.dumps({'@errors' : [error]})
 
         headers = []
+        remote_origin = environment.get('HTTP_ORIGIN')
         
         if req_method == 'OPTIONS':
-          remote_origin = environment.get('HTTP_ORIGIN')
-
           # This is a CORS preflight request so check that the remote domain is
           # allowed and respond with appropriate CORS headers.
+          # http://www.html5rocks.com/static/images/cors_server_flowchart.png
           if is_remote_allowed(remote_origin):
             headers.extend([
               ('Access-Control-Allow-Origin', remote_origin),
@@ -71,6 +71,9 @@ def endpoint(url, methods=['GET']):
 
         # All responses are JSON.
         headers.append(('Content-Type', 'application/json'))
+
+        if remote_origin:
+          headers.append(('Access-Control-Allow-Origin', remote_origin))
 
         return function(environment, start_response, headers)
       except Exception, e:
