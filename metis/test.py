@@ -16,6 +16,7 @@ from metis.convenience.cohort import cohort_queryplan
 from metis.convenience.query_primitives import agg
 from metis.convenience.query_primitives import aggop
 from metis.convenience.query_primitives import c
+from metis.convenience.query_primitives import f
 from metis.convenience.query_primitives import filt_cond
 from metis.convenience.query_primitives import filt
 from metis.convenience.query_primitives import kstream
@@ -69,6 +70,9 @@ class GetTest(EndpointTest):
     group3_options = ['mandela', 'king', 'gandhi']
     value_options = [1.0 * value for value in xrange(10)]
 
+    # Identify expected results by time and group3 in nested
+    # dictionaries.
+    self._expected = defaultdict(lambda: defaultdict(float))
     for idx in xrange(GetTest.SECONDS):
       blob = {
         '@time': idx,
@@ -78,6 +82,9 @@ class GetTest(EndpointTest):
         'value': value_options[idx % len(value_options)]
       }
       self._client.put({GetTest.STREAM: [blob]})
+      if blob['group2'] == 'angela':
+        time_group = blob['@time'] - (blob['@time'] % 100)
+        self._expected[time_group][blob['group3']] += blob['value']
     self._client.flush()
 
 
@@ -87,15 +94,21 @@ class GetTest(EndpointTest):
             filt(filt_cond(p('group2'), c('angela'), Comparison.EQUAL)),
             proj([p(ID), p(TIME), p('group1'), p('group2'),
                   p('group3'), p('value')]),
-#                 {'time_width': 100, 'transform': 'GROUPBYTIME'},
-            agg([p('group1')],
+            agg([f('round_time_down', [p('@time'), c('100')], alias='@time'),
+                 p('group3')],
                 [aggop('sum', [p('value')], alias='sum_of_values')])]
                
     response = requests.post('%s/1.0/query' % self._metis_url,
                              data=json.dumps({'plan': plan}),
                              stream=True)
+    results = defaultdict(lambda: defaultdict(float))
     for line in response.iter_lines():
-      print line
+      blob = json.loads(line)
+      assert set(blob.keys()) == {'@time', 'sum_of_values', 'group3'}
+      results[blob['@time']][blob['group3']] += blob['value']
+    assert (json.dumps(self._expected, sort_keys=True) ==
+            json.dumps(results, sort_keys=True))
+    
 
   def description(self):
     return 'basic /query'
@@ -130,7 +143,7 @@ class CohortTest(EndpointTest):
     # Fill in expected_output, which is of
     # the form: {cohort_date: {cohort_size: NN,
     #                          action_dates: {action_date: num_actions}}}
-    expected_output = defaultdict(
+    self._expected = defaultdict(
       lambda: {'cohort_size': 0, 'action_dates': defaultdict(int)})
     for user_id in user_ids:
       weeks1, weeks2 = CohortTest.EMAIL_WEEKS[
@@ -143,8 +156,8 @@ class CohortTest(EndpointTest):
       week2 = datetime_to_date_str(week2)      
       user_dates[user_id] = ({'cohort': week1, 'precise': date1},
                              {'cohort': week2, 'precise': date2})
-      expected_output[week1]['cohort_size'] += 1
-      expected_output[week2]['cohort_size'] += 1
+      self._expected[week1]['cohort_size'] += 1
+      self._expected[week2]['cohort_size'] += 1
       client.put({CohortTest.EMAIL_STREAM: [{'user': user_id,
                                   '@time': datetime_to_kronos_time(date1)}]})
       client.put({CohortTest.EMAIL_STREAM: [{'user': user_id,
@@ -163,12 +176,12 @@ class CohortTest(EndpointTest):
           action_probability = group_probability * day_probability
           if random() < action_probability:
             action_date = email_dates['precise'] + timedelta(days=day)
-            expected_output[email_dates['cohort']]['action_dates'][
+            self._exptected[email_dates['cohort']]['action_dates'][
               datetime_to_date_str(action_date)] += 1
             client.put({CohortTest.FRONTPAGE_STREAM: [{'user_id': user_id,
                                             '@time': action_date}]})
 
-    print json.dumps(expected_output, sort_keys=True, indent=2)
+    print json.dumps(self._expected, sort_keys=True, indent=2)
 
   
   def run_test(self):
@@ -187,8 +200,17 @@ class CohortTest(EndpointTest):
     response = requests.post('%s/1.0/query' % self._metis_url,
                              data=json.dumps(plan),
                              stream=True)  
-    print response.text
-  
+    results = defaultdict(
+      lambda: {'cohort_size': 0, 'action_dates': defaultdict(int)})
+    for line in response.iter_lines():
+      blob = json.loads(line)
+      assert set(blob.keys()) == {'@time', 'cohort_size', 'cohort_actions', 'action-date'}      
+      results[blob['@time']]['cohort_size'] = blob['cohort_size']
+      results[blob['@time']]['action_dates'][blob['action_date']] = (
+        blob['cohort_actions'])
+    assert (json.dumps(self._expected, sort_keys=True) ==
+            json.dumps(results, sort_keys=True))  
+
   def description(self):
     return 'cohort analysis'
 
