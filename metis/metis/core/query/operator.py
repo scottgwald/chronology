@@ -222,7 +222,7 @@ class AggregateOperator(Operator):
         if not len(args):
           value = 1
         else:
-          value = 1 if get_value(event, args[0]) else 0
+          value = 0 if get_value(event, args[0]) is None else 1
       elif aggregate['op'] == AggregateType.SUM:
         assert len(args) == 1
         value = cast_to_float(get_value(event, args[0]), 0)
@@ -239,6 +239,13 @@ class AggregateOperator(Operator):
           value = (0, 0)
         else:
           value = (value, 1)
+      elif aggregate['op'] == AggregateType.VALUE_COUNT:
+        assert len(args) > 0
+        if len(args) == 1:
+          value_key = str(get_value(event, args[0]))
+        else:
+          value_key = str(tuple(get_value(event, arg) for arg in args))
+        value = {value_key: 1}
       else:
         raise ValueError
       new_event[aggregate['alias']] = value
@@ -257,6 +264,11 @@ class AggregateOperator(Operator):
       elif aggregate['op'] == AggregateType.AVG:
         value = (event1[alias][0] + event2[alias][0],
                  event1[alias][1] + event2[alias][1])
+      elif aggregate['op'] == AggregateType.VALUE_COUNT:
+        value = event1[alias].copy()
+        for key in event2[alias]:
+          value.setdefault(key, 0)
+          value[key] += event2[alias][key]
       else:
         raise ValueError
       event[alias] = value

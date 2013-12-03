@@ -6,6 +6,7 @@ class AggregateType(Enum):
   AVG = 'avg'
   COUNT = 'count'
   SUM = 'sum'
+  VALUE_COUNT = 'valuecount'
                     
 
 class ConditionType(Enum):
