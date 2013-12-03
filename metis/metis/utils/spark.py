@@ -21,15 +21,9 @@ def create_lib_for_spark_workers():
     for file_name in files:
       if IGNORE_FILES_RE.match(file_name):
         continue
-      if root == app.config['PATH'] and file_name == '__init__.py':
-        # Don't copy this file. Instead we create an empty file as a
-        # replacement on L31.
-        continue
       zip_file.write(os.path.join(root, file_name),
                      os.path.join(root.replace(app.config['PATH'], 'metis'),
                                   file_name))
-  # Ensure __init__.py file is empty and there's no initialization code.
-  zip_file.writestr('metis/__init__.py', '')
   zip_file.close()
   app.config['METIS_LIB_FILE'] = archive_path
 

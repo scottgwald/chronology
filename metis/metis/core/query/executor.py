@@ -1,7 +1,7 @@
 import threading
 
 from metis import app
-from metis.core import transform
+from metis.core.query.operator import Operator
 from metis.utils.decorators import async
 
 class SparkContextManager(object):
@@ -48,12 +48,10 @@ CONTEXT_MANAGER = SparkContextManager()
 
 def execute_compute_task(plan):
   spark_context = CONTEXT_MANAGER.get_context()
-  rdd = None
-  for json_operator in plan:
-    metis_operator = transform.parse(json_operator)
-    rdd = metis_operator.apply(spark_context, rdd)
-  result = rdd.collect()
-  CONTEXT_MANAGER.release_context(spark_context)
+  try:
+    result = Operator.parse(plan).get_rdd(spark_context).collect()
+  finally:
+    CONTEXT_MANAGER.release_context(spark_context)
   return result
 
 async_execute_compute_task = async(execute_compute_task)

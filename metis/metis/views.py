@@ -6,7 +6,7 @@ from flask import Response
 import metis
 
 from metis import app
-from metis.core import compute
+from metis.core.query import executor
 
 @app.route('/1.0/index', methods=['GET'])
 def index():
@@ -17,11 +17,11 @@ def index():
 
 # TODO(usmanm): Add error handling everywhere.
 @app.route('/1.0/query', methods=['POST'])
-def get():
+def query():
   # TODO(usmanm): `force` doesn't seem to work. Still need to send the correct
   # application/json header.
   request_json = request.get_json(force=True)
-  plan = request_json.get('plan', [])
+  plan = request_json['plan']
   return Response(('%s\r\n' % json.dumps(event)
-                   for event in compute.execute_compute_task(plan)),
+                   for event in executor.execute_compute_task(plan)),
                   mimetype='application/json')
