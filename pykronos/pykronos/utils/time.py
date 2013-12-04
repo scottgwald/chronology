@@ -8,8 +8,12 @@ def datetime_to_kronos_time(dt):
   """
   Kronos expects timestamps to be the number of 100ns intervals since the epoch.
   This function takes a Python `datetime` object and returns the corresponding
-  Kronos timestamp.
+  Kronos timestamp. If `dt` is a native datetime object (not timezone aware)
+  then this function assumes that the timezone in UTC.
   """
+  # If the datetime is native, assume that the timezone is UTC.
+  if not dt.tzinfo:
+    dt = dt.replace(tzinfo=tzutc())
   return int((dt - EPOCH).total_seconds() * 1e7)
 
 def kronos_time_to_datetime(time):

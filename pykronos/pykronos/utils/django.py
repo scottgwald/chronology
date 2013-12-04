@@ -35,7 +35,8 @@ class KronosLoggingMiddleware(object):
       sleep_block=kronos_config.get('sleep_block', 0.1))
     self.stream = kronos_config['stream']
     self.namespace = kronos_config.get('namespace')
-    self.log_traceback = kronos_config.get('log_traceback', False)
+    self.log_exception_stack_trace = kronos_config.get(
+        'log_exception_stack_trace', False)
     self.fail_silently = kronos_config.get('fail_silently', False)
 
   def _get_ip(self, request):
@@ -79,7 +80,7 @@ class KronosLoggingMiddleware(object):
   def process_exception(self, request, exception):
     self.client._log_exception(
       request._kronos_event, exception,
-      sys.exc_info()[2] if self.log_traceback else None)
+      sys.exc_info()[2] if self.log_exception_stack_trace else None)
 
   def process_response(self, request, response):
     start_time = request._kronos_event.pop('start_time')

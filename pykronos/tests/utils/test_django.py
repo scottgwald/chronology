@@ -85,7 +85,7 @@ class KronosLoggingMiddlewareTest(unittest.TestCase):
       exception = event['exception']
       self.assertEqual(exception['class'], 'ValueError')
       self.assertEqual(exception['message'], 'I am a dummy error.')
-      self.assertEqual(len(exception['traceback']), 1)
+      self.assertEqual(len(exception['stack_trace']), 1)
 
     # Ensure that correct event dict was sent to Kronos.
     events = list(self.middleware.client.get(self.stream,
@@ -94,7 +94,7 @@ class KronosLoggingMiddlewareTest(unittest.TestCase):
     self.assertEqual(len(events), 1)
     event = events[0]
     del event[ID_FIELD]
-    self.assertEqual(event, self.request._kronos_event)
+    self.assertEqual(event, json.loads(json.dumps(self.request._kronos_event)))
 
   def test_request_flow_with_exception(self):
     self.test_request_flow(with_exception=True)

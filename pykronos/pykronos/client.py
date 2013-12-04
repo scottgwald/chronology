@@ -6,12 +6,14 @@ import time
 import traceback
 import sys
 
-from threading import Lock
-from threading import Thread
 from collections import defaultdict
 from contextlib import contextmanager
+from datetime import datetime
+from threading import Lock
+from threading import Thread
 
-from pykronos.utils.time import kronos_time_now
+from pykronos.utils.time import (datetime_to_kronos_time,
+                                 kronos_time_now)
 
 # These are constants, do not modify them.
 ID_FIELD = '@id'
@@ -91,7 +93,7 @@ class KronosClient(object):
     else:
       exception_dict['class'] = exception.__class__.__name__
     if tb:
-      exception_dict['traceback'] = traceback.format_tb(tb)
+      exception_dict['stack_trace'] = traceback.extract_tb(tb)
 
   def index(self):
     return requests.get(self._index_url).json()
@@ -124,6 +126,9 @@ class KronosClient(object):
       for event in events:
         if TIMESTAMP_FIELD not in event:
           event[TIMESTAMP_FIELD] = timestamp
+        elif isinstance(event[TIMESTAMP_FIELD], datetime):
+          event[TIMESTAMP_FIELD] = datetime_to_kronos_time(
+              event[TIMESTAMP_FIELD])
 
     if self._blocking:
       return self._put(namespace, event_dict)
@@ -157,12 +162,17 @@ class KronosClient(object):
     events returned.  An optional `order` requests results in `ASCENDING`
     or `DESCENDING` order.
     """
+    if isinstance(start_time, datetime):
+      start_time = datetime_to_kronos_time(start_time)
+    if isinstance(end_time, datetime):
+      end_time = datetime_to_kronos_time(end_time)
+      
     request_dict = {
       'stream': stream,
       'end_time': end_time,
       'order': order,
     }
-    if start_id:
+    if start_id is not None:
       request_dict['start_id'] = start_id
     else:
       request_dict['start_time'] = start_time
@@ -246,15 +256,18 @@ class KronosClient(object):
       if line:
         yield json.loads(line)
 
-  def log_function(self, stream_name, properties={}, log_traceback=False,
+  def log_function(self, stream_name, properties={},
+                   log_function_stack_trace=False,
+                   log_exception_stack_trace=False,
                    namespace=None):
     """
     Logs each call to the function as an event in the stream with name
-    `stream_name`. If `log_traceback` is set, it will log the traceback under
-    the `traceback` key. `properties` is an optional mapping fron key name to
-    some function which expects the same arguments as the function `function`
-    being decorated. The event will be populated with keys in `properties`
-    mapped to the return values of the `properties[key_name](*args, **kwargs)`.
+    `stream_name`. If `log_stack_trace` is set, it will log the stack trace
+    under the `stack_trace` key. `properties` is an optional mapping fron key
+    name to some function which expects the same arguments as the function
+    `function` being decorated. The event will be populated with keys in
+    `properties` mapped to the return values of the
+    `properties[key_name](*args, **kwargs)`.
     Usage:
 
       @kronos_client.log_function('mystreamname',
@@ -268,11 +281,14 @@ class KronosClient(object):
       def wrapper(*args, **kwargs):
         event = {}
         start_time = time.time()
+        if log_function_stack_trace:
+          event['stack_trace'] = traceback.extract_stack()
         try:
           return function(*args, **kwargs)
         except Exception as exception:
           self._log_exception(event, exception,
-                              sys.last_traceback if log_traceback else None)
+                              (sys.last_traceback if log_exception_stack_trace
+                               else None))
           raise exception
         finally:
           event['duration'] = time.time() - start_time
@@ -283,23 +299,26 @@ class KronosClient(object):
     return decorator
 
   @contextmanager
-  def log_scope(self, stream_name, properties={}, log_traceback=False,
-                namespace=None):
+  def log_scope(self, stream_name, properties={}, log_scope_stack_trace=False,
+                log_exception_stack_trace=False, namespace=None):
     """
     Identical to `log_function` except that `log_scope` is used to log blocks
     of code. The API is identical except that keys in `properties` are mapped to
     real values rather than getter functions. Usage:
 
       with kronos_client.log_scope('mystreamname', properties={ 'lol':'cat' },
-                                   log_traceback=True):
+                                   log_scope_stack_trace=True):
         <some code here>
     """
     start_time = time.time()
     event = properties.copy()
+    if log_scope_stack_trace:
+      event['stack_trace'] = traceback.extract_stack()
     try:
       yield event
     except Exception, exception:
       self._log_exception(event, exception,
-                          sys.last_traceback if log_traceback else None)
+                          (sys.last_traceback if log_exception_stack_trace
+                           else None))
     event['duration'] = time.time() - start_time
     self.put({stream_name: [event]}, namespace=namespace)

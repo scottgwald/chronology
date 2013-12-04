@@ -2,7 +2,10 @@ import functools
 import time
 import unittest
 
-from pykronos.client import KronosClient
+from datetime import datetime
+
+from pykronos import KronosClient
+from pykronos.client import TIMESTAMP_FIELD
 from pykronos.utils.time import kronos_time_now
 
 
@@ -41,6 +44,26 @@ class KronosClientTest(unittest.TestCase):
                                     kronos_time_now()))
       self.assertEqual(len(events), 4)
       self.assertEqual({1, 2, 3, 4}, set(map(lambda event: event['a'], events)))
+
+    # Test with `datetime` timestamps.
+    start_time = datetime.utcnow()
+    for i in xrange(2):
+      stream = '%s_%s' % (self.stream, i)
+      self.client.put({stream: [{'a': 1, TIMESTAMP_FIELD: datetime.utcnow()},
+                                {'a': 2, TIMESTAMP_FIELD: datetime.utcnow()}]})
+      self.client.put({stream: [{'a': 3, TIMESTAMP_FIELD: datetime.utcnow()},
+                                {'a': 4, TIMESTAMP_FIELD: datetime.utcnow()}]})
+
+    time.sleep(self.sleep_time)
+
+    for i in xrange(2):
+      stream = '%s_%s' % (self.stream, i)
+      events = list(self.client.get(stream,
+                                    start_time,
+                                    datetime.utcnow()))
+      self.assertEqual(len(events), 4)
+      self.assertEqual({1, 2, 3, 4}, set(map(lambda event: event['a'], events)))
+    
 
   @kronos_client_test
   def test_delete(self):
