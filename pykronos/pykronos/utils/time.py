@@ -17,7 +17,7 @@ def datetime_to_kronos_time(dt):
   return int((dt - EPOCH).total_seconds() * 1e7)
 
 def kronos_time_to_datetime(time):
-  return datetime.fromtimestamp(int(time * 1e-7))
+  return datetime.utcfromtimestamp(int(time * 1e-7)).replace(tzinfo=tzutc())
 
 def kronos_time_now():
   return datetime_to_kronos_time(datetime.now(tz=tzutc()))
