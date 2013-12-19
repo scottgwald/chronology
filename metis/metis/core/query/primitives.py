@@ -5,6 +5,10 @@ from metis.core.query.enums import (AggregateType,
                                     ValueType)
 
 
+TIME = '@time'
+ID = '@id'
+
+
 def kstream(stream, start_time, end_time, host, namespace=None):
   return {'operator': OperatorType.KRONOS,
           'stream': stream,
@@ -13,14 +17,24 @@ def kstream(stream, start_time, end_time, host, namespace=None):
           'namespace': namespace,
           'host': host}
 
-def p(name):
-  return {'type': ValueType.PROPERTY, 'name': name}
+def p(name, alias=None):
+  return {'type': ValueType.PROPERTY, 'name': name,
+          'alias': alias if alias else name}
 
-def f(name, args):
-  return {'type': ValueType.FUNCTION, 'name': name, 'args': args}
 
-def c(value):
-  return {'type': ValueType.CONSTANT, 'value': value}
+def f(name, args, alias=None):
+  retval = {'type': ValueType.FUNCTION, 'name': name, 'args': args}
+  if alias:
+    retval['alias'] = alias
+  return retval
+
+
+def c(value, alias=None):
+  retval = {'type': ValueType.CONSTANT, 'value': value}
+  if alias:
+    retval['alias'] = alias
+  return retval
+
 
 def proj(stream, fields, merge=False):
   return {'operator': OperatorType.PROJECT,
@@ -28,29 +42,37 @@ def proj(stream, fields, merge=False):
           'merge': merge,
           'fields': fields}
 
+
 def cond(left, right, operand):
   assert operand in ConditionOpType.values()
   return {'left': left,
           'right': right,
           'op': operand}
 
+
 def cond_or(conditions):
   return {'conditions': conditions,
           'type': ConditionType.OR}
+
 
 def cond_and(conditions):
   return {'conditions': conditions,
           'type': ConditionType.AND}
 
+
 def filt(stream, condition):
   return {'operator': OperatorType.FILTER,
           'stream': stream,
-          'type': type,
           'condition': condition}
+
 
 def agg_op(op, args=[], alias=None):
   assert op in AggregateType.values()
-  return {'op': op, 'args': args, 'alias': alias}
+  retval = {'op': op, 'args': args}
+  if alias:
+    retval['alias'] = alias
+  return retval
+
 
 def agg(stream, groups, aggregates):
   return {'operator': OperatorType.AGGREGATE,
@@ -58,8 +80,6 @@ def agg(stream, groups, aggregates):
           'groups': groups,
           'aggregates': aggregates}
 
-def s(stream, alias=None):
-  return {'stream': s, 'alias': alias}
 
 def join(left, right, condition, time_field):
   return {'operator': OperatorType.JOIN,

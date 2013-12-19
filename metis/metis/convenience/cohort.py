@@ -4,20 +4,18 @@ from datetime import timedelta
 from dateutil.tz import tzutc
 from pykronos.utils.time import datetime_to_kronos_time
 from pykronos.utils.time import EPOCH
-from metis.convenience.query_primitives import agg
-from metis.convenience.query_primitives import aggop
-from metis.convenience.query_primitives import c
-from metis.convenience.query_primitives import f
-from metis.convenience.query_primitives import jc
-from metis.convenience.query_primitives import jf
-from metis.convenience.query_primitives import join
-from metis.convenience.query_primitives import kstream
-from metis.convenience.query_primitives import p
-from metis.convenience.query_primitives import proj
-from metis.convenience.query_primitives import s
-from metis.convenience.query_primitives import Comparison
-from metis.convenience.query_primitives import JoinPath
-from metis.convenience.query_primitives import TIME
+from metis.core.query.enums import ConditionOpType
+from metis.core.query.primitives import agg
+from metis.core.query.primitives import agg_op
+from metis.core.query.primitives import c
+from metis.core.query.primitives import cond
+from metis.core.query.primitives import cond_and
+from metis.core.query.primitives import f
+from metis.core.query.primitives import join
+from metis.core.query.primitives import kstream
+from metis.core.query.primitives import p
+from metis.core.query.primitives import proj
+from metis.core.query.primitives import TIME
 
 
 class DateUnit(object):
@@ -39,32 +37,34 @@ def _date_to_datetime(d):
   return datetime(d.year, d.month, d.day).replace(tzinfo=tzutc())
 
 
-def _cohort_stream_transform(stream, start, end,
+def _cohort_stream_transform(kronos_url, stream, start, end,
                              transform, grouping_key, unit,
                              event_alias):
   date_alias = '%s_date' % event_alias
   size_alias = '%s_size' % event_alias
-  plan = [kstream(stream, start, end)]
-  plan += transform
-  plan += [proj([p(TIME), p(grouping_key),
-                 f('round_date_down',
-                   [p(TIME), c(unit)],
-                   alias=date_alias)]),
-           agg([grouping_key, date_alias],
-               [aggop('min', [p(TIME)], alias=TIME),
-                aggop('count', [], alias=size_alias)])]
-  return plan
+  start_stream = kstream(stream, start, end, kronos_url)
+  transformed = transform(start_stream)
+  projected = proj(transformed,
+                    [p(TIME), p(grouping_key),
+                     f('round_date_down', [p(TIME), c(unit)],
+                       alias=date_alias)])
+  aggregated = agg(projected,
+                   [grouping_key, date_alias],
+                   [agg_op('min', [p(TIME)], alias=TIME),
+                    agg_op('count', [], alias=size_alias)])
+  return aggregated
 
 
 def cohort_queryplan(params):
   """
   Input:
   {
+   'kronos_url': 'http://...',
    'cohort':
     {'stream': CohortTest.EMAIL_STREAM,        # Stream to define cohort from.
-     'transform': [],                          # Transformations on the stream.
+     'transform': lambda x: x,                 # Transformations on the stream.
      'start': date.now(),                      # The day of the first cohort.
-     'unit': DateUnit.XX,                     # Users are in the same cohort
+     'unit': DateUnit.XX,                      # Users are in the same cohort
                                                # if they are in the same day/week.
      'cohorts': 5                              # How many cohorts (days/weeks/months)
                                                # to track.
@@ -73,8 +73,8 @@ def cohort_queryplan(params):
 
    'action':
      {'stream': CohortTest.FRONTPAGE_STREAM,   # Stream users take actions on.
-      'transform': [],                         # Transformations on the stream.
-      'unit': DateUnit.XX,                    # Track events in day/week/months.
+      'transform': lambda x: x                 # Transformations on the stream.
+      'unit': DateUnit.XX,                     # Track events in day/week/months.
       'repetitions': 14                        # How many days/weeks/months to track.
       'grouping_key': 'user_id'}               # What key in an event should we tie
                                                # to a key in the action stream?
@@ -85,6 +85,7 @@ def cohort_queryplan(params):
   """
   cohort = params['cohort']
   action = params['action']
+  kronos_url = params['kronos_url']
 
   # Calculate the start and end dates, in Kronos time, of the
   # beginning and end of the cohort and action streams that will be
@@ -98,34 +99,36 @@ def cohort_queryplan(params):
   cohort_end = datetime_to_kronos_time(_date_to_datetime(cohort_end))
   action_end = datetime_to_kronos_time(_date_to_datetime(action_end))
 
-  left = _cohort_stream_transform(cohort['stream'], cohort_start, cohort_end,
+  left = _cohort_stream_transform(kronos_url,
+                                  cohort['stream'], cohort_start, cohort_end,
                                   cohort['transform'],
                                   cohort['grouping_key'], cohort['unit'],
                                   'cohort')
-  right = _cohort_stream_transform(action['stream'], cohort_start, action_end,
+  right = _cohort_stream_transform(kronos_url,
+                                   action['stream'], cohort_start, action_end,
                                    action['transform'],
                                    action['grouping_key'], action['unit'],
                                    'action')
 
   additional_action_time = datetime_to_kronos_time(EPOCH + action_span)
-  join_stream = join(s(left, alias='cohort'),
-                     s(right, alias='action'),
-                     [jc(p(cohort['grouping_key']),
-                         p(action['grouping_key']),
-                         Comparison.EQUAL),
-                      jc(p(TIME), p(TIME), Comparison.LESS_THAN),
-                      jc(f('add', [p('cohort_date'), c(additional_action_time)]),
-                         p(TIME),
-                         Comparison.GREATER_THAN)],
-                      [jf(JoinPath.LEFT, 'cohort_date', alias=TIME),
-                       jf(JoinPath.RIGHT, 'action_date')])
+  join_stream = join(left,
+                     right,
+                     cond_and([
+                       cond(p(cohort['grouping_key']),
+                            p(action['grouping_key']),
+                            ConditionOpType.EQ),
+                       cond(p(TIME), p(TIME), ConditionOpType.LT),
+                       cond(f('add', [p('cohort_date'), c(additional_action_time)]),
+                            p(TIME),
+                            ConditionOpType.GT)]),
+                     'cohort_date')
 
-  plan = [join_stream,
-          agg([p(TIME), p('action_date')],
-              [aggop('count', [], alias='cohort_actions')])]
+  aggregated = agg(join_stream,
+                   [p(TIME), p('action_date')],
+                   [agg_op('count', [], alias='cohort_actions')])
   
   # TODO(marcua): Also sum up the cohort sizes, join with the plan.
   # TODO(marcua): remove print after debugging is done
-  import json; print json.dumps(plan, indent=2, sort_keys=True)
-  return plan
+  import json; print json.dumps(aggregated, indent=2, sort_keys=True)
+  return aggregated
   
