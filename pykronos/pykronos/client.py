@@ -38,13 +38,15 @@ class KronosClient(object):
     a background thread that flushes events to the server.
   """
 
-  def __init__(self, http_url, blocking=True, sleep_block=0.1):
+  def __init__(self, http_url, blocking=True, sleep_block=0.1, namespace=None):
     http_url = http_url.rstrip('/')
     self._put_url = '%s/1.0/events/put' % http_url
     self._get_url = '%s/1.0/events/get' % http_url
     self._delete_url = '%s/1.0/events/delete' % http_url
     self._index_url = '%s/1.0/index' % http_url
     self._streams_url = '%s/1.0/streams' % http_url
+
+    self.namespace = namespace
 
     self._blocking = blocking
     if not blocking:
@@ -130,6 +132,8 @@ class KronosClient(object):
           event[TIMESTAMP_FIELD] = datetime_to_kronos_time(
               event[TIMESTAMP_FIELD])
 
+    namespace = namespace or self.namespace
+    
     if self._blocking:
       return self._put(namespace, event_dict)
     else:
@@ -276,6 +280,7 @@ class KronosClient(object):
       def myfunction(a, b):
         <some code here>
     """
+    namespace = namespace or self.namespace
     def decorator(function):
       @functools.wraps(function)
       def wrapper(*args, **kwargs):
@@ -311,6 +316,7 @@ class KronosClient(object):
         <some code here>
     """
     start_time = time.time()
+    namespace = namespace or self.namespace
     event = properties.copy()
     if log_scope_stack_trace:
       event['stack_trace'] = traceback.extract_stack()
