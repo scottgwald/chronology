@@ -4,9 +4,20 @@ import traceback
 from functools import wraps
 
 from kronos.conf import settings
+from kronos.conf.constants import ServingMode
+
 
 # Map paths to the functions that serve them
 ENDPOINTS = {}
+
+# Which endpoints should we allow access to inside the endpoint
+# decorator below for the various serving modes?
+_serving_mode_endpoints = {
+  ServingMode.ALL: frozenset({'index', 'put_events', 'get_events',
+                              'delete_events', 'list_streams'}),
+  ServingMode.READONLY: frozenset({'index', 'get_events', 'list_streams'}),
+  ServingMode.COLLECTOR: frozenset({'index', 'put_events'}),
+  }
 
 
 def is_remote_allowed(remote):
@@ -83,11 +94,10 @@ def endpoint(url, methods=['GET']):
         start_response('400 Bad Request', headers)
         return json.dumps({'@errors' : [repr(e)]})
 
-    # Map the URL to serve to this function. If running in `collector_mode`,
-    # then only map the `put_events` function.
+    # Map the URL to serve to this function. Only map certain
+    # endpoints if serving_mode is restrictive.
     global ENDPOINTS
-    if not (settings.collector_mode and
-            function.func_name not in ('put_events', 'index')):
+    if function.func_name in _serving_mode_endpoints[settings.serving_mode]:
       ENDPOINTS[url] = wrapper
 
     return wrapper

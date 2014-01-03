@@ -1,8 +1,9 @@
 import re
+from kronos.conf.constants import ServingMode
 from uuid import getnode
 
 debug = True
-collector_mode = False
+serving_mode = ServingMode.ALL
 
 # Backends.
 storage = {

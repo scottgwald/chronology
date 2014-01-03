@@ -2,10 +2,11 @@ import importlib
 import re
 import sys
 
+from kronos.conf.constants import ServingMode
 from uuid import getnode
 
 debug = True
-collector_mode = False
+serving_mode = ServingMode.ALL
 
 # Node related settings. `id` should be a unique name that identifies this
 # Kronos instance, while `name` is simply a more human readable name.

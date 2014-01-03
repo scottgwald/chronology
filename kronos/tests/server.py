@@ -7,7 +7,8 @@ from werkzeug.wrappers import BaseResponse
 from kronos.server import wsgi_application
 
 VERSION = 1.0
-BASE_PATH = '/%s/events' % VERSION
+BASE_PATH = '/%s' % VERSION
+EVENT_BASE_PATH = '%s/events' % BASE_PATH
 
 
 class KronosServerTestCase(unittest.TestCase):
@@ -17,10 +18,11 @@ class KronosServerTestCase(unittest.TestCase):
 
   def setUp(self):
     self.http_client = Client(wsgi_application, BaseResponse)
-    self.get_path = '%s/get' % BASE_PATH
-    self.put_path = '%s/put' % BASE_PATH
-    self.delete_path = '%s/delete' % BASE_PATH
-    self.streams_path = '/%s/streams' % VERSION
+    self.get_path = '%s/get' % EVENT_BASE_PATH
+    self.put_path = '%s/put' % EVENT_BASE_PATH
+    self.delete_path = '%s/delete' % EVENT_BASE_PATH
+    self.index_path = '%s/index' % BASE_PATH    
+    self.streams_path = '%s/streams' % BASE_PATH
 
   def put(self, stream_or_mapping, events=None, namespace=None):
     data = {}

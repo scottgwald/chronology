@@ -15,7 +15,8 @@ def test_against(*configs):
       if 'KRONOS_CONFIG' not in os.environ:
         # Run test for each configuration.
         for config in configs:
-          name = function.func_name.lstrip('test_')
+          # Removing the leading `test_` from the function name.
+          name = function.func_name[5:]
           args = [sys.executable, sys.argv[0], name]
           new_env = os.environ.copy()
           new_env['KRONOS_CONFIG'] = config
@@ -62,6 +63,15 @@ def test_cassandra():
   for test_suite in test_suites:
     runner.run(test_suite)
 
+@test_against('serving_mode_all', 'serving_mode_collector',
+              'serving_mode_readonly')
+def test_conf():
+  test_suites = unittest.defaultTestLoader.discover(
+    start_dir=os.path.join(os.path.dirname(__file__), 'tests/conf'),
+    pattern='test_*.py')
+  runner = unittest.TextTestRunner()
+  for test_suite in test_suites:
+    runner.run(test_suite)
 
 def run_test(test_name):
   test_function = getattr(sys.modules[__name__], 'test_%s' % test_name)
@@ -80,6 +90,7 @@ if __name__ == '__main__':
     # Run all tests.
     run_test('common')
     run_test('cassandra')
+    run_test('conf')
   else:
     for test in args.tests:
       run_test(test)

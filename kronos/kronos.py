@@ -14,7 +14,7 @@ import os
 from argparse import ArgumentParser
 
 from kronos.conf import settings
-from kronos.server import wsgi_application
+from kronos.conf.constants import ServingMode
 
 if __name__ == '__main__':
   parser = ArgumentParser(description='Kronos HTTP server.')
@@ -25,8 +25,10 @@ if __name__ == '__main__':
   parser.add_argument('--num-proc', action='store',
                       default=multiprocessing.cpu_count() * 2 + 1,
                       help='number of processes to run')
-  parser.add_argument('--collector-mode', action='store_true',
-                      help='only open the put endpoint?')
+  parser.add_argument('--serving-mode',
+                      choices=[ServingMode.ALL, ServingMode.COLLECTOR,
+                               ServingMode.READONLY],
+                      help='which serving mode to run in')
   parser.add_argument('--config', action='store',
                       help='path of config file to use')
   parser.add_argument('--print-pid', action='store_true', help='print PID?')
@@ -38,15 +40,18 @@ if __name__ == '__main__':
   if args.config:
     imp.load_source('kronos.conf.settings', args.config)
 
-  # Override the `debug` and `collector_mode` attributes of the settings
-  # module and `debug` for `args`.
-  setattr(settings, 'debug',
-          getattr(args, 'debug') | getattr(settings, 'debug', False))
-  setattr(settings, 'collector_mode',
-          getattr(args, 'collector_mode') |
-          getattr(settings, 'collector_mode', False))
-  setattr(args, 'debug', settings.debug)
-  
+  # Override the `debug` in the settings module and `debug` for
+  # `args`.
+  settings.debug = args.debug or settings.debug
+  args.debug = settings.debug
+  settings.serving_mode = args.serving_mode or settings.serving_mode
+  args.serving_mode = settings.serving_mode
+
+  # Only load the application after we've overwritten
+  # settings.serving_mode, or else the endpoint access control will
+  # kick in too early.
+  from kronos.server import wsgi_application
+
   if args.debug:
     (host, port) = args.bind.split(':')
     werkzeug.serving.run_with_reloader(
