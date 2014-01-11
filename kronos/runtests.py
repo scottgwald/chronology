@@ -20,9 +20,9 @@ def test_against(*configs):
           args = [sys.executable, sys.argv[0], name]
           new_env = os.environ.copy()
           new_env['KRONOS_CONFIG'] = config
-          # Need this so that for each configuration we spawn off a completely
-          # new Kronos server. We shouldn't persist state when testing different
-          # configurations.
+          # Need this so that for each configuration we spawn off a
+          # completely new Kronos server. We shouldn't persist state when
+          # testing different configurations.
           subprocess.call(args, env=new_env)
       else:
         # Configure Kronos with the right settings before running the tests.

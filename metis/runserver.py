@@ -12,4 +12,3 @@ if app.debug:
   app.run(host='0.0.0.0', port=app.config['PORT'])
 else:
   WSGIServer(('0.0.0.0', app.config['PORT']), app).serve_forever()
-
