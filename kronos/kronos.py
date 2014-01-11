@@ -31,7 +31,6 @@ if __name__ == '__main__':
                       help='which serving mode to run in')
   parser.add_argument('--config', action='store',
                       help='path of config file to use')
-  parser.add_argument('--print-pid', action='store_true', help='print PID?')
   parser.add_argument('--behind-nginx', action='store_true',
                       help='running behind Nginx?')
   args = parser.parse_args()
@@ -95,8 +94,6 @@ if __name__ == '__main__':
     if access_log:
       argv.extend(['--access-logfile', access_log])
     proc = subprocess.Popen(argv)
-    if args.print_pid:
-      print proc.pid
 
     if args.behind_nginx:
       # Reload nginx.
