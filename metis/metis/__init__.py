@@ -2,6 +2,11 @@ import os
 
 VERSION = (0, 1, 'alpha')
 
+def get_version(version=None):
+  version = version or VERSION
+  assert(len(version) == 3)
+  return '%s.%s %s' % version
+
 # The file path will have `metis.zip` in it if its being run on Spark workers.
 # In that case we don't want to run the following initialization code because
 # it can (and does) break things.

@@ -10,6 +10,8 @@ IGNORE_FILES_RE = re.compile('^.*(pyc|~|zip)$', re.I)
 
 def create_lib_for_spark_workers(): 
   archive_path = '%s/metis.zip' % app.config['PATH']
+  app.config['METIS_LIB_FILE'] = archive_path
+  
   if not app.debug and zipfile.is_zipfile(archive_path):
     # If zip file is present and we're not running in debug mode, don't
     # regenerate it.
@@ -25,7 +27,6 @@ def create_lib_for_spark_workers():
                      os.path.join(root.replace(app.config['PATH'], 'metis'),
                                   file_name))
   zip_file.close()
-  app.config['METIS_LIB_FILE'] = archive_path
 
 
 def setup_pyspark():

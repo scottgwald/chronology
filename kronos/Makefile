@@ -1,4 +1,6 @@
-.PHONY: clean test
+.PHONY: clean run
+run:
+	python runserver.py --debug --reload
 clean:
 	find . -type f -name '*.py[cod]' -delete
 	find . -type f -name '*.*~' -delete

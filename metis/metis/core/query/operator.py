@@ -160,7 +160,6 @@ class LimitOperator(Operator):
     
     self.limit = limit
     self.stream = Operator.parse(stream)
-    self._alias_count = 0
 
   def get_rdd(self, spark_context):
     # TODO(usmanm): Is there a more efficient way to do this?
@@ -185,16 +184,20 @@ class AggregateOperator(Operator):
         time_seen_in_groups = True
     counter = Counter()
     time_seen_in_aggregates = False
+    aliases = set()
     for aggregate in aggregates:
       args = aggregate.get('args', [])
       assert isinstance(args, list)
       for arg in args:
         validate_getter(arg)
       assert aggregate.get('op') in AggregateType.values()
-      if 'alias' not in aggregate:
+      if not aggregate.get('alias'):
         aggregate['alias'] = '%s_%s' % (aggregate['op'], counter.increment())
       if aggregate['alias'] == constants.TIMESTAMP_FIELD:
         time_seen_in_aggregates = True
+      if aggregate['alias'] in aliases:
+        raise ValueError
+      aliases.add(aggregate['alias'])
     # If there's no grouping over the time field or no aggregate with that
     # alias, raise an error.
     if not (time_seen_in_groups or time_seen_in_aggregates):
@@ -203,10 +206,10 @@ class AggregateOperator(Operator):
       # There's no aggregate with alias equal to time field? We know that
       # there's a grouping over it so all events in the group will have the same
       # value for the time field. Just add a min aggregate for the time field.
-      aggregates.add({'alias': constants.TIMESTAMP_FIELD,
-                      'op': OperatorType.MIN,
-                      'args': [{'type': 'property',
-                                'name': constants.TIMESTAMP_FIELD}]})
+      aggregates.append({'alias': constants.TIMESTAMP_FIELD,
+                         'op': AggregateType.MIN,
+                         'args': [{'type': 'property',
+                                   'name': constants.TIMESTAMP_FIELD}]})
     self.groups = groups
     self.aggregates = aggregates
     self.stream = Operator.parse(stream)
@@ -302,12 +305,11 @@ class JoinOperator(Operator):
     validate_getter(time_field)
     validate_condition(condition)
 
-    # TODO(usmanm): Should we expose an `OR`?
     self.filter_function = generate_filter(condition)
     self.left = Operator.parse(left)
-    self.left_alias = left.get('alias', 'left')
+    self.left_alias = left.get('alias') or 'left'
     self.right = Operator.parse(right)
-    self.right_alias = right.get('alias', 'right')
+    self.right_alias = right.get('alias') or 'right'
     self.time_field = time_field
 
   def _merge(self, events):

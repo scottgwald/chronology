@@ -19,6 +19,7 @@ from kronos.conf.constants import ServingMode
 if __name__ == '__main__':
   parser = ArgumentParser(description='Kronos HTTP server.')
   parser.add_argument('--debug', action='store_true', help='debug mode?')
+  parser.add_argument('--reload', action='store_true', help='Auto-reload?')
   parser.add_argument('--bind', action='store', default='0.0.0.0:8150',
                       help='hostname:port or unix:/path to listen for '
                       'incoming requests')
@@ -53,9 +54,13 @@ if __name__ == '__main__':
 
   if args.debug:
     (host, port) = args.bind.split(':')
-    werkzeug.serving.run_with_reloader(
+    if args.reload:
+      werkzeug.serving.run_with_reloader(
         lambda: gevent.pywsgi.WSGIServer((host, int(port)),
                                          wsgi_application).serve_forever())
+    else:
+      gevent.pywsgi.WSGIServer((host, int(port)),
+                               wsgi_application).serve_forever()
   else:
     # Try creating log directory, if missing.
     log_dir = settings.node['log_directory'].rstrip('/')

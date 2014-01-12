@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 import time
 
 from multiprocessing import Pipe
@@ -11,7 +12,7 @@ class ProcessRunnerError(Exception):
 
 
 class ProcessRunner(object):
-  def __init__(self, args, cwd=None, wait=None):
+  def __init__(self, args, cwd=None, verbose=False):
     '''
     Runs a shell command in a separate process.
     `args` - list of args that represent the shell command.
@@ -21,7 +22,7 @@ class ProcessRunner(object):
     if cwd and not os.path.isabs(cwd):
       cwd = os.path.join(os.getcwd(), cwd)
     self.cwd = cwd
-    self.wait = wait
+    self.verbose = verbose
     # `self._proc` is the multiprocessing.Process that executes the shell
     # command.
     # `self._sub_proc` is the subprocess.Popen `self._proc` runs for executing
@@ -31,12 +32,17 @@ class ProcessRunner(object):
     self._proc = self._sub_proc = self._proc_pipe = None
 
   def _subprocess_target(self, pipe):
-    os.chdir(self.cwd)  
+    os.chdir(self.cwd)
+    if self.verbose:
+      stdout = sys.stdout
+      stderr = sys.stderr
+    else:
+      stdout = stderr = open(os.devnull, 'w')
     sub_proc = subprocess.Popen(self.args,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE)
-    if self.wait:
-      time.sleep(self.wait)
+                                stdout=stdout,
+                                stderr=stderr)
+    # TODO(usmanm): Add some `onready` callback.
+    time.sleep(2)
     pipe.send(sub_proc)
 
   def start(self):
@@ -60,11 +66,22 @@ class ProcessRunner(object):
 
 
 class KronosRunner(ProcessRunner):
-  def __init__(self, kronos_dir, config_dir=None, port='9191', wait=2):
-    super(KronosRunner, self).__init__(
-      ['python', 'kronos.py',
-       '--config', config_dir,
-       '--bind', '0.0.0.0:%s' % port,
-       '--debug'],
-      cwd=kronos_dir,
-      wait=wait)
+  def __init__(self, kronos_dir, config=None, port='9191', **kwargs):
+    args = ['python', 'runserver.py',
+            '--bind', '0.0.0.0:%s' % port,
+            '--debug']
+    if config:
+      args.extend(['--config', config])
+
+    super(KronosRunner, self).__init__(args, cwd=kronos_dir, **kwargs)
+
+
+class MetisRunner(ProcessRunner):
+  def __init__(self, metis_dir, config=None, port='9192', **kwargs):
+    args = ['python', 'runserver.py',
+            '--port', port,
+            '--debug']
+    if config:
+      args.extend(['--config', config])
+
+    super(MetisRunner, self).__init__(args, cwd=metis_dir, **kwargs)
