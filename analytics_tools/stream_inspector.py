@@ -36,12 +36,6 @@ def main(args):
 
 def process_args():
   parser = argparse.ArgumentParser()
-  parser.add_argument('--modify-db',
-                      action='store_true', default=False,
-                      help='Saves the changes to the database')
-  parser.add_argument('--debug',
-                      action='store_true', default=False,
-                      help='Display debug messages')
   parser.add_argument('--start',
                       required=True,
                       help=('When to start retrieving? (format: '
@@ -73,9 +67,6 @@ def process_args():
                             help="Don't print the header?")
 
   args = parser.parse_args()
-  if args.debug:
-    log.setLevel(logging.DEBUG)
-    logging.getLogger('root').setLevel(logging.DEBUG)
   args.start = parse(args.start)
   args.end = parse(args.end)
   return args

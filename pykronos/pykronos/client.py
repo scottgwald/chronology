@@ -184,6 +184,7 @@ class KronosClient(object):
     if limit is not None:
       request_dict['limit'] = limit
 
+    namespace = namespace or self.namespace
     if namespace is not None:
       request_dict['namespace'] = namespace
     
@@ -227,6 +228,7 @@ class KronosClient(object):
     else:
       request_dict['start_time'] = start_time
 
+    namespace = namespace or self.namespace
     if namespace is not None:
       request_dict['namespace'] = namespace
 
@@ -248,6 +250,7 @@ class KronosClient(object):
     read.
     """
     request_dict = {}
+    namespace = namespace or self.namespace    
     if namespace is not None:
       request_dict['namespace'] = namespace
     response = requests.post(self._streams_url,
