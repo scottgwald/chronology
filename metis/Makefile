@@ -7,5 +7,4 @@ clean:
 test: clean
 	python runtests.py
 installdeps:
-	cat packages.txt | xargs sudo apt-get -y install
 	sudo pip install -r requirements.txt

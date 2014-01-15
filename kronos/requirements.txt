@@ -4,4 +4,5 @@ geventhttpclient==1.0a
 gunicorn==18.0
 pycassa==1.10.0
 werkzeug==0.9.4
+python-dateutil==2.2
 requests==1.2.3

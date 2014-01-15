@@ -1,6 +1,5 @@
 from metis import app
 from metis.core.query.operator import Operator
-from metis.utils.decorators import async
 
 _SPARK_CONTEXT = None
 
@@ -21,5 +20,3 @@ def execute_compute_task(plan):
   # internal objects.
   spark_context = get_spark_context()
   return Operator.parse(plan).get_rdd(spark_context).collect()
-
-async_execute_compute_task = async(execute_compute_task)
