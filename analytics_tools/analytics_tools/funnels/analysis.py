@@ -1,11 +1,14 @@
+import logging
+
 from datetime import timedelta
 from pykronos.client import TIMESTAMP_FIELD
 from pykronos.utils.time import datetime_to_kronos_time
 from pykronos.utils.time import timedelta_to_kronos_time
 from pykronos.utils.time import EPOCH
 
-EARLIEST_TIME = datetime_to_kronos_time(EPOCH)
+log = logging.getLogger(__name__)
 
+EARLIEST_TIME = datetime_to_kronos_time(EPOCH)
 
 class FilteringDict(object):
   def __init__(self, a_filter):
@@ -14,7 +17,7 @@ class FilteringDict(object):
 
   def _caching_filter(self, key):
     if self._filter:
-      result = self._filter_results[key]
+      result = self._filter_results.get(key, None)
       if result is None:
         result = self._filter(key)
         self._filter_results[key] = result
@@ -33,7 +36,7 @@ def _stream_earliest_action(client, stream, start, end, user_field,
   user_action = {}
   for idx, event in enumerate(events):
     if idx % 10000 == 0:
-      print '...processed', idx, 'events'
+      log.debug('...processed', idx, 'events')
     if event_filter and not event_filter(event):
       continue
     user, event_time = event[user_field], event[TIMESTAMP_FIELD]
@@ -70,7 +73,7 @@ def funnel_analyze(client, streams, start, end, user_field,
   fuzzy_time = timedelta_to_kronos_time(fuzzy_time)
   stream_sizes = []
   for stream in streams:
-    print 'Processing stream', stream[0]
+    log.debug('Processing stream', stream[0])
     user_action = _stream_earliest_action(client, stream, start, end,
                                           user_field, fuzzy_time,
                                           last_user_action)

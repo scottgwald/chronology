@@ -36,6 +36,9 @@ def process_args():
                       required=True,
                       help=('When to end retrieving? (format: '
                             '2003-09-25T10:49:41.5-03:00)'))  
+  parser.add_argument('--debug',
+                      action='store_true', default=False,
+                      help='Display debug messages')
   parser.add_argument('--streams',
                       required=True,
                       nargs='+',
@@ -53,6 +56,9 @@ def process_args():
   args = parser.parse_args()
   args.start = parse(args.start)
   args.end = parse(args.end)
+  if args.debug:
+    log.setLevel(logging.DEBUG)
+    logging.getLogger('root').setLevel(logging.DEBUG)
   return args
 
 
