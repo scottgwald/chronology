@@ -13,6 +13,7 @@ import logging
 import sys
 
 from dateutil.parser import parse
+from metis.core.query.utils import get_property
 from pykronos import KronosClient
 
 log = logging.getLogger(__name__)
@@ -29,7 +30,13 @@ def main(args):
     if not args.remove_header:
       writer.writeheader()
     for event in results:
-      writer.writerow({field: event[field] for field in args.fields})
+      row_values = {}
+      for field in args.fields:
+        field_value = get_property(event, field)
+        row_values[field] = (field_value.encode('utf-8')
+                             if isinstance(field_value, unicode)
+                             else field_value)
+      writer.writerow(row_values)
   else:
     raise Exception('Invalid display option {}'.format(args.display))
 
@@ -57,7 +64,8 @@ def process_args():
   subparsers.add_parser('print', help='Print the events, one per line')
   field_parser = subparsers.add_parser('csv',
                                        help=('Project out fields and print '
-                                             'them in csv format'))
+                                             'them in csv format. Reference '
+                                             'nested fields with \'.\''))
   field_parser.add_argument('--fields',
                             required=True,
                             nargs='+',
