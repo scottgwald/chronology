@@ -180,7 +180,7 @@ class QueryTestCase(MetisServerTestCase):
                                               c(50)])},
                merge=True
                ),
-          [p(constants.TIMESTAMP_FIELD)],
+          {constants.TIMESTAMP_FIELD: p(constants.TIMESTAMP_FIELD)},
           [agg_op(AggregateType.COUNT, alias='count'),
            agg_op(AggregateType.SUM, [p('a')], alias='sum'),
            agg_op(AggregateType.MIN, [p('a')], alias='min'),
@@ -223,14 +223,14 @@ class QueryTestCase(MetisServerTestCase):
     events = self.query(
       join(kstream('test_join1',
                    0,
-                   200,
-                   alias='j1'),
+                   200),
            kstream('test_join2',
                    0,
                    200),
            cond_and(cond(p('j1.a'), p('right.a'), ConditionOpType.EQ),
                     cond(p('j1.b'), p('right.b'), ConditionOpType.GT)),
-           p('j1.%s' % constants.TIMESTAMP_FIELD))
+           p('j1.%s' % constants.TIMESTAMP_FIELD),
+           left_alias='j1')
       )
     self.assertTrue(len(events) > 0)
     for event in events:

@@ -7,7 +7,7 @@ from metis.conf import constants
 from metis.core.query.enums import (AggregateType,
                                     OperatorType,
                                     ValueType)
-from metis.core.query.utils import (cast_to_float,
+from metis.core.query.utils import (cast_to_number,
                                     Counter,
                                     get_value,
                                     generate_filter,
@@ -177,10 +177,10 @@ class AggregateOperator(Operator):
 
   def __init__(self, stream, groups, aggregates, **kwargs):
     time_seen_in_groups = False
-    for group in groups:
-      validate_getter(group)
-      if (group['type'] == ValueType.PROPERTY and
-          group['name'] == constants.TIMESTAMP_FIELD):
+    for group, getter in groups.iteritems():
+      validate_getter(getter)
+      if (getter['type'] == ValueType.PROPERTY and
+          getter['name'] == constants.TIMESTAMP_FIELD):
         time_seen_in_groups = True
     counter = Counter()
     time_seen_in_aggregates = False
@@ -202,22 +202,15 @@ class AggregateOperator(Operator):
     # alias, raise an error.
     if not (time_seen_in_groups or time_seen_in_aggregates):
       raise ValueError
-    if not time_seen_in_aggregates:
-      # There's no aggregate with alias equal to time field? We know that
-      # there's a grouping over it so all events in the group will have the same
-      # value for the time field. Just add a min aggregate for the time field.
-      aggregates.append({'alias': constants.TIMESTAMP_FIELD,
-                         'op': AggregateType.MIN,
-                         'args': [{'type': 'property',
-                                   'name': constants.TIMESTAMP_FIELD}]})
     self.groups = groups
     self.aggregates = aggregates
     self.stream = Operator.parse(stream)
 
   def _group(self, event):
     # `key` can only be strings in Spark if you want to use `reduceByKey`.
-    key = json.dumps([get_value(event, group) for group in self.groups])
-    new_event = {}
+    new_event = {group: get_value(event, getter)
+                 for group, getter in self.groups.iteritems()}
+    key = json.dumps(new_event)
     for aggregate in self.aggregates:
       args = aggregate.get('args', [])
       if aggregate['op'] == AggregateType.COUNT:
@@ -228,16 +221,16 @@ class AggregateOperator(Operator):
           value = 0 if get_value(event, args[0]) is None else 1
       elif aggregate['op'] == AggregateType.SUM:
         assert len(args) == 1
-        value = cast_to_float(get_value(event, args[0]), 0)
+        value = cast_to_number(get_value(event, args[0]), 0)
       elif aggregate['op'] == AggregateType.MIN:
         assert len(args) == 1
-        value = cast_to_float(get_value(event, args[0]), float('inf'))
+        value = cast_to_number(get_value(event, args[0]), float('inf'))
       elif aggregate['op'] == AggregateType.MAX:
         assert len(args) == 1
-        value = cast_to_float(get_value(event, args[0]), -float('inf'))
+        value = cast_to_number(get_value(event, args[0]), -float('inf'))
       elif aggregate['op'] == AggregateType.AVG:
         assert len(args) == 1
-        value = cast_to_float(get_value(event, args[0]), None)
+        value = cast_to_number(get_value(event, args[0]), None)
         if value is None:
           value = (0, 0)
         else:
@@ -255,7 +248,7 @@ class AggregateOperator(Operator):
     return (key, new_event)
 
   def _reduce(self, event1, event2):
-    event = {}
+    event = event1.copy()
     for aggregate in self.aggregates:
       alias = aggregate['alias']
       if aggregate['op'] in (AggregateType.COUNT, AggregateType.SUM):

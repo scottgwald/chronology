@@ -33,6 +33,7 @@ class FunctionType(Enum):
   RANDOM_INT = 'randint'
   ADD = 'add'
   SUBTRACT = 'subtract'
+  LEN = 'len'
   
 
 class OperatorType(Enum):

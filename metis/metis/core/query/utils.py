@@ -55,26 +55,28 @@ def _get_function_args(event, args):
     return []
   extracted_args = []
   for arg in args:
-    if arg['type'] == ValueType.CONSTANT:
-      extracted_args.append(arg['value'])
-    elif arg['type'] == ValueType.PROPERTY:
-      try:
-        value = get_property(event, arg['name'])
-      except KeyError:
-        value = arg.get('default')
-      finally:
-        extracted_args.append(value)
+    extracted_args.append(get_value(event, arg))
   return extracted_args
 
 @_safe_function
-def _ceil(value, base):
-  value = int(value)
-  return value + (value % int(base))
+def _ceil(value, base, *args):
+  assert len(args) in (0, 1)
+  if len(args):
+    offset = args[0]
+  else:
+    offset = 0
+  value = int(value) - offset
+  return (value + (value % int(base))) + offset
 
 @_safe_function
-def _floor(value, base):
-  value = int(value)
-  return value - (value % int(base))
+def _floor(value, base, *args):
+  assert len(args) in (0, 1)
+  if len(args):
+    offset = args[0]
+  else:
+    offset = 0
+  value = int(value) - offset
+  return (value - (value % int(base))) + offset
 
 @_safe_function
 def _lowercase(value):
@@ -100,6 +102,8 @@ def _subtract(*args):
   for arg in args[1:]:
     value -= arg
   return value
+
+_len = _safe_function(len)
   
 FUNCTIONS = {
   FunctionType.CEIL: _ceil,
@@ -108,7 +112,8 @@ FUNCTIONS = {
   FunctionType.UPPERCASE: _uppercase,
   FunctionType.RANDOM_INT: _randint,
   FunctionType.ADD: _add,
-  FunctionType.SUBTRACT: _subtract
+  FunctionType.SUBTRACT: _subtract,
+  FunctionType.LEN: _len
   }
 
 # Ensure that we have a function mapped for each `FunctionType`.
@@ -195,11 +200,13 @@ def _validate_function(function):
   for arg in args:
     assert isinstance(arg, dict)
     arg_type = arg.get('type')
-    assert arg_type in (ValueType.PROPERTY, ValueType.CONSTANT)
+    assert arg_type in ValueType.values()
     if arg_type == ValueType.PROPERTY:
       _validate_property(arg)
     elif arg_type == ValueType.CONSTANT:
       _validate_constant(arg)
+    elif arg_type == ValueType.FUNCTION:
+      _validate_function(arg)
 
 def validate_getter(getter):
   assert isinstance(getter, dict)
@@ -255,8 +262,10 @@ class Counter(object):
     return self.counter
 
 
-def cast_to_float(value, default=None):
-  try:
-    return float(value)
-  except:
-    return default
+def cast_to_number(value, default=None):
+  for cast in (int, float):
+    try:
+      return cast(value)
+    except ValueError:
+      pass
+  return default

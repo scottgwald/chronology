@@ -9,14 +9,13 @@ from metis.core.query.enums import (AggregateType,
 
 
 def kstream(stream, start_time, end_time, host=app.config['KRONOS_SERVER'],
-            namespace=None, alias=None):
+            namespace=None):
   return {'operator': OperatorType.KRONOS,
           'stream': stream,
           'start_time': start_time,
           'end_time': end_time,
           'namespace': namespace,
-          'host': host,
-          'alias': alias}
+          'host': host}
 
 def p(name, default=None):
   return {'type': ValueType.PROPERTY, 'name': name, 'default': default}
@@ -74,7 +73,11 @@ def agg(stream, groups, aggregates):
           'groups': groups,
           'aggregates': aggregates}
 
-def join(left, right, condition, time_field):
+def join(left, right, condition, time_field, left_alias=None, right_alias=None):
+  left = left.copy()
+  left['alias'] = left_alias
+  right = right.copy()
+  right['alias'] = right_alias
   return {'operator': OperatorType.JOIN,
           'left': left,
           'right': right,

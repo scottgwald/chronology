@@ -14,11 +14,19 @@ def datetime_to_kronos_time(dt):
   # If the datetime is native, assume that the timezone is UTC.
   if not dt.tzinfo:
     dt = dt.replace(tzinfo=tzutc())
-  return int((dt - EPOCH).total_seconds() * 1e7)
+  return epoch_time_to_kronos_time((dt - EPOCH).total_seconds())
 
 
 def kronos_time_to_datetime(time):
-  return datetime.utcfromtimestamp(int(time * 1e-7)).replace(tzinfo=tzutc())
+  return (datetime
+          .utcfromtimestamp(kronos_time_to_epoch_time(time))
+          .replace(tzinfo=tzutc()))
+
+def epoch_time_to_kronos_time(time):
+  return int(time * 1e7)
+
+def kronos_time_to_epoch_time(time):
+  return int(time * 1e-7)
 
 
 def kronos_time_now():
