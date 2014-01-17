@@ -2,6 +2,7 @@ from collections import defaultdict
 from datetime import datetime
 from datetime import timedelta
 from dateutil.tz import tzutc
+from datadiff.tools import assert_equal
 from pykronos.utils.time import datetime_to_kronos_time
 from random import randint
 from random import random
@@ -23,7 +24,7 @@ class CohortTestCase(MetisServerTestCase):
   START_DATETIME = datetime(2011, 11, 18).replace(tzinfo=tzutc())
   ACTION_REPETITION_DAYS = 14
   EMAIL_WEEKS = [(0, 2), (2, 4), (1, 3), (3, 0), (4, 1)]
-  NUM_USERS = 300
+  NUM_USERS = 400
   MAX_DT = datetime(2020, 1, 1).replace(tzinfo=tzutc())
   
   def generate_data(self):
@@ -135,7 +136,5 @@ class CohortTestCase(MetisServerTestCase):
     for cohort_name in cohorts:
       self.assertEqual(set(expected[cohort_name]['action_dates']),
                        set(cohort[cohort_name]['action_dates']))
-      action_dates = expected[cohort_name]['action_dates'].keys()
-      for action_date in action_dates:
-        self.assertEqual(expected[cohort_name]['action_dates'][action_date],
-                         cohort[cohort_name]['action_dates'][action_date])
+      assert_equal(dict(expected[cohort_name]['action_dates']),
+                   dict(cohort[cohort_name]['action_dates']))
