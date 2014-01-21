@@ -19,9 +19,10 @@ log = logging.getLogger(__name__)
 
 def main(args):
   client = KronosClient(args.kronos_url, namespace=args.namespace)
-  unfiltered_streams = [(stream, None) for stream in args.streams]
+  unfiltered_streams = [(stream, None, args.user_field)
+                        for stream in args.streams]
   stream_sizes = funnel_analyze(client, unfiltered_streams, args.start,
-                                args.end, args.user_field, None)
+                                args.end, {}, None)
   # TODO(marcua): print something more meaningful here.
   print stream_sizes
   
@@ -57,8 +58,7 @@ def process_args():
   args.start = parse(args.start)
   args.end = parse(args.end)
   if args.debug:
-    log.setLevel(logging.DEBUG)
-    logging.getLogger('root').setLevel(logging.DEBUG)
+    logging.basicConfig(level=logging.DEBUG)
   return args
 
 
