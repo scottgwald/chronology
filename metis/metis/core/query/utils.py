@@ -179,6 +179,8 @@ def _check_condition(event, condition):
   
 def generate_filter(condition):
   def _filter(event):
+    if not event:
+      return False
     return _check_condition(event, condition)
   return _filter
 
@@ -251,8 +253,15 @@ def get_value(event, getter):
     args = _get_function_args(event, getter['args'])
     return FUNCTIONS[getter['name']](*args)
 
+def get_property_names_from_getter(getter):
+  properties = []
+  if getter['type'] == ValueType.PROPERTY:
+    properties.append(getter['name'])
+  elif getter['type'] == ValueType.FUNCTION:
+    for arg in getter['args']:
+      properties.extend(get_property_names_from_getter(arg))
+  return properties
 
-# Helpers.
 class Counter(object):
   def __init__(self):
     self.counter = 0

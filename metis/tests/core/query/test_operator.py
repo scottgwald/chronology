@@ -24,7 +24,7 @@ from metis.core.query.primitives import (agg,
 from tests.server import MetisServerTestCase
 
 
-class QueryTestCase(MetisServerTestCase):
+class OperatorTestCase(MetisServerTestCase):
   '''
   Unit tests for all available `Operator` types.
   '''
@@ -208,13 +208,13 @@ class QueryTestCase(MetisServerTestCase):
       self.assertEqual(sum(event['value_count'].values()), 50)
 
   def test_join(self):
-    for i in xrange(200):
+    for i in xrange(100):
       self.kronos_client.put({
         'test_join1': [{constants.TIMESTAMP_FIELD: i,
                         'a': random.randint(0, 2),
                         'b': random.randint(0, 5)}]
         })
-    for i in xrange(200):
+    for i in xrange(100):
       self.kronos_client.put({
         'test_join2': [{constants.TIMESTAMP_FIELD: i,
                         'a': random.randint(0, 2),
@@ -246,3 +246,75 @@ class QueryTestCase(MetisServerTestCase):
                         'right.%s' % constants.ID_FIELD,
                         'j1.a', 'right.a',
                         'j1.b', 'right.b'})
+
+  def test_join_eq(self):
+    for i in xrange(200):
+      self.kronos_client.put({
+        'test_join_eq1': [{constants.TIMESTAMP_FIELD: random.randint(0, 999),
+                        'a': i,
+                        'b': i + 1}]
+        })
+    for i in xrange(200):
+      self.kronos_client.put({
+        'test_join_eq2': [{constants.TIMESTAMP_FIELD: random.randint(0, 999),
+                        'a': i + 1,
+                        'b': i + 2}]
+        })
+
+    # 1-1 join with property.
+    events = self.query(
+      join(kstream('test_join_eq1',
+                   0,
+                   1000),
+           kstream('test_join_eq2',
+                   0,
+                   1000),
+           # left.a == right.b
+           cond(p('left.b'), p('right.a'), ConditionOpType.EQ),
+           p('left.%s' % constants.TIMESTAMP_FIELD))
+      )
+    self.assertEqual(len(events), 200)
+    for event in events:
+      self.assertEqual(event['left.b'], event['right.a'])
+
+    # 1-1 join with function.
+    events = self.query(
+      join(kstream('test_join_eq1',
+                   0,
+                   1000),
+           kstream('test_join_eq2',
+                   0,
+                   1000),
+           # left.a == (right.a - 1)
+           cond(p('left.a'),
+                f(FunctionType.SUBTRACT,
+                  [p('right.a'), c(1)]),
+                ConditionOpType.EQ),
+           p('left.%s' % constants.TIMESTAMP_FIELD))
+      )
+    self.assertEqual(len(events), 200)
+    for event in events:
+      self.assertEqual(event['left.a'], event['right.a'] - 1)
+
+    # 1-1 eqjoin with filtering.
+    events = self.query(
+      join(kstream('test_join_eq1',
+                   0,
+                   1000),
+           kstream('test_join_eq2',
+                   0,
+                   1000),
+           cond_and(cond(p('left.b'), p('right.a'), ConditionOpType.EQ),
+                    cond(p('left.%s' % constants.TIMESTAMP_FIELD),
+                         f(FunctionType.ADD,
+                           [p('right.%s' % constants.TIMESTAMP_FIELD),
+                            c(10)]),
+                         ConditionOpType.GT)),
+           p('left.%s' % constants.TIMESTAMP_FIELD))
+      )
+    self.assertTrue(len(events) > 0)
+    self.assertTrue(len(events) < 200)
+    for event in events:
+      self.assertEqual(event['left.b'], event['right.a'])
+      self.assertTrue(event['left.%s' % constants.TIMESTAMP_FIELD] >
+                      event['right.%s' % constants.TIMESTAMP_FIELD] + 10)

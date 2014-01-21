@@ -5,15 +5,20 @@ import types
 
 from metis.conf import constants
 from metis.core.query.enums import (AggregateType,
+                                    ConditionType,
+                                    ConditionOpType,
                                     OperatorType,
                                     ValueType)
 from metis.core.query.utils import (cast_to_number,
                                     Counter,
+                                    get_property_names_from_getter,
                                     get_value,
                                     generate_filter,
                                     validate_condition,
                                     validate_getter)
 
+# XXX(usmanm): PySpark in sensitive to modifying Python objects in functions
+# like `map`. Please be wary of that!
 
 class Operator(object):
   OPERATORS = None # operator name => operator class
@@ -298,34 +303,125 @@ class JoinOperator(Operator):
     validate_getter(time_field)
     validate_condition(condition)
 
-    self.filter_function = generate_filter(condition)
     self.left = Operator.parse(left)
     self.left_alias = left.get('alias') or 'left'
     self.right = Operator.parse(right)
     self.right_alias = right.get('alias') or 'right'
     self.time_field = time_field
+    self._setup_join(condition)
 
   def _merge(self, events):
     event1, event2 = events
-    event = {}
-    for key, value in event1.iteritems():
-      event['%s.%s' % (self.left_alias, key)] = value
-    for key, value in event2.iteritems():
-      event['%s.%s' % (self.right_alias, key)] = value
+    if isinstance(event1, types.StringType):
+      # Join case: events = (key, (event1, event2))
+      event1, event2 = event2
+      event = {}
+      event.update(event1)
+      event.update(event2)
+    else:
+      # Cartesian case: events = (event1, event2)
+      event = {}
+      for key, value in event1.iteritems():
+        event['%s.%s' % (self.left_alias, key)] = value
+      for key, value in event2.iteritems():
+        event['%s.%s' % (self.right_alias, key)] = value
     timestamp = get_value(event, self.time_field)
     if timestamp is None:
       return None # No timestamp field calculated? Drop event.
     event[constants.TIMESTAMP_FIELD] = timestamp
     return event
 
-  def _filter(self, event):
-    if event is None:
-      return False
-    return self.filter_function(event)
+  def _get_equijoin_key_getters(self, condition):
+    # condition must be a *leaf* condition.
+    if condition.get('op') != ConditionOpType.EQ:
+      return None
+
+    # Get properties being accessed by left and right side of the
+    # conditional.
+    left_properties = get_property_names_from_getter(condition['left'])
+    right_properties = get_property_names_from_getter(condition['right'])
+
+    if not (left_properties and right_properties):
+      return None
+
+    # Only return getters if both sides of the conditional read from different
+    # streams. You can't use this optimization say if the condition is
+    # (left.x + right.y = 10)
+    if (all(p.startswith('%s.' % self.left_alias)
+            for p in left_properties) and
+        all(p.startswith('%s.' % self.right_alias)
+            for p in right_properties)):
+      return {'left': condition['left'], 'right': condition['right']}
+
+    if (all(p.startswith('%s.' % self.right_alias)
+            for p in left_properties) and
+        all(p.startswith('%s.' % self.left_alias)
+            for p in right_properties)):
+      return {'left': condition['right'], 'right': condition['left']}
+
+    return None
+
+        
+  def _map_equijoin(self, alias, key_getters):
+    def _map(event):
+      new_event = {}
+      for key, value in event.iteritems():
+        new_event['%s.%s' % (alias, key)] = value
+      key = json.dumps([get_value(new_event, getter)
+                        for getter in key_getters])
+      return (key, new_event)
+    return _map
+  
+  def _setup_join(self, condition):
+    eq_join_getters = []
+
+    # TODO(usmanm): Right now we only optimize if the conditional is an EQ or
+    # if its an AND and has some EQ in the top level. We don't do any recursive
+    # searching in condition trees. Improve that.
+    if condition.get('type') == ConditionType.AND:
+      filter_conditions = []
+      for _condition in condition['conditions']:
+        getter = self._get_equijoin_key_getters(_condition)
+        if getter:
+          eq_join_getters.append(getter)
+        else:
+          filter_conditions.append(_condition)
+      if filter_conditions:
+        condition['conditions'] = filter_conditions
+      else:
+        condition = None
+    elif condition.get('type') != ConditionType.OR: # Ignore ORs for now.
+      getter = self._get_equijoin_key_getters(condition)
+      if getter:
+        eq_join_getters.append(getter)
+        condition = None
+    if eq_join_getters: # Did we find any getters to map to equijoins?
+      self._optimize_equijoin = True
+      self._eq_getters = eq_join_getters
+    else:
+      self._optimize_equijoin = False
+
+    self._filter_function = generate_filter(condition) if condition else None
   
   def get_rdd(self, spark_context):
-    # TODO(usmanm): Use PyShark's `join` method here if its an equality join.
-    return (self.left.get_rdd(spark_context)
-            .cartesian(self.right.get_rdd(spark_context))
-            .map(self._merge)
-            .filter(self._filter))
+    if self._optimize_equijoin:
+      mapped_left = (self.left.get_rdd(spark_context)
+                     .map(self._map_equijoin(
+                       self.left_alias,
+                       [getter['left'] for getter in self._eq_getters])))
+      mapped_right = (self.right.get_rdd(spark_context)
+                      .map(self._map_equijoin(
+                        self.right_alias,
+                        [getter['right'] for getter in self._eq_getters])))
+      joined = (mapped_left
+                .join(mapped_right)
+                .map(self._merge))
+    else:
+      # Naive O(n^2) cartesian product.
+     joined =  (self.left.get_rdd(spark_context)
+                .cartesian(self.right.get_rdd(spark_context))
+                .map(self._merge))
+
+    if self._filter_function:
+      joined = joined.filter(self._filter_function)
+    return joined
