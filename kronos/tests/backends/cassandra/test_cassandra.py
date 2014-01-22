@@ -44,8 +44,8 @@ class TestCassandraBackend(KronosServerTestCase):
       bucket_interval = BucketInterval(self.namespace.event_cf, stream,
                                        (0, self.width), shard,
                                        ResultOrder.ASCENDING)
-      events = bucket_interval.fetch(uuid_from_time(0, UUIDType.LOWEST),
-                                     uuid_from_time(2))
+      events = list(bucket_interval.fetch(uuid_from_time(0, UUIDType.LOWEST),
+                                          uuid_from_time(2)))
       self.assertTrue(len(events) > 0)
       num_events += len(events)
     # These 3 shards should contain all the events inserted into the stream in
@@ -76,7 +76,8 @@ class TestCassandraBackend(KronosServerTestCase):
         events = bucket_interval.fetch(
           uuid_from_time(start_time, UUIDType.LOWEST),
           uuid_from_time(start_time + self.width_seconds))
-        bucket_to_events[start_time].extend(events.itervalues())
+        bucket_to_events[start_time].extend(event.raw_event
+                                            for event in events)
     num_events = 0
     for start_time, events in bucket_to_events.iteritems():
       # Each bucket should have 20 events and they must fall in the bucket's
