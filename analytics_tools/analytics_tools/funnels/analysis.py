@@ -46,7 +46,10 @@ def _stream_earliest_action(client, stream, start, end, fuzzy_time,
       log.debug('...processed', idx, 'events')
     if event_filter and not event_filter(event):
       continue
-    user = user_id_mappings[user_field].get(event[user_field])
+    try:
+      user = user_id_mappings[user_field].get(event[user_field])
+    except:
+      log.error('Unable to get field %s on %s from %s', user_field, stream, event)
     last_time = last_user_action.get(user)
     event_time = event[TIMESTAMP_FIELD]
     # If we've seen an action from this user in the last stream, and
@@ -79,8 +82,9 @@ def _sanity_check_args(streams, user_id_mappers):
   return streams, user_id_mappers
 
 
-def funnel_analyze(client, streams, start, end, user_id_mappers,
-                   user_filter, fuzzy_time=timedelta(minutes=5)):
+def funnel_analyze(client, streams, start, end, end_first_funnel_step,
+                   user_id_mappers, user_filter,
+                   fuzzy_time=timedelta(minutes=5)):
   """
   `streams`: a list of (stream name, event filter, user_id field
   name) tuples.  The funnel is composed from these streams.  The event
@@ -91,6 +95,10 @@ def funnel_analyze(client, streams, start, end, user_id_mappers,
   event that returns the user identifier.
 
   `start`/`end`: the start and end datetimes to analyze.
+
+  `end_first_funnel_step`: the end time of the first funnel step. You
+  sometimes want this to be earlier than the rest of the other steps
+  so you can study how a cohort takes certain actions down the line.
 
   `user_id_mappers`: a dictionary of the form
     {user_id_field: user_id_mapping_function}.
@@ -108,6 +116,7 @@ def funnel_analyze(client, streams, start, end, user_id_mappers,
   `fuzzy_time`: a timedelta representing the time that two events in
   subsequent streams can be out-of-order with one-another.
   """
+  assert end >= end_first_funnel_step
   streams, user_id_mappers = _sanity_check_args(streams, user_id_mappers)
   last_user_action = FilterCache(user_filter)
   fuzzy_time = timedelta_to_kronos_time(fuzzy_time)
@@ -115,9 +124,11 @@ def funnel_analyze(client, streams, start, end, user_id_mappers,
   user_id_mappings = {}
   for idx, stream in enumerate(streams):
     log.debug('Processing stream', stream[0])
+    step_end = end
     if idx == 0:
       user_id_mappings[stream[2]] = IdentityDict()
-    user_action = _stream_earliest_action(client, stream, start, end,
+      step_end = end_first_funnel_step
+    user_action = _stream_earliest_action(client, stream, start, step_end,
                                           fuzzy_time, last_user_action,
                                           user_id_mappings)
     stream_sizes.append(len(user_action))

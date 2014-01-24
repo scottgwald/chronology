@@ -22,7 +22,7 @@ def main(args):
   unfiltered_streams = [(stream, None, args.user_field)
                         for stream in args.streams]
   stream_sizes = funnel_analyze(client, unfiltered_streams, args.start,
-                                args.end, {}, None)
+                                args.end, args.end, {}, None)
   # TODO(marcua): print something more meaningful here.
   print stream_sizes
   
