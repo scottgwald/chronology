@@ -68,6 +68,12 @@ def agg_op(op, args=[], alias=None):
 
 
 def agg(stream, groups, aggregates):
+  """
+  :param stream: Metis stream
+  :param groups: a dictionary of name, field pairs to group by.
+    Ex: {TIMESTAMP_FIELD: p(TIMESTAMP_FIELD), 'state': p('state')}
+  :param aggregates: a list of dictionaries returned by agg_op()
+  """
   return {'operator': OperatorType.AGGREGATE,
           'stream': stream,
           'groups': groups,
@@ -86,6 +92,12 @@ def join(left, right, condition, time_field, left_alias=None, right_alias=None):
 
 
 def order_by(stream, fields, reverse=False):
+  """
+  :param stream: Metis stream
+  :param fields: a list of fields to order by.
+    Ex: [p(TIMESTAMP_FIELD), p(ID)]
+  :param reverse: boolean, set to True if order should be reversed.
+  """
   return {'operator': OperatorType.ORDER_BY,
           'stream': stream,
           'fields': fields,

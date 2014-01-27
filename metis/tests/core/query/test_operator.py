@@ -207,6 +207,18 @@ class OperatorTestCase(MetisServerTestCase):
       self.assertTrue(event['value_count']['2'] < 50)
       self.assertEqual(sum(event['value_count'].values()), 50)
 
+    events = self.query(
+      agg(kstream('test_aggregate',
+                       0,
+                       1000),
+          {constants.TIMESTAMP_FIELD: f(FunctionType.FLOOR,
+                                        [p(constants.TIMESTAMP_FIELD),
+                                         c(50)])},
+          [agg_op(AggregateType.COUNT, alias='count')]
+          )
+      )
+    self.assertEqual(len(events), 200 / 50)
+
   def test_join(self):
     for i in xrange(100):
       self.kronos_client.put({

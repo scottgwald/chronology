@@ -184,8 +184,7 @@ class AggregateOperator(Operator):
     time_seen_in_groups = False
     for group, getter in groups.iteritems():
       validate_getter(getter)
-      if (getter['type'] == ValueType.PROPERTY and
-          getter['name'] == constants.TIMESTAMP_FIELD):
+      if group == constants.TIMESTAMP_FIELD:
         time_seen_in_groups = True
     counter = Counter()
     time_seen_in_aggregates = False
