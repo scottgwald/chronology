@@ -3,13 +3,14 @@
  `node.cors_whitelist_domains` in settings.py.
 */
 
-var KronosClient = function(kronosURL, namespace, debug) {
+var KronosClient = function(kronosURL, namespace, jQuery, debug) {
   // `kronosURL`: The URL of the Kronos server to talk to.
   // `namespace` (optional): Namespace to store events in.
   // `debug` (optional): Log error messages to console?
   var self = this;
   var putURL = kronosURL + '/1.0/events/put';
   var getURL = kronosURL + '/1.0/events/get';
+  var $ = jQuery;
 
   /**
    * Code from: https://gist.github.com/eriwen/2794392#file-cors-js
@@ -57,7 +58,24 @@ var KronosClient = function(kronosURL, namespace, debug) {
       if (!errback) return;
       errback(new Error('CORS not supported.'));
     }
-  }
+  };
+
+  var onSuccess = function(data) {
+    if (!debug) return;
+    data = JSON.parse(data);
+    // Check if there was a server side error?
+    if (data['@errors'] || data[stream] != 1) {
+      console.log('KronosClient.put encountered a server error: ' +
+                  data['@errors'] || 'unknown' + '.');
+    }
+  };
+
+  var onError = function(errorThrown) {
+    // TODO(usmanm): Add retry logic?
+    if (!debug) return;
+    console.log('KronosClient.put request failed with error: ' +
+                errorThrown + '.');
+  });
 
   this.url = kronosURL;
   this.namespace = namespace || null;
@@ -74,24 +92,20 @@ var KronosClient = function(kronosURL, namespace, debug) {
     var data = {namespace: namespace || self.namespace, events: {}};
     data.events[stream] = [event];
     data = JSON.stringify(data);
-    
-    xdr(putURL,
-        'POST',
-        data,
-        function(data) {
-          if (!debug) return;
-          data = JSON.parse(data);
-          // Check if there was a server side error?
-          if (data['@errors'] || data[stream] != 1) {
-            console.log('KronosClient.put encountered a server error: ' +
-                        data['@errors'] || 'unknown' + '.');
-          }
-        },
-        function(errorThrown) {
-          // TODO(usmanm): Add retry logic?
-          if (!debug) return;
-          console.log('KronosClient.put request failed with error: ' +
-                      errorThrown + '.');
-        });
-  }
+
+    if ($) {
+      $.ajax({
+        type: 'POST',
+        url: putURL,
+        data: data,
+        dataType: 'json',
+        success: onSuccess,
+        error: function(jqXHR, textStatus, errorThrown) {
+          onError(errorThrown);
+        }
+      });
+    } else {
+      xdr(putURL, 'POST', data, onSuccess, onError);
+    }
+  };
 };
