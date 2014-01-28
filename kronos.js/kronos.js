@@ -60,22 +60,12 @@ var KronosClient = function(kronosURL, namespace, jQuery, debug) {
     }
   };
 
-  var onSuccess = function(data) {
-    if (!debug) return;
-    data = JSON.parse(data);
-    // Check if there was a server side error?
-    if (data['@errors'] || data[stream] != 1) {
-      console.log('KronosClient.put encountered a server error: ' +
-                  data['@errors'] || 'unknown' + '.');
-    }
-  };
-
   var onError = function(errorThrown) {
     // TODO(usmanm): Add retry logic?
     if (!debug) return;
     console.log('KronosClient.put request failed with error: ' +
                 errorThrown + '.');
-  });
+  };
 
   this.url = kronosURL;
   this.namespace = namespace || null;
@@ -92,6 +82,16 @@ var KronosClient = function(kronosURL, namespace, jQuery, debug) {
     var data = {namespace: namespace || self.namespace, events: {}};
     data.events[stream] = [event];
     data = JSON.stringify(data);
+
+    var onSuccess = function(data) {
+      if (!debug) return;
+      if (!typeof data === 'string') data = JSON.parse(data);
+      // Check if there was a server side error?
+      if (data['@errors'] || data[stream] != 1) {
+        console.log('KronosClient.put encountered a server error: ' +
+                    data['@errors'] || 'unknown' + '.');
+      }
+    };
 
     if ($) {
       $.ajax({
