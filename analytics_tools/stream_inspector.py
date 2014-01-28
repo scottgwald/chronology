@@ -9,6 +9,7 @@ example usage:
 """
 import argparse
 import csv
+import json
 import logging
 import sys
 
@@ -23,8 +24,14 @@ def main(args):
   results = client.get(args.stream, args.start, args.end,
                        namespace=args.namespace)
   if args.display == 'print':
-    for event in results:
-      print event
+    if args.type == 'json':
+      events = []
+      for event in results:
+        events.append(event)
+      print json.dumps(events)
+    elif args.type == 'one-per-line':
+      for event in results:
+        print event
   elif args.display == 'csv':
     writer = csv.DictWriter(sys.stdout, args.fields)
     if not args.remove_header:
@@ -61,7 +68,12 @@ def process_args():
                       help='The namespace to read from (optional)')
   subparsers = parser.add_subparsers(help='How to display the results',
                                      dest='display')
-  subparsers.add_parser('print', help='Print the events, one per line')
+  print_parser = subparsers.add_parser(
+      'print',
+      help='Print the events, one per line, or JSON array')
+  print_parser.add_argument('--type',
+                            choices=('json', 'one-per-line'),
+                            default='one-per-line')
   field_parser = subparsers.add_parser('csv',
                                        help=('Project out fields and print '
                                              'them in csv format. Reference '
