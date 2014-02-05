@@ -22,6 +22,14 @@ It should be possible to favor limited scans and seeks, depending on the applica
 ## Consistent indexes and buckets
 While cleanup processes might optimize disk layout, we should not rely on out-of-bound processes to get the content in a state where it can be read.  The read path shouldn't be dependent on the system implementation.
 
+# Limitations
+
+Life isn't perfect when you [use timestamps to identify event order in a distributed system](http://aphyr.com/posts/299-the-trouble-with-timestamps).
+
+No support for push-down filters.
+
+Users must currently pick their backends intelligently for write/read/throughput/latency tradeoffs.
+
 # Design
 
 ## The index

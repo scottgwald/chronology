@@ -219,6 +219,10 @@ class KronosClient(object):
     `start_time` and `end_time`.  An optional `start_id` allows the
     client to delete events starting from an ID rather than a timestamp.
     """
+    if isinstance(start_time, datetime):
+      start_time = datetime_to_kronos_time(start_time)
+    if isinstance(end_time, datetime):
+      end_time = datetime_to_kronos_time(end_time)
     request_dict = {
       'stream': stream,
       'end_time': end_time
