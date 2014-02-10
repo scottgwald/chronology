@@ -6,13 +6,18 @@ A script to inspect a Kronos stream.
 example usage:
   python stream_inspector.py --start 2014-01-7T10:49:41.5-03:00 --end 2014-09-25T11:49:41.5-02:00 --kronos-url http://your-kronos.instance:port --stream the.name.of.a.stream print
   python stream_inspector.py --start 2014-01-7T10:49:41.5-03:00 --end 2014-09-25T11:49:41.5-02:00 --kronos-url http://your-kronos.instance.com:port --stream the.name.of.a.stream csv --fields field1 field2
+  python stream_inspector.py --start 2014-01-7T10:49:41.5-03:00 --end 2014-09-25T11:49:41.5-02:00 --kronos-url http://your-kronos.instance.com:port --stream the.name.of.a.stream aggregate --field field1 --aggregator count --time-bucket-width [3600 would be an hour]
 """
+
 import argparse
 import csv
 import json
 import logging
 import sys
 
+from analytics_tools.aggregates import AGGREGATORS
+from analytics_tools.aggregates import aggregate_stream
+from datetime import datetime
 from dateutil.parser import parse
 from metis.core.query.utils import get_property
 from pykronos import KronosClient
@@ -44,6 +49,12 @@ def main(args):
                              if isinstance(field_value, unicode)
                              else field_value)
       writer.writerow(row_values)
+  elif args.display == 'aggregate':
+    aggregates = aggregate_stream(results, AGGREGATORS[args.aggregator],
+                                  args.field, args.time_bucket_width)
+    print 'Bucket, Aggregate'
+    for bucket, aggregate in aggregates:
+      print '%s, %s' % (datetime.fromtimestamp(bucket), aggregate)
   else:
     raise Exception('Invalid display option {}'.format(args.display))
 
@@ -85,6 +96,21 @@ def process_args():
   field_parser.add_argument('--remove-header',
                             action='store_true',
                             help="Don't print the header?")
+
+  aggregate_parser = subparsers.add_parser('aggregate',
+                                           help=('Show aggregate results'))
+  aggregate_parser.add_argument('--field',
+                                required=True,
+                                help='The field to run the aggregate on')
+  aggregate_parser.add_argument('--aggregator',
+                                required=True,
+                                choices=AGGREGATORS.keys(),
+                                help='The aggregate function to run')
+  aggregate_parser.add_argument('--time-bucket-width',
+                                type=int,
+                                required=True,
+                                help='The number of seconds to bucket events into')
+                                           
 
   args = parser.parse_args()
   args.start = parse(args.start)
