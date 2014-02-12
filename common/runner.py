@@ -3,9 +3,6 @@ import subprocess
 import sys
 import time
 
-from multiprocessing import Pipe
-from multiprocessing import Process
-
 
 class ProcessRunnerError(Exception):
   pass
@@ -23,44 +20,30 @@ class ProcessRunner(object):
       cwd = os.path.join(os.getcwd(), cwd)
     self.cwd = cwd
     self.verbose = verbose
-    # `self._proc` is the multiprocessing.Process that executes the shell
-    # command.
-    # `self._sub_proc` is the subprocess.Popen `self._proc` runs for executing
-    # the shell command.
-    # `self._proc_pipe` is a duplex pipe connecting the parent process and
-    # `self._proc`.
-    self._proc = self._sub_proc = self._proc_pipe = None
+    self._sub_proc = None
 
-  def _subprocess_target(self, pipe):
-    os.chdir(self.cwd)
+  def start(self):
+    if self._sub_proc:
+      raise ProcessRunnerError('Process already running!')
     if self.verbose:
       stdout = sys.stdout
       stderr = sys.stderr
     else:
       stdout = stderr = open(os.devnull, 'w')
-    sub_proc = subprocess.Popen(self.args,
-                                stdout=stdout,
-                                stderr=stderr)
-    # TODO(usmanm): Add some `onready` callback.
+    self._sub_proc = subprocess.Popen(self.args,
+                                      stdout=stdout,
+                                      stderr=stderr,
+                                      cwd=self.cwd)
     time.sleep(2)
-    pipe.send(sub_proc)
-
-  def start(self):
-    if self._proc:
-      raise ProcessRunnerError('Process already running!')
-    self._proc_pipe, child_conn = Pipe()
-    self._proc = Process(target=self._subprocess_target, args=(child_conn,))
-    self._proc.start()
-    self._sub_proc = self._proc_pipe.recv()
   
   def stop(self):
-    if not self._proc:
+    if not self._sub_proc:
       raise ProcessRunnerError('Process not running!')
-    self._sub_proc.kill()
-    self._proc.terminate()
+    self._sub_proc.terminate()
+    self._sub_proc.wait()
 
   def restart(self):
-    if self._proc:
+    if self._sub_proc:
       self.stop()
     self.start()
 
