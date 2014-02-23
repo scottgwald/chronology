@@ -31,7 +31,7 @@ def index(environment, start_response, headers):
   """
 
   status = {'service': 'kronosd',
-            'version': kronos.get_version(),
+            'version': kronos.__version__,
             'id': settings.node['id'],
             'storage': {}}
 
@@ -222,10 +222,10 @@ def list_streams(environment, start_response, headers):
   yield ''
 
 
-def wsgi_application(environment, start_response):
+def application(environment, start_response):
   path = environment.get('PATH_INFO', '').rstrip('/')
   if path in ENDPOINTS:
     return ENDPOINTS[path](environment, start_response)
   else:
     start_response('404 NOT FOUND', [('Content-Type', 'text/plain')])
-    return "Four, oh, four :'(."
+    return "Four, oh, four :'("

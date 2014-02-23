@@ -66,7 +66,7 @@ class KronosRunner(ProcessRunner):
   def __init__(self, kronos_dir, config=None, port='9191', **kwargs):
     self.port = port
     args = ['python', 'runserver.py',
-            '--bind', '0.0.0.0:%s' % port,
+            '--port', port,
             '--debug']
     if config:
       args.extend(['--config', config])

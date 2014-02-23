@@ -9,6 +9,8 @@ def get_spark_context():
   global _SPARK_CONTEXT
   
   if _SPARK_CONTEXT is None:
+    # Also ship the Metis lib file so worker nodes can deserialize Metis
+    # internal data structures.
     _SPARK_CONTEXT = SparkContext(app.config['SPARK_MASTER'],
                                   'Metis',
                                   pyFiles=[app.config['METIS_LIB_FILE']])
@@ -16,7 +18,5 @@ def get_spark_context():
 
 
 def execute_compute_task(plan):
-  # Also ship the metis zip file so worker nodes can deserialize metis
-  # internal objects.
   spark_context = get_spark_context()
   return Operator.parse(plan).get_rdd(spark_context).collect()

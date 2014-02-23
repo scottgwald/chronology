@@ -1,3 +1,5 @@
 libevent-dev
 python-all-dev
 python-pip
+uwsgi
+uwsgi-plugin-python

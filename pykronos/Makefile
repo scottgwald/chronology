@@ -2,10 +2,7 @@
 clean:
 	find . -type f -name '*.py[cod]' -delete
 	find . -type f -name '*~' -delete
-clean_egg: clean
-	sudo rm -rf pykronos.egg-info
-	sudo rm -rf build
-	sudo rm -rf dist
+	sudo rm -rf build dist *.egg-info
 test: clean
 	python runtests.py
 readme: clean

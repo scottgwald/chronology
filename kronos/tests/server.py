@@ -4,7 +4,7 @@ import unittest
 from werkzeug.test import Client
 from werkzeug.wrappers import BaseResponse
 
-from kronos.server import wsgi_application
+from kronos.app import application
 
 VERSION = 1.0
 BASE_PATH = '/%s' % VERSION
@@ -17,7 +17,7 @@ class KronosServerTestCase(unittest.TestCase):
   """
 
   def setUp(self):
-    self.http_client = Client(wsgi_application, BaseResponse)
+    self.http_client = Client(application, BaseResponse)
     self.get_path = '%s/get' % EVENT_BASE_PATH
     self.put_path = '%s/put' % EVENT_BASE_PATH
     self.delete_path = '%s/delete' % EVENT_BASE_PATH

@@ -48,7 +48,7 @@ def test_common():
   test_suites = unittest.defaultTestLoader.discover(
     start_dir=os.path.join(os.path.dirname(__file__), 'tests/common'),
     pattern='test_*.py')
-  runner = unittest.TextTestRunner()
+  runner = unittest.TextTestRunner(verbosity=2)
   for test_suite in test_suites:
     runner.run(test_suite)
 
@@ -59,7 +59,7 @@ def test_cassandra():
     start_dir=os.path.join(os.path.dirname(__file__),
                            'tests/backends/cassandra'),
     pattern='test_*.py')
-  runner = unittest.TextTestRunner()
+  runner = unittest.TextTestRunner(verbosity=2)
   for test_suite in test_suites:
     runner.run(test_suite)
 
@@ -69,7 +69,7 @@ def test_conf():
   test_suites = unittest.defaultTestLoader.discover(
     start_dir=os.path.join(os.path.dirname(__file__), 'tests/conf'),
     pattern='test_*.py')
-  runner = unittest.TextTestRunner()
+  runner = unittest.TextTestRunner(verbosity=2)
   for test_suite in test_suites:
     runner.run(test_suite)
 
