@@ -1,1 +1,3 @@
+flask==0.10.1
+flask-sqlalchemy==1.0
 # pykronos---for now, a symlink to the parent dir

@@ -1,15 +1,9 @@
 import os
 import re
 
-DEBUG = True
-SECRET_KEY = 'oh man security'
-KRONOS_URL = 'http://localhost:8150'
-
-ENABLE_OPENID = True
-OPENID_ENDPOINT = 'https://www.google.com/accounts/o8/ud'
-OPENID_STATE = '/tmp/jia-openid'
-ALLOWED_USERS = map(re.compile, [
-# Only user id's matching regexes in this list will be allowed to use Jia
-])
-
 APPROOT = os.path.dirname(os.path.realpath(__file__))
+DEBUG = True
+KRONOS_URL = 'http://localhost:8150'
+KRONOS_NAMESPACE = 'default'
+METIS_URL = 'http://localhost:8151'
+SQLALCHEMY_DATABASE_URI = 'sqlite:///%s/app.db' % APPROOT

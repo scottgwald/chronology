@@ -4,6 +4,7 @@ from dateutil.tz import tzutc
 # A timezone aware datetime object representing the UTC epoch.
 EPOCH = datetime.utcfromtimestamp(0).replace(tzinfo=tzutc())
 
+
 def datetime_to_kronos_time(dt):
   """
   Kronos expects timestamps to be the number of 100ns intervals since the epoch.
@@ -22,8 +23,10 @@ def kronos_time_to_datetime(time):
           .utcfromtimestamp(kronos_time_to_epoch_time(time))
           .replace(tzinfo=tzutc()))
 
+
 def epoch_time_to_kronos_time(time):
   return int(time * 1e7)
+
 
 def kronos_time_to_epoch_time(time):
   return int(time * 1e-7)
