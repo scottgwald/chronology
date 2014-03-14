@@ -1,8 +1,8 @@
 from collections import defaultdict
 
+from kronos.conf import settings
 from kronos.conf.constants import ResultOrder
 from kronos.conf.constants import TIMESTAMP_FIELD
-from kronos.conf.settings import storage
 from kronos.storage import router
 from kronos.storage.backends.cassandra.client import BucketInterval
 from kronos.storage.backends.cassandra.client import TimeWidthCassandraStorage
@@ -22,8 +22,9 @@ class TestCassandraBackend(KronosServerTestCase):
     super(TestCassandraBackend, self).setUp()
     self.backend = router.get_backend('cassandra')
     self.namespace = self.backend.namespaces['kronos']
-    self.shards = storage['cassandra']['default_shards_per_bucket']
-    self.width_seconds = storage['cassandra']['default_timewidth_seconds']
+    self.shards = settings.storage['cassandra']['default_shards_per_bucket']
+    self.width_seconds = (settings.storage['cassandra']
+                          ['default_timewidth_seconds'])
     self.width = time_to_kronos_time(self.width_seconds)
 
   def test_bucket_shards(self):

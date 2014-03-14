@@ -1,12 +1,22 @@
 #!/usr/bin/python
 
 import functools
+import importlib
 import os
 import subprocess
 import sys
 import unittest
 
 from argparse import ArgumentParser
+
+def update_settings(config_name):
+  # Configure Kronos with the right settings before running the tests.
+  from kronos.conf import settings
+  from tests.conf import test_settings
+  settings.update(test_settings)
+  patch_module = importlib.import_module('tests.conf.%s' % config_name)
+  settings.update(patch_module)
+
 
 def test_against(*configs):
   def decorator(function):
@@ -25,10 +35,8 @@ def test_against(*configs):
           # testing different configurations.
           subprocess.call(args, env=new_env)
       else:
-        # Configure Kronos with the right settings before running the tests.
-        from tests.conf import settings
         config = os.environ['KRONOS_CONFIG']
-        settings.configure(config)
+        update_settings(config)
         # Run the wrapped test function.
         function()
         # Do any teardown needed for some Kronos configurations.
