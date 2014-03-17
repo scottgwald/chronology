@@ -12,8 +12,8 @@ from argparse import ArgumentParser
 def update_settings(config_name):
   # Configure Kronos with the right settings before running the tests.
   from kronos.conf import settings
-  from tests.conf import test_settings
-  settings.update(test_settings)
+  from tests.conf import default_settings
+  settings.update(default_settings)
   patch_module = importlib.import_module('tests.conf.%s' % config_name)
   settings.update(patch_module)
 
