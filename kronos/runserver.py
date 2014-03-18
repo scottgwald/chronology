@@ -30,7 +30,7 @@ if __name__ == '__main__':
 
   # If a config file path is given, import that as the `settings` module.
   if args.config:
-    settings.use(imp.load_source('kronos.conf.run_settings', args.config))
+    settings.update(imp.load_source('kronos.conf.run_settings', args.config))
 
   # Override the `debug` in the settings module and `debug` for
   # `args`.
