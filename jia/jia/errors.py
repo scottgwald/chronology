@@ -27,5 +27,5 @@ class PyCodeError(JiaError):
       code=400,
       message='An uncaught exception was raised.',
       data={'name': exception.__class__.__name__,
-            'message': message,
+            'message': unicode(message),
             'traceback': traceback.format_tb(tb)})
