@@ -3,18 +3,53 @@ body {
   margin: 25px 50px;
 }
 
-.code-box {
+.pycode .code-box {
   margin: 20px 0px;
 }
 
-.code-box .label {
-  margin-bottom: 10px;
-}
-
-.code-box .CodeMirror {
-  height: 225px;
-}
-
-.code-box button {
+.pycode .code-box .code-controls {
+  overflow: hidden;
   margin: 10px;
+}
+
+.pycode .code-box .code-controls .run-btn {
+  float: left;
+  margin-right: 10px;
+}
+
+.pycode .code-box .code-controls .refresh-ctl {
+  float: left;
+  width: 100px;
+}
+
+.pycode .code-box .code-controls .msg {
+  float: right;
+  line-height: 34px;
+}
+
+.pycode .code-box .code-controls .loading {
+  display: none;
+}
+
+.pycode .code-box .code-controls .label {
+  display: none;
+}
+
+.pycode .code-box .error-alert {
+  margin-bottom: 0px;
+}
+
+.pycode .code-box .CodeMirror {
+  height: 250px;
+  padding-top: 10px;
+  font-size: 12px;
+}
+
+.monospace {
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.error-alert .error-desc {
+  margin-bottom: 10px;
 }

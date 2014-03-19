@@ -54,6 +54,7 @@ var PyCode = Backbone.Model.extend({
   toJSON: function(options) {
     var json = Backbone.Model.prototype.toJSON.call(this);
     delete json.events;
+    delete json.error;
     return json;
   }
 });
@@ -72,8 +73,6 @@ var Board = Backbone.Model.extend({
     response.pycode = new PyCode(pycode);
     if (!response.pycode.id) {
       response.pycode.save();
-    } else {
-      response.pycode.fetch();
     }
     return response;
   },

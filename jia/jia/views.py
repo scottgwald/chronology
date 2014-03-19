@@ -1,13 +1,15 @@
 import binascii
 import os
+import sys
 
-from flask import jsonify
 from flask import redirect
 from flask import request
 from flask import render_template
 from pykronos import KronosClient
 
 from jia import app
+from jia.decorators import json_endpoint
+from jia.errors import PyCodeError
 from jia.models import Board
 from jia.models import PyCode
 
@@ -26,6 +28,7 @@ def index(board_id=None):
 
 @app.route('/board', methods=['POST'])
 @app.route('/board/<id>', methods=['GET', 'PUT'])
+@json_endpoint
 def board(id=None):
   if request.method == 'POST':
     board = Board(id=binascii.b2a_hex(os.urandom(5)))
@@ -33,15 +36,12 @@ def board(id=None):
   else:
     board = Board.query.filter_by(id=id).first_or_404()
 
-  pycode = board.pycodes.first() or PyCode()
-  return jsonify({
-    'id': board.id,
-    'pycode': {'id': pycode.id, 'code': pycode.code}
-    })
+  return board.json()
 
 
 @app.route('/pycode', methods=['POST'])
 @app.route('/pycode/<id>', methods=['GET', 'PUT'])
+@json_endpoint
 def pycode(id=None):
   if request.method == 'POST':
     board = Board.query.filter_by(id=request.get_json()['board']).first_or_404()
@@ -52,6 +52,7 @@ def pycode(id=None):
 
   if request.method != 'GET':
     pycode.code = request.get_json().get('code')
+    pycode.refresh_seconds = request.get_json().get('refresh_seconds')
     pycode.save()
   
   locals_dict = {
@@ -60,16 +61,16 @@ def pycode(id=None):
     'events': []
     }
   if pycode.code:
-    # TODO(usmanm): Do error handling.
-    exec pycode.code in {}, locals_dict # No globals.
+    try:
+      exec pycode.code in {}, locals_dict # No globals.
+    except:
+      _, exception, tb = sys.exc_info()
+      raise PyCodeError(exception, tb)
 
   # Don't use [] accessor. `pycode.code` might contain `del response`.
   events = sorted(locals_dict.get('events', []),
                   key=lambda event: event['@time'])
 
-  return jsonify({
-    'id': pycode.id,
-    'board': pycode.board.id,
-    'code': pycode.code or '',
-    'events': events
-    })
+  response = pycode.json()
+  response['events'] = events
+  return response
