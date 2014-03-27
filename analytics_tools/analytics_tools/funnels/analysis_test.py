@@ -5,6 +5,7 @@ from mock import Mock
 from mock import patch
 
 from analysis import funnel_analyze
+from analysis import FunnelStep
 from pykronos.utils.time import datetime_to_kronos_time
 
 class TestFunnelAnalysis(unittest.TestCase):
@@ -62,11 +63,12 @@ class TestFunnelAnalysis(unittest.TestCase):
 
     start = datetime.datetime(2014,3,20)
     end = datetime.datetime(2014,3,21)
-    stream_sizes = funnel_analyze(client, [('stream1', None, 'userId'),
-                                           ('stream2', None, 'userId')],
+    step1 = FunnelStep('stream1')
+    step2 = FunnelStep('stream2')
+    funnel_output = funnel_analyze(client, [step1, step2],
                                   start, end,
                                   end, {}, None)
-    self.assertEqual(stream_sizes, [20, 7])
+    self.assertEqual(funnel_output.stream_sizes(), [20, 7])
 
   def test_funnel_fuzzy_time(self):
     client = Mock()
@@ -76,11 +78,12 @@ class TestFunnelAnalysis(unittest.TestCase):
     fuzzy_time = datetime.timedelta(minutes=2)
     start = datetime.datetime(2014,3,20)
     end = datetime.datetime(2014,3,21)
-    stream_sizes = funnel_analyze(client, [('stream1', None, 'userId'),
-                                           ('stream2', None, 'userId')],
+    step1 = FunnelStep('stream1')
+    step2 = FunnelStep('stream2')
+    funnel_output = funnel_analyze(client, [step1, step2],
                                   start, end,
                                   end, {}, None, fuzzy_time=fuzzy_time)
-    self.assertEqual(stream_sizes, [20, 1])
+    self.assertEqual(funnel_output.stream_sizes(), [20, 1])
 
   def test_funnel_properties(self):
     client = Mock()
@@ -89,14 +92,14 @@ class TestFunnelAnalysis(unittest.TestCase):
 
     start = datetime.datetime(2014,3,20)
     end = datetime.datetime(2014,3,21)
-    properties = [['type'],['type']]
-    stream_sizes, stream_data = funnel_analyze(
-        client, [('stream1', None, 'userId'), ('stream2', None, 'userId')],
-        start, end, end, {}, None, output_properties=properties)
-    self.assertEqual(stream_sizes, [20, 2])
-    self.assertEqual(len(stream_data[0]), 20)
-    self.assertEqual(stream_data[0]['0'], {'type': 'b'})
-    self.assertEqual(stream_data[0]['1'], {'type': 'a'})
+    step1 = FunnelStep('stream1', output_fields=['type'])
+    step2 = FunnelStep('stream2', output_fields=['type'])
+    funnel_output = funnel_analyze(client, [step1, step2],
+                                   start, end, end, {}, None)
+    self.assertEqual(funnel_output.stream_sizes(), [20, 2])
+    self.assertEqual(len(funnel_output.stream_data()[0]), 20)
+    self.assertEqual(funnel_output.stream_data()[0]['0'], {'type': 'b'})
+    self.assertEqual(funnel_output.stream_data()[0]['1'], {'type': 'a'})
 
   @patch('analysis.log')
   def test_funnel_properties_missing_field(self, mock_logging):
@@ -106,12 +109,12 @@ class TestFunnelAnalysis(unittest.TestCase):
 
     start = datetime.datetime(2014,3,20)
     end = datetime.datetime(2014,3,21)
-    properties = [['type'],['color']]
-    stream_sizes, stream_data = funnel_analyze(
-        client, [('stream1', None, 'userId'), ('stream2', None, 'userId')],
-        start, end, end, {}, None, output_properties=properties)
-    self.assertEqual(stream_sizes, [20, 2])
-    self.assertEqual(stream_data[1]['0'], {})
+    step1 = FunnelStep('stream1', output_fields=['type'])
+    step2 = FunnelStep('stream2', output_fields=['color'])
+    funnel_output = funnel_analyze(client, [step1, step2],
+                                   start, end, end, {}, None)
+    self.assertEqual(funnel_output.stream_sizes(), [20, 2])
+    self.assertEqual(funnel_output.stream_data()[1]['0'], {})
     mock_logging.warn.assert_called_with(
         'Field %s does not appear in stream %s', 'color', 'stream2')
 
@@ -123,16 +126,16 @@ class TestFunnelAnalysis(unittest.TestCase):
 
     start = datetime.datetime(2014,3,20)
     end = datetime.datetime(2014,3,21)
-    properties = [['type'],['type'],[]]
+    step1 = FunnelStep('stream1', output_fields=['type'])
+    step2 = FunnelStep('stream2', user_field='username', output_fields=['type'])
+    step3 = FunnelStep('stream3', user_field='username', output_fields=['type'])
     user_id_mappers = {'username': lambda x: x}
-    stream_sizes, stream_data = funnel_analyze(
-        client, [('stream1', None, 'userId'), ('stream2', None, 'username'),
-                 ('stream2', None, 'username')],
-        start, end, end, user_id_mappers, None, output_properties=properties)
-    self.assertEqual(stream_sizes, [20, 2, 2])
-    self.assertEqual(len(stream_data[0]), 20)
-    self.assertEqual(stream_data[0]['0'], {'type': 'b'})
-    self.assertEqual(stream_data[0]['1'], {'type': 'a'})
+    funnel_output = funnel_analyze(client, [step1, step2, step3],
+                                   start, end, end, user_id_mappers, None)
+    self.assertEqual(funnel_output.stream_sizes(), [20, 2, 2])
+    self.assertEqual(len(funnel_output.stream_data()[0]), 20)
+    self.assertEqual(funnel_output.stream_data()[0]['0'], {'type': 'b'})
+    self.assertEqual(funnel_output.stream_data()[0]['1'], {'type': 'a'})
 
   @patch('analysis.log')
   def test_user_id_mapping_missing(self, mock_logging):
@@ -142,19 +145,19 @@ class TestFunnelAnalysis(unittest.TestCase):
 
     start = datetime.datetime(2014,3,20)
     end = datetime.datetime(2014,3,21)
+    step1 = FunnelStep('stream1')
+    step2 = FunnelStep('stream2')
     with self.assertRaisesRegexp(UnboundLocalError,
                                  ("local variable 'user' referenced before "
                                   "assignment")):
-        funnel_analyze(
-            client, [('stream1', None, 'userId'), ('stream2', None, 'userId')],
-            start, end, end, {}, None)
+        funnel_analyze(client, [step1, step2],
+                       start, end, end, {}, None)
     mock_logging.error.assert_called_with(
         'Unable to get field %s on %s from %s', 'userId',
-        ('stream2', None, 'userId'),
+        'stream2',
         {'username': '0',
          'type': 'a',
          '@time': datetime_to_kronos_time(datetime.datetime(2014,3,19,23,58))})
-
 
   def test_event_filter(self):
     def get_type_a(event):
@@ -166,13 +169,14 @@ class TestFunnelAnalysis(unittest.TestCase):
 
     start = datetime.datetime(2014,3,20)
     end = datetime.datetime(2014,3,21)
-    properties = [['type'],['type'],[]]
-    stream_sizes, stream_data = funnel_analyze(
-        client, [('stream1', get_type_a, 'userId'),
-                 ('stream2', get_type_a, 'userId')],
-        start, end, end, {}, None, output_properties=properties)
-    self.assertEqual(stream_sizes, [10, 1])
-    self.assertEqual(len(stream_data[0]), 10)
+    step1 = FunnelStep('stream1', event_filter=get_type_a,
+                       output_fields=['type'])
+    step2 = FunnelStep('stream2', event_filter=get_type_a,
+                       output_fields=['type'])
+    funnel_output = funnel_analyze(client, [step1, step2],
+                                   start, end, end, {}, None)
+    self.assertEqual(funnel_output.stream_sizes(), [10, 1])
+    self.assertEqual(len(funnel_output.stream_data()[0]), 10)
 
   def test_user_filter(self):
     def get_odd_users(user):
@@ -184,10 +188,9 @@ class TestFunnelAnalysis(unittest.TestCase):
 
     start = datetime.datetime(2014,3,20)
     end = datetime.datetime(2014,3,21)
-    properties = [['type'],['type'],[]]
-    stream_sizes, stream_data = funnel_analyze(
-        client, [('stream1', None, 'userId'),
-                 ('stream2', None, 'userId')],
-        start, end, end, {}, get_odd_users, output_properties=properties)
-    self.assertEqual(stream_sizes, [10, 1])
-    self.assertEqual(len(stream_data[0]), 10)
+    step1 = FunnelStep('stream1', output_fields=['type'])
+    step2 = FunnelStep('stream2', output_fields=['type'])
+    funnel_output = funnel_analyze(client, [step1, step2],
+                                   start, end, end, {}, get_odd_users)
+    self.assertEqual(funnel_output.stream_sizes(), [10, 1])
+    self.assertEqual(len(funnel_output.stream_data()[0]), 10)
