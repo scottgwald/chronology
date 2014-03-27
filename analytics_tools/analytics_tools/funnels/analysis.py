@@ -1,5 +1,7 @@
 import logging
 
+import metis
+
 from datetime import timedelta
 from pykronos.client import TIMESTAMP_FIELD
 from pykronos.utils.time import datetime_to_kronos_time
@@ -36,11 +38,14 @@ class IdentityDict(object):
   def get(self, key):
     return key
 
+
 def _stream_earliest_action(client, stream, start, end, fuzzy_time,
-                            last_user_action, user_id_mappings):
+                            last_user_action, user_id_mappings,
+                            output_properties=None):
   stream_name, event_filter, user_field = stream
   events = client.get(stream_name, start, end)
   user_action = {}
+  stream_data = {}
   for idx, event in enumerate(events):
     if idx % 10000 == 0:
       log.debug('...processed', idx, 'events')
@@ -49,7 +54,8 @@ def _stream_earliest_action(client, stream, start, end, fuzzy_time,
     try:
       user = user_id_mappings[user_field].get(event[user_field])
     except:
-      log.error('Unable to get field %s on %s from %s', user_field, stream, event)
+      log.error('Unable to get field %s on %s from %s',
+                user_field, stream, event)
     last_time = last_user_action.get(user)
     event_time = event[TIMESTAMP_FIELD]
     # If we've seen an action from this user in the last stream, and
@@ -59,7 +65,17 @@ def _stream_earliest_action(client, stream, start, end, fuzzy_time,
         last_time is not None and
         ((last_time - fuzzy_time) < event_time)):
       user_action[user] = min(user_action.get(user, event_time), event_time)
-  return user_action
+      if output_properties:
+        event_fields = {}
+        for field in output_properties:
+          try:
+            event_fields[field] = metis.core.query.utils.get_property(event,
+                                                                      field)
+          except KeyError:
+            log.warn('Field %s does not appear in stream %s',
+                     field, stream_name)
+        stream_data[user] = event_fields
+  return user_action, stream_data
 
 
 def _load_user_id_mappings(mappings, user_id_mappers, user_ids):
@@ -84,7 +100,8 @@ def _sanity_check_args(streams, user_id_mappers):
 
 def funnel_analyze(client, streams, start, end, end_first_funnel_step,
                    user_id_mappers, user_filter,
-                   fuzzy_time=timedelta(minutes=5)):
+                   fuzzy_time=timedelta(minutes=5),
+                   output_properties=None):
   """
   `streams`: a list of (stream name, event filter, user_id field
   name) tuples.  The funnel is composed from these streams.  The event
@@ -115,12 +132,15 @@ def funnel_analyze(client, streams, start, end, end_first_funnel_step,
 
   `fuzzy_time`: a timedelta representing the time that two events in
   subsequent streams can be out-of-order with one-another.
+
+  `output_properties`: a list of event properties to output for each stream.
   """
   assert end >= end_first_funnel_step
   streams, user_id_mappers = _sanity_check_args(streams, user_id_mappers)
   last_user_action = FilterCache(user_filter)
   fuzzy_time = timedelta_to_kronos_time(fuzzy_time)
   stream_sizes = []
+  event_data = []
   user_id_mappings = {}
   for idx, stream in enumerate(streams):
     log.debug('Processing stream', stream[0])
@@ -128,15 +148,24 @@ def funnel_analyze(client, streams, start, end, end_first_funnel_step,
     if idx == 0:
       user_id_mappings[stream[2]] = IdentityDict()
       step_end = end_first_funnel_step
-    user_action = _stream_earliest_action(client, stream, start, step_end,
-                                          fuzzy_time, last_user_action,
-                                          user_id_mappings)
+    if output_properties:
+      properties = output_properties[idx]
+    else:
+      properties = None
+    user_action, stream_events = _stream_earliest_action(
+      client, stream, start, step_end,
+      fuzzy_time, last_user_action, user_id_mappings,
+      output_properties=properties)
     stream_sizes.append(len(user_action))
+    event_data.append(stream_events)
     last_user_action = user_action
     # For the first stream in the funnel, load the mappings to other
     # user_id formats we'll find in subsequent streams.
     if idx == 0:
       log.debug('Loading user_id mappings')
       _load_user_id_mappings(user_id_mappings, user_id_mappers, last_user_action)
-      
-  return stream_sizes
+
+  if output_properties:
+    return stream_sizes, event_data
+  else:
+    return stream_sizes
