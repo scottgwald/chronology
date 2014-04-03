@@ -1,8 +1,7 @@
 import logging
-
-import metis
-
 from datetime import timedelta
+
+from metis.core.query.utils import get_property
 from pykronos.client import TIMESTAMP_FIELD
 from pykronos.utils.time import datetime_to_kronos_time
 from pykronos.utils.time import timedelta_to_kronos_time
@@ -51,11 +50,13 @@ class FunnelStep(object):
     :param user_field: name of the field in an event that returns the user
     identifier. Defaults to 'userId'.
     :param output_fields: fields in event to output.
-    :param invert: Invert result of funnel from previous step. Example: if the
-    stream_name is 'clicked_tab' and event_filter is all Essential accounts, if
-    invert is True, users counted in this step of the funnel are those from the
-    previous step that are not in 'clicked_tab' stream or are not Essential
-    accounts.
+    :param invert: boolean. If true, include all users from the previous step
+    that do NOT appear in the current event stream or are not filtered by
+    `event_filter`. Example: If the stream_name is 'clicked_tab' and the
+    event_filter is all Essential accounts, if invert is True, users counted in
+    this step of the funnel are those from the previous step that are not in
+    'clicked_tab' stream or are not Essential accounts. The first funnel
+    step can not have invert=True. If invert=True, an exception is raised.
     """
     self.stream_name = stream_name
     self.event_filter = event_filter
@@ -65,6 +66,7 @@ class FunnelStep(object):
                
 
 class FunnelOutput(object):
+  """ Data structure for storing the output of the funnel. """
   def __init__(self):
     self.step_output = []
 
@@ -72,14 +74,31 @@ class FunnelOutput(object):
     self.step_output.append(step)
 
   def stream_sizes(self):
+    """ Returns size of each funnel step in a list. """
     return [len(s['user_action']) for s in self.step_output]
 
+  def user_ids(self):
+    """ Returns list of user ids at each funnel in a list. """
+    return [s['user_action'].keys() for s in self.step_output]
+
   def stream_data(self):
+    """ Returns output data of each funnel step in a list.
+    Each list element is a dictionary with user id as the key. The value for
+    each key is a dictionary with the requested output properties for that
+    funnel step as the keys, the values of the properties as the values.
+    """
     return [s['stream_data'] for s in self.step_output]
 
 
 def _stream_earliest_action(client, stream, start, end, fuzzy_time,
                             last_user_action, user_id_mappings):
+  """ Find users who advance to this step of the funnel.
+  :returns: dictionary with user_action and stream_data. user_action is a
+  dictionary of user ids and time of last action. This is for determining
+  if events in subsequent streams occur after the current stream.
+  stream_data is a dictionary of user ids and dictionary of output properties
+  as specified in stream.output_fields.
+  """
   events = client.get(stream.stream_name, start, end)
   user_action = {}
   stream_data = {}
@@ -102,17 +121,28 @@ def _stream_earliest_action(client, stream, start, end, fuzzy_time,
         last_time is not None and
         ((last_time - fuzzy_time) < event_time)):
       user_action[user] = min(user_action.get(user, event_time), event_time)
-      if stream.output_fields:
+      if stream.output_fields and not stream.invert:
         event_fields = {}
         for field in stream.output_fields:
           try:
-            event_fields[field] = metis.core.query.utils.get_property(event,
-                                                                      field)
+            event_fields[field] = get_property(event, field)
           except KeyError:
             log.warn('Field %s does not appear in stream %s',
                      field, stream.stream_name)
         stream_data[user] = event_fields
-  return {'user_action': user_action, 'stream_data': stream_data}
+
+  # If stream results should be inverted, include all users that are NOT in
+  # user_action, and use their timestamp from the previous step as the timestamp
+  # of the current step. We can not use the timestamp for this stream, since they
+  # may not have an event in this stream.
+  if stream.invert:
+    inverted_user_action = {}
+    for user, timestamp in last_user_action.iteritems():
+      if user not in user_action:
+        inverted_user_action[user] = timestamp
+    return {'user_action': inverted_user_action, 'stream_data': {}}
+  else:        
+    return {'user_action': user_action, 'stream_data': stream_data}
 
 
 def _load_user_id_mappings(mappings, user_id_mappers, user_ids):
@@ -126,7 +156,8 @@ def _load_user_id_mappings(mappings, user_id_mappers, user_ids):
       
 
 def _sanity_check_args(streams, user_id_mappers):
-  assert len(streams) > 1
+  assert len(streams) > 1 # Must have more than one stream for funnel analysis.
+  assert streams[0].invert == False # Can't handle invert=True in first stream.
   first_stream_user_id = streams[0].user_field
   required_mappings = ({stream.user_field for stream in streams} -
                        {first_stream_user_id})

@@ -7,6 +7,8 @@ from mock import patch
 from analysis import funnel_analyze
 from analysis import FunnelStep
 from pykronos.utils.time import datetime_to_kronos_time
+from pykronos.utils.time import timedelta_to_kronos_time
+
 
 class TestFunnelAnalysis(unittest.TestCase):
 
@@ -54,6 +56,17 @@ class TestFunnelAnalysis(unittest.TestCase):
       events.append({'username': user_id,
                      'type': 'a',
                      '@time': datetime_to_kronos_time(time)})
+    return events
+
+  def get_stream5(self):
+    start = datetime.datetime(2014,3,21)
+    delta = datetime.timedelta(minutes=1)
+    events = []
+    for i in range(0, 20, 2):
+      events.append({'userId': str(i),
+                     'type': 'a' if i % 2 else 'b',
+                     '@time': datetime_to_kronos_time(start)})
+      start += delta
     return events
 
   def test_funnel(self):
@@ -194,3 +207,58 @@ class TestFunnelAnalysis(unittest.TestCase):
                                    start, end, end, {}, get_odd_users)
     self.assertEqual(funnel_output.stream_sizes(), [10, 1])
     self.assertEqual(len(funnel_output.stream_data()[0]), 10)
+
+  def test_stream_inversion(self):
+    client = Mock()
+    client.get = Mock(side_effect=[self.get_stream1(),
+                                   self.get_stream5()])
+
+    start = datetime.datetime(2014,3,20)
+    end = datetime.datetime(2014,3,21)
+    step1 = FunnelStep('stream1', output_fields=['type'])
+    step2 = FunnelStep('stream5', invert=True)
+    funnel_output = funnel_analyze(client, [step1, step2],
+                                   start, end, end, {}, None)
+    self.assertEqual(funnel_output.stream_sizes(), [20, 10])
+    # Second funnel step should only contain odd users because of inversion.
+    self.assertIn('3', funnel_output.user_ids()[1])
+    self.assertIn('5', funnel_output.user_ids()[1])
+
+  def test_stream_inversion_timestamps(self):
+    """
+    Test that if stream is inverted, timestamp of last action is the
+    timestamp of the last action in the previous funnel step.
+    """
+    from analysis import IdentityDict
+    from analysis import _stream_earliest_action
+
+    client = Mock()
+    client.get = Mock(side_effect=[self.get_stream5()])
+
+    start = datetime.datetime(2014,3,20)
+    end = datetime.datetime(2014,3,21)
+    step = FunnelStep('stream5', invert=True)
+    last_user_action = {'0': datetime_to_kronos_time(start),
+                        '1': datetime_to_kronos_time(start)}
+    step_output = _stream_earliest_action(client, step,
+                                          start, end,
+                                          timedelta_to_kronos_time(
+                                            datetime.timedelta(minutes=5)),
+                                          last_user_action,
+                                          {'userId': IdentityDict()})
+    user_action = step_output['user_action']
+    self.assertEqual(len(user_action), 1)
+    self.assertEqual(user_action['1'], datetime_to_kronos_time(start))
+
+  def test_stream_inversion_invert_in_first_step(self):
+    client = Mock()
+    client.get = Mock(side_effect=[self.get_stream1(),
+                                   self.get_stream5()])
+
+    start = datetime.datetime(2014,3,20)
+    end = datetime.datetime(2014,3,21)
+    step1 = FunnelStep('stream1', output_fields=['type'], invert=True)
+    step2 = FunnelStep('stream5', output_fields=['type'], invert=True)
+    with self.assertRaises(AssertionError):
+      funnel_analyze(client, [step1, step2], start, end, end, {}, None)
+
