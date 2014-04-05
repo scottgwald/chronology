@@ -5,17 +5,18 @@ import sys
 from flask import redirect
 from flask import request
 from flask import render_template
-from pykronos import KronosClient
-
 from jia import app
+from jia.auth import authenticate
 from jia.decorators import json_endpoint
 from jia.errors import PyCodeError
 from jia.models import Board
 from jia.models import PyCode
+from pykronos import KronosClient
 
 
 @app.route('/', methods=['GET'])
 @app.route('/<board_id>', methods=['GET'])
+@authenticate
 def index(board_id=None):
   if not board_id:
     # Create a new board and redirect to it.
@@ -29,6 +30,7 @@ def index(board_id=None):
 @app.route('/board', methods=['POST'])
 @app.route('/board/<id>', methods=['GET', 'PUT'])
 @json_endpoint
+@authenticate
 def board(id=None):
   if request.method == 'POST':
     board = Board(id=binascii.b2a_hex(os.urandom(5)))
@@ -42,6 +44,7 @@ def board(id=None):
 @app.route('/pycode', methods=['POST'])
 @app.route('/pycode/<id>', methods=['GET', 'PUT'])
 @json_endpoint
+@authenticate
 def pycode(id=None):
   if request.method == 'POST':
     board = Board.query.filter_by(id=request.get_json()['board']).first_or_404()
@@ -54,7 +57,7 @@ def pycode(id=None):
     pycode.code = request.get_json().get('code')
     pycode.refresh_seconds = request.get_json().get('refresh_seconds')
     pycode.save()
-  
+
   locals_dict = {
     'kronos_client': KronosClient(app.config['KRONOS_URL'],
                                   namespace=app.config['KRONOS_NAMESPACE']),
