@@ -17,5 +17,5 @@ def aggregate_stream(events, aggregator_class, field, bucket_width):
       aggregator = aggregator_class()
       emitted = False
     aggregator.update(get_property(event, field))
-  if not emitted:
+  if not emitted and current_bucket and aggregator:
     yield current_bucket, aggregator.aggregate()
