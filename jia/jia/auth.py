@@ -15,7 +15,7 @@ User {} is not allowed.
 Revoke access on this account before trying again</a>.
 """
 
-def authenticate(fn):
+def require_auth(fn):
   @functools.wraps(fn)
   def decorated(*args, **kwargs):
     if app.config['ENABLE_GOOGLE_AUTH']:

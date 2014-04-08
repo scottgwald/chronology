@@ -6,7 +6,7 @@ from flask import redirect
 from flask import request
 from flask import render_template
 from jia import app
-from jia.auth import authenticate
+from jia.auth import require_auth
 from jia.decorators import json_endpoint
 from jia.errors import PyCodeError
 from jia.models import Board
@@ -16,7 +16,7 @@ from pykronos import KronosClient
 
 @app.route('/', methods=['GET'])
 @app.route('/<board_id>', methods=['GET'])
-@authenticate
+@require_auth
 def index(board_id=None):
   if not board_id:
     # Create a new board and redirect to it.
@@ -30,7 +30,7 @@ def index(board_id=None):
 @app.route('/board', methods=['POST'])
 @app.route('/board/<id>', methods=['GET', 'PUT'])
 @json_endpoint
-@authenticate
+@require_auth
 def board(id=None):
   if request.method == 'POST':
     board = Board(id=binascii.b2a_hex(os.urandom(5)))
@@ -44,7 +44,7 @@ def board(id=None):
 @app.route('/pycode', methods=['POST'])
 @app.route('/pycode/<id>', methods=['GET', 'PUT'])
 @json_endpoint
-@authenticate
+@require_auth
 def pycode(id=None):
   if request.method == 'POST':
     board = Board.query.filter_by(id=request.get_json()['board']).first_or_404()
