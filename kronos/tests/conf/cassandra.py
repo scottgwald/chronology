@@ -6,7 +6,8 @@ storage = {
     # Set to a value greater than 0 or you will get an UnavailableException
     'replication_factor': 1,
     'default_timewidth_seconds': 2, # Keep this small for test environment.
-    'default_shards_per_bucket': 3
+    'default_shards_per_bucket': 3,
+    'read_size': 10
   }
 }
 

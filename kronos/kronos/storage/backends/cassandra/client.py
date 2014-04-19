@@ -37,7 +37,6 @@ TODO(meelap): Finish documenting indexes.
 """
 
 # TODO(usmanm): Cython some code to speed it?
-import heapq
 import itertools
 import logging
 import json
@@ -45,11 +44,10 @@ import random
 
 from collections import defaultdict
 from datetime import timedelta
-from pycassa import (ColumnFamily,
-                     ConnectionPool,
-                     ConsistencyLevel,
-                     NotFoundException,
-                     types)
+from pycassa import ColumnFamily
+from pycassa import ConnectionPool
+from pycassa import ConsistencyLevel
+from pycassa import types
 from pycassa.batch import Mutator
 from pycassa.system_manager import SIMPLE_STRATEGY, SystemManager
 from thrift.transport.TTransport import TTransportException
@@ -58,10 +56,10 @@ from uuid import UUID
 from kronos.conf.constants import ID_FIELD
 from kronos.conf.constants import ResultOrder
 from kronos.conf.constants import TIMESTAMP_FIELD
-from kronos.core.exceptions import InvalidBucketIntervalComparison
+from kronos.core.exceptions import ConnectionFailure
 from kronos.storage.backends import BaseStorage
-from kronos.storage.backends.cassandra.datastructures import CassandraEvent
-from kronos.storage.backends.cassandra.datastructures import CassandraUUID
+from kronos.storage.backends.cassandra.datastructures import BucketInterval
+from kronos.storage.backends.cassandra.datastructures import SortedShardedEventStream
 from kronos.utils.cache import InMemoryLRUCache
 from kronos.utils.math import round_down
 from kronos.utils.math import time_to_kronos_time
@@ -73,201 +71,6 @@ log = logging.getLogger(__name__)
 
 LENGTH_OF_YEAR = int(timedelta(days=365.25).total_seconds() * 1e7)
 
-
-class BucketInterval(object):
-  """
-  BucketInterval describes one row in the Cassandra backend. It represents a set
-  of events for `stream` that occur in the interval [ `bucket_key[0]`,
-  `bucket_key[0]+bucket_key[1]` ) and are stored on shard `shard`.
-  """
-
-  def __init__(self, column_family, stream, bucket_key, shard, order):
-    """
-    `column_family` : The column family from which to fetch data (events or
-                      index).
-    `stream` : The name of the stream associated with this BucketInterval.
-    `bucket_key` : A tuple of start time and interval length.
-    `shard` : The id of the shard that this BucketInterval represents.
-    `order` : Whether to return the results in ResultOrder.ASCENDING
-              or ResultOrder.DESCENDING time-order.
-    """
-    # The name of this BucketInterval as it is stored in Cassandra.
-    self.name = BucketInterval.name(stream, bucket_key[0], shard)
-
-    # Starting timestamp of this BucketInterval
-    self.start = bucket_key[0]
-
-    # Ending timestamp of this BucketInterval
-    self.end = bucket_key[0] + bucket_key[1]
-
-    self.column_family = column_family
-
-    self.order = order
-
-    # If we want to sort in descending order, compare the end of the
-    # interval.
-    self._cmp_value = (self.start if order == ResultOrder.ASCENDING
-                       else -self.end)
-
-  def __cmp__(self, other):
-    if other is None:
-      return 1
-    elif isinstance(other, BucketInterval):
-      return cmp((self._cmp_value, self.name), (other._cmp_value, other.name))
-
-    try:
-      return cmp(self._cmp_value, float(other))
-    except Exception as e:
-      raise InvalidBucketIntervalComparison(repr(e))
-
-  def fetch(self, column_start, column_finish):
-    """
-    Return an iterator over all events contained in this BucketInterval as a
-    two-element tuple: (column name (which is a CassandraUUID),
-                        column value)
-      `column_start`, `column_finish`: For optimization purposes, send the
-        maximum values for column IDs so that Cassandra can filter them
-        before sending back a large bucket.
-    """
-    result = []
-    try:
-      num_cols = self.column_family.get_count(self.name)
-      data = self.column_family.get(self.name, column_start=column_start,
-                                    column_finish=column_finish,
-                                    column_count=num_cols)
-      for column, event in data.iteritems():
-        try:
-          result.append(CassandraEvent(event, self, order=self.order))
-        except:
-          # TODO(meelap): Do something about this error. Log?
-          pass
-    except NotFoundException:
-      # Nothing was stored with this key.
-      # This might happen if some events were stored with a sharding factor of
-      # `s`, but less than `s` shards were actually used.
-      pass
-
-    if self.order == ResultOrder.DESCENDING:
-      result = reversed(result)
-
-    for item in result:
-      yield item
-
-  @staticmethod
-  def name(stream, start_time, shard):
-    """
-    Return the string used as the rowkey for the BucketInterval with the
-    specified attributes.
-    """
-    return '{0}:{1}:{2}'.format(stream, start_time, shard)  
-  
-
-class SortedShardedEventStream(object):
-  """
-  SortedShardedEventStream is an iterable that fetches events from Cassandra and
-  returns them in the order defined by CassandraUUID.
-  """
-  def __init__(self, intervals, start_id, end_id, limit, order):
-    """
-    `intervals` : A list of BucketIntervals to return events from.
-    `start_id` : The UUID of the first event to return.
-    `end_id` : The UUID of the last event to return. Assumes start_id <= end_id.
-    `order` : Whether to return the results in ResultOrder.ASCENDING
-              or ResultOrder.DESCENDING time-order.    
-    """
-    self.order = order
-    self.limit = limit
-    self.start_id = CassandraUUID(str(start_id), order=self.order)
-    self.end_id = CassandraUUID(str(end_id), order=self.order)
-
-    self.iterators = {}
-    self.merge_heap = []
-    self.bucket_heap = intervals
-    heapq.heapify(self.bucket_heap)
-
-  def load_events(self):
-    """
-    Given what the current most recently loaded event is, loads any
-    buckets that might overlap with that event.  Multiple buckets
-    might overlap because they have overlapping time slices or shards.
-    """
-    while (not self.merge_heap) and self.bucket_heap:
-      self.load_next_bucket()
-    if self.merge_heap:
-      next_event = self.merge_heap[0]
-      while self.bucket_heap:
-        next_bucket_time = (self.bucket_heap[0].start
-                            if self.order == ResultOrder.ASCENDING
-                            else self.bucket_heap[0].end)
-        if ((self.order == ResultOrder.ASCENDING and
-             next_bucket_time > next_event.id._kronos_time) or
-            (self.order == ResultOrder.DESCENDING and
-             next_bucket_time < next_event.id._kronos_time)):
-          break
-        self.load_next_bucket()
-
-    for bucket in (set(self.iterators) -
-                   set(event.bucket for event in self.merge_heap)):
-      try:
-        iterator = self.iterators[bucket]
-        event = iterator.next()
-        heapq.heappush(self.merge_heap, event)        
-      except StopIteration:
-        del self.iterators[bucket]
-    
-  def load_next_bucket(self):
-    if not self.bucket_heap:
-      return
-
-    # Pick the next bucket with the earliest start time to load.
-    bucket_to_add = heapq.heappop(self.bucket_heap)
-
-    # `iterator` is an iterator over CassandraEvents
-    iterator = bucket_to_add.fetch(self.start_id, self.end_id)
-    try:
-      event = iterator.next()
-      heapq.heappush(self.merge_heap, event)
-      self.iterators[bucket_to_add] = iterator
-    except StopIteration:
-      pass
-
-  def __iter__(self):
-    # Load buckets until we have events to return.
-    while (not self.merge_heap) and self.bucket_heap:
-      self.load_events()
-
-    # The result set is empty.
-    if not self.merge_heap:
-      raise StopIteration
-
-    # Keep going as long as we have events to return or buckets that we haven't 
-    # loaded yet.
-    while self.merge_heap or self.bucket_heap:
-      if self.limit <= 0:
-        raise StopIteration
-      if self.merge_heap:
-        # Get the next event to return.
-        event = heapq.heappop(self.merge_heap)
-        
-        # Yield it if it is in the correct interval, or stop the iteration if we
-        # have extended beyond the requested interval.
-        # Note: in ResultOrder.DESCENDING conditions below, we flip `<` for `>`
-        # and `>=` for `<=` UUID comparator logic is flipped.
-        # TODO(marcua): convince myself that the edge cases on DESCENDING
-        # have equality in the correct place for start_id and end_id.
-        if ((self.order == ResultOrder.ASCENDING and
-             self.end_id < event) or
-            (self.order == ResultOrder.DESCENDING and
-             self.start_id < event)):
-          raise StopIteration
-        elif ((self.order == ResultOrder.ASCENDING and
-               self.start_id <= event) or
-              (self.order == ResultOrder.DESCENDING and
-               self.end_id <= event)):
-          self.limit -= 1
-          yield event.raw_event
-
-      self.load_events()
 
 
 class Namespace(object):
@@ -313,8 +116,6 @@ class Namespace(object):
 
 
 class TimeWidthCassandraStorage(BaseStorage):
-  # TODO(meelap): Put `read_size` stuff back so that we can limit how much
-  # memory Kronos uses to buffer read data from backends.
   INDEX_WIDTH = LENGTH_OF_YEAR
   MAX_WIDTH = INDEX_WIDTH / 2 # Too big, small, necessary?
 
@@ -326,8 +127,9 @@ class TimeWidthCassandraStorage(BaseStorage):
     'default_shards_per_bucket': lambda x: int(x) > 0,
     'hosts': lambda x: isinstance(x, list),
     'keyspace_prefix': lambda x: len(str(x)) > 0,
-    'replication_factor': lambda x: int(x) >= 1
-  }  
+    'replication_factor': lambda x: int(x) >= 1,
+    'read_size': lambda x: int(x)
+  }
 
   def __init__(self, name, namespaces=None, **settings):
     """
@@ -335,14 +137,6 @@ class TimeWidthCassandraStorage(BaseStorage):
     format, then setup a connection to the specified Cassandra instance.
     """
     super(TimeWidthCassandraStorage, self).__init__(name, **settings)
-    required_params = ('hosts',
-                       'keyspace_prefix',
-                       'replication_factor',
-                       'default_timewidth_seconds',
-                       'default_shards_per_bucket')
-    for param in required_params:
-      setattr(self, param, settings[param])
-
     self.namespaces = dict()
     self.setup_cassandra(namespaces)
     
@@ -351,15 +145,14 @@ class TimeWidthCassandraStorage(BaseStorage):
     Set up a connection pool to the specified Cassandra instances and create the
     specified keyspace if it does not exist.
     """
-    # TODO(meelap) Don't assume we can connect to the first host. Round robin
-    # across hosts until we can connect to one.
     for host in self.hosts:
       try:
         self.system_manager = SystemManager(host)
         break
       except TTransportException:
         log.error('Error creating system manager', exc_info=True)
-        pass
+    else:
+      raise ConnectionFailure('No hosts available.')
 
     for namespace_name in namespaces:
       # Shit, this looks like such a baller smiley.
@@ -473,14 +266,15 @@ class TimeWidthCassandraStorage(BaseStorage):
     for bucket_key in itertools.chain.from_iterable(index_keys.itervalues()):
       for shard in xrange(bucket_key[2]):
         bucket_interval = BucketInterval(namespace.event_cf, stream, bucket_key,
-                                         shard, ResultOrder.ASCENDING)
+                                         shard, ResultOrder.ASCENDING,
+                                         self.read_size)
         name = bucket_interval.name
         if (getattr(intervals.get(name), 'end', -float('inf')) >=
             bucket_interval.end):
           continue
         intervals[name] = bucket_interval
     for row_key, bucket_interval in intervals.iteritems():
-      events = [event.id for event in bucket_interval.fetch(start_id, end_id)
+      events = [event.id for event in bucket_interval.iterator(start_id, end_id)
                 if event.id != start_id]
       if not events:
         continue
@@ -535,7 +329,7 @@ class TimeWidthCassandraStorage(BaseStorage):
     for bucket_key in itertools.chain.from_iterable(index_keys.itervalues()):
       for i in xrange(bucket_key[2]):
         bucket_interval = BucketInterval(namespace.event_cf, stream, bucket_key,
-                                         i, order)
+                                         i, order, self.read_size)
         name = bucket_interval.name
         if (getattr(intervals.get(name), 'end', -float('inf')) >=
             bucket_interval.end):
