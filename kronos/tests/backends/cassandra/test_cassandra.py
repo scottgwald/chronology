@@ -44,8 +44,8 @@ class TestCassandraBackend(KronosServerTestCase):
     for shard in xrange(self.shards):
       bucket_interval = BucketInterval(self.namespace.event_cf, stream,
                                        (0, self.width), shard,
-                                       ResultOrder.ASCENDING)
-      events = list(bucket_interval.fetch(uuid_from_time(0, UUIDType.LOWEST),
+                                       ResultOrder.ASCENDING, 5)
+      events = list(bucket_interval.iterator(uuid_from_time(0, UUIDType.LOWEST),
                                           uuid_from_time(2)))
       self.assertTrue(len(events) > 0)
       num_events += len(events)
@@ -73,8 +73,8 @@ class TestCassandraBackend(KronosServerTestCase):
         bucket_interval = BucketInterval(
           self.namespace.event_cf, stream,
           (time_to_kronos_time(start_time), self.width), shard,
-          ResultOrder.ASCENDING)
-        events = bucket_interval.fetch(
+          ResultOrder.ASCENDING, 5)
+        events = bucket_interval.iterator(
           uuid_from_time(start_time, UUIDType.LOWEST),
           uuid_from_time(start_time + self.width_seconds))
         bucket_to_events[start_time].extend(event.raw_event
@@ -158,8 +158,8 @@ class TestCassandraBackend(KronosServerTestCase):
         bucket_interval = BucketInterval(
           self.namespace.event_cf, stream,
           (time_to_kronos_time(start_time), self.width), shard,
-          ResultOrder.ASCENDING)
-        events = bucket_interval.fetch(
+          ResultOrder.ASCENDING, 5)
+        events = bucket_interval.iterator(
           uuid_from_time(start_time, UUIDType.LOWEST),
           uuid_from_time(start_time + 4))
         bucket_to_events[start_time].extend(events)

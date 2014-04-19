@@ -1,6 +1,9 @@
 class BackendMissing(Exception):
   pass
 
+class ConnectionFailure(Exception):
+  pass
+
 class InvalidRequest(Exception):
   pass
 

@@ -1,6 +1,4 @@
-import importlib
 import re
-import sys
 
 from kronos.conf.constants import ServingMode
 from uuid import getnode
