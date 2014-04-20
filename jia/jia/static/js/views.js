@@ -59,53 +59,43 @@ var TimeSeriesView = Backbone.View.extend({
   initialize: function(options) {
     this.listenTo(this.model, 'change:events', this.render);
     this.listenTo(this.model.get('events'), 'add remove reset', this.render);
-
-    this.yLines = options.yLines || [{name: 'value', key: '@value'}];
-    this.series = {};
-
-    // Initialize all series arrays.
-    _.each(this.yLines, function(yLine) {
-      this.series[yLine.name] = [];
-    }, this);
-
   },
 
   renderGraph: function() {
-    // Reset all series arrays.
-    _.each(this.yLines, function(yLine) {
-      this.series[yLine.name].length = 0;
-    }, this);
-
-    this.model.get('events').forEach(function(event) {
-      var x = event.get('@time').toSeconds();
-      _.each(this.yLines, function(yLine) {
-        this.series[yLine.name].push({x: x, y: event.get(yLine.key) || 0});
-      }, this);
-    }, this);
-
-    if (this._graph) {
+    var series = this.model.get('events').groupBy(function(event) {
+      return event.get('@group') || 'series';
+    });
+    if (_.size(series) > 0) {
+      series = _.object(_.map(series, function(events, seriesName) {
+        return [seriesName, _.map(events, function(event) {
+          return {x: event.get('@time').toSeconds(), y: event.get('@value')};
+        })];
+      }));
+    } else {
+      series = {series: [{x: 0, y: 0}]};
+    }
+/*    if (this._graph) {
       this._graph.update();
       return;
-    }
-    
+    }*/
+    console.log(series);
+
     this.$el.empty();
 
     var graph = new Rickshaw.Graph({
       element: this.el,
       interpolation: 'linear',
       renderer: 'line',
-      series: _.map(this.yLines, function(yLine) {
-        if (!this.series[yLine.name].length) {
-          this.series[yLine.name].push({x: 0, y: 0});
-        }
+      series: _.map(series, function(events, seriesName) {
         return {
-          data: this.series[yLine.name],
+          data: events,
           color: 'steelblue',
-          name: yLine.name
+          name: seriesName
         };
-      }, this)
+      })
     });
     graph.render();
+
     this._graph = graph;
 
     var hoverDetail = new Rickshaw.Graph.HoverDetail({
@@ -116,13 +106,28 @@ var TimeSeriesView = Backbone.View.extend({
       graph: graph
     });
     xAxis.render();
-  
+
     var yAxis = new Rickshaw.Graph.Axis.Y({
       graph: graph,
       orientation: 'right',
       tickFormat: Rickshaw.Fixtures.Number.formatKMBT
     });
     yAxis.render();
+
+    var legend = new Rickshaw.Graph.Legend( {
+      graph: graph,
+      element: document.getElementById('legend')
+    } );
+
+    var shelving = new Rickshaw.Graph.Behavior.Series.Toggle( {
+      graph: graph,
+      legend: legend
+    } );
+
+    var highlight = new Rickshaw.Graph.Behavior.Series.Highlight( {
+      graph: graph,
+      legend: legend
+    } );
   },
 
   render: function() {
@@ -135,6 +140,10 @@ var PyCodeView = Backbone.View.extend({
   tagName: 'div',
   className: 'pycode',
   template: ('<div class="timeseries"></div> \
+              <div id="legend_container"> \
+                <div id="smoother" title="Smoothing"></div> \
+                <div id="legend"></div> \
+              </div> \
               <div class="code-box"> \
                 <div class="code-controls"> \
                   <button type="button" class="btn btn-success run-btn"> \
@@ -229,7 +238,7 @@ var PyCodeView = Backbone.View.extend({
                                                 theme: 'mdn-like'});
     pyCodeMirror.getDoc().setValue(this.model.get('code') || '');
     pyCodeMirror.on('change', function(pyCodeMirror) {
-      self.model.set('code', pyCodeMirror.getValue());      
+      self.model.set('code', pyCodeMirror.getValue());
     });
     this._pyCodeMirror = pyCodeMirror;
   },
@@ -240,7 +249,7 @@ var PyCodeView = Backbone.View.extend({
       checkboxClass: 'icheckbox_flat',
       increaseArea: '20%'
     });
-    
+
     if (this.model.get('refresh_seconds')) {
       this.$('#refresh-val').val(this.model.get('refresh_seconds'));
     }
