@@ -45,18 +45,18 @@ class FunnelStep(object):
     """
     :param stream_name: Kronos stream name
     :param event_filter: a function that returns True/False depending on whether
-    an event on the stream should be considered (for segmentation, for
-    instance).  If the event filter is None, all events will be accepted.
+      an event on the stream should be considered (for segmentation, for
+      instance).  If the event filter is None, all events will be accepted.
     :param user_field: name of the field in an event that returns the user
-    identifier. Defaults to 'userId'.
+      identifier. Defaults to 'userId'.
     :param output_fields: fields in event to output.
     :param invert: boolean. If true, include all users from the previous step
-    that do NOT appear in the current event stream or are not filtered by
-    `event_filter`. Example: If the stream_name is 'clicked_tab' and the
-    event_filter is all Essential accounts, if invert is True, users counted in
-    this step of the funnel are those from the previous step that are not in
-    'clicked_tab' stream or are not Essential accounts. The first funnel
-    step can not have invert=True. If invert=True, an exception is raised.
+      that do NOT appear in the current event stream or are not filtered by
+      `event_filter`. Example: If the stream_name is 'clicked_tab' and the
+      event_filter is all Essential accounts, if invert is True, users counted
+      in this step of the funnel are those from the previous step that are not
+      in 'clicked_tab' stream or are not Essential accounts. The first funnel
+      step can not have invert=True. If invert=True, an exception is raised.
     """
     self.stream_name = stream_name
     self.event_filter = event_filter
@@ -158,6 +158,9 @@ def _load_user_id_mappings(mappings, user_id_mappers, user_ids):
 def _sanity_check_args(streams, user_id_mappers):
   assert len(streams) > 1 # Must have more than one stream for funnel analysis.
   assert streams[0].invert == False # Can't handle invert=True in first stream.
+  for stream in streams:
+    if stream.invert: # If invert is true, can not specify output fields.
+      assert not stream.output_fields
   first_stream_user_id = streams[0].user_field
   required_mappings = ({stream.user_field for stream in streams} -
                        {first_stream_user_id})
@@ -195,8 +198,6 @@ def funnel_analyze(client, streams, start, end, end_first_funnel_step,
 
   `fuzzy_time`: a timedelta representing the time that two events in
   subsequent streams can be out-of-order with one-another.
-
-  `output_properties`: a list of event properties to output for each stream.
   """
   assert end >= end_first_funnel_step
   streams, user_id_mappers = _sanity_check_args(streams, user_id_mappers)

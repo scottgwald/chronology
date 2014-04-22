@@ -262,3 +262,15 @@ class TestFunnelAnalysis(unittest.TestCase):
     with self.assertRaises(AssertionError):
       funnel_analyze(client, [step1, step2], start, end, end, {}, None)
 
+  def test_stream_inversion_invert_and_output_fields_raises_assertion_error(self): # noqa
+    client = Mock()
+    client.get = Mock(side_effect=[self.get_stream1(),
+                                   self.get_stream5()])
+
+    start = datetime.datetime(2014,3,20)
+    end = datetime.datetime(2014,3,21)
+    step1 = FunnelStep('stream1', output_fields=['type'])
+    step2 = FunnelStep('stream5', invert=True, output_fields=['type'])
+    with self.assertRaises(AssertionError):
+      funnel_analyze(client, [step1, step2], start, end, end, {}, None)
+                                     
