@@ -53,9 +53,11 @@ var ErrorAlertView = Backbone.View.extend({
 });
 
 var TimeSeriesView = Backbone.View.extend({
-  tagName: 'div',
-  className: 'timeseries',
-
+  template: ('<div class="timeseries"></div> \
+              <div class="legend_container"> \
+                <div class="smoother" title="Smoothing"></div> \
+                <div class="legend"></div> \
+              </div>'),
   initialize: function(options) {
     this.listenTo(this.model, 'change:events', this.render);
     this.listenTo(this.model.get('events'), 'add remove reset', this.render);
@@ -74,16 +76,9 @@ var TimeSeriesView = Backbone.View.extend({
     } else {
       series = {series: [{x: 0, y: 0}]};
     }
-/*    if (this._graph) {
-      this._graph.update();
-      return;
-    }*/
-    console.log(series);
-
-    this.$el.empty();
 
     var graph = new Rickshaw.Graph({
-      element: this.el,
+      element: $('.timeseries', this.el).get(0),
       interpolation: 'linear',
       renderer: 'line',
       series: _.map(series, function(events, seriesName) {
@@ -95,8 +90,6 @@ var TimeSeriesView = Backbone.View.extend({
       })
     });
     graph.render();
-
-    this._graph = graph;
 
     var hoverDetail = new Rickshaw.Graph.HoverDetail({
       graph: graph
@@ -114,23 +107,26 @@ var TimeSeriesView = Backbone.View.extend({
     });
     yAxis.render();
 
-    var legend = new Rickshaw.Graph.Legend( {
-      graph: graph,
-      element: document.getElementById('legend')
-    } );
+    if (_.size(series) > 1) {
+      var legend = new Rickshaw.Graph.Legend( {
+        graph: graph,
+        element: $('.legend', this.el).get(0),
+      } );
 
-    var shelving = new Rickshaw.Graph.Behavior.Series.Toggle( {
-      graph: graph,
-      legend: legend
-    } );
+      var shelving = new Rickshaw.Graph.Behavior.Series.Toggle( {
+        graph: graph,
+        legend: legend
+      } );
 
-    var highlight = new Rickshaw.Graph.Behavior.Series.Highlight( {
-      graph: graph,
-      legend: legend
-    } );
+      var highlight = new Rickshaw.Graph.Behavior.Series.Highlight( {
+        graph: graph,
+        legend: legend
+      } );
+    }
   },
 
   render: function() {
+    this.$el.html(this.template);
     this.renderGraph();
     return this;
   }
@@ -139,11 +135,7 @@ var TimeSeriesView = Backbone.View.extend({
 var PyCodeView = Backbone.View.extend({
   tagName: 'div',
   className: 'pycode',
-  template: ('<div class="timeseries"></div> \
-              <div id="legend_container"> \
-                <div id="smoother" title="Smoothing"></div> \
-                <div id="legend"></div> \
-              </div> \
+  template: ('<div class="chart"></div> \
               <div class="code-box"> \
                 <div class="code-controls"> \
                   <button type="button" class="btn btn-success run-btn"> \
@@ -264,7 +256,7 @@ var PyCodeView = Backbone.View.extend({
     this.$el.html(this.template);
     this.renderControls();
     this.renderCodeMirror();
-    this.assign('.timeseries', this.timeSeriesView);
+    this.assign('.chart', this.timeSeriesView);
     this.assign('.error-alert', this.errorAlertView);
     return this;
   }

@@ -41,23 +41,18 @@ body {
 div, span, p, td {
     font-family: Arial, sans-serif;
 }
-#chart {
+.chart {
     display: inline-block;
+    width: 100%;
 }
-#legend {
-    display: inline-block;
+.chart .legend {
 /*    position: relative;*/
     left: 8px;
 }
-#legend_container {
-/*    position: absolute;*/
-    right: 0;
-    bottom: 26px;
-    width: 0;
-}
-#chart_container {
-    float: left;
-    position: relative;
+
+.timeseries {
+    float:left;
+    width: 80%;
 }
 
 
