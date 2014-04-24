@@ -76,7 +76,7 @@ var TimeSeriesView = Backbone.View.extend({
     } else {
       series = {series: [{x: 0, y: 0}]};
     }
-
+    var palette = new Rickshaw.Color.Palette( { scheme: 'spectrum14' } );
     var graph = new Rickshaw.Graph({
       element: $('.timeseries', this.el).get(0),
       interpolation: 'linear',
@@ -84,8 +84,8 @@ var TimeSeriesView = Backbone.View.extend({
       series: _.map(series, function(events, seriesName) {
         return {
           data: events,
-          color: 'steelblue',
-          name: seriesName
+          name: seriesName,
+          color: palette.color()
         };
       })
     });
