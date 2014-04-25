@@ -3,6 +3,10 @@ body {
   margin: 25px 50px;
 }
 
+.board-navigation {
+  float: right;
+}
+
 .pycode .code-box {
   margin: 20px 0px;
 }
@@ -54,7 +58,6 @@ div, span, p, td {
     float:left;
     width: 80%;
 }
-
 
 .pycode .code-box .CodeMirror {
   height: 250px;
