@@ -135,29 +135,7 @@ var TimeSeriesView = Backbone.View.extend({
 var PyCodeView = Backbone.View.extend({
   tagName: 'div',
   className: 'pycode',
-  template: ('<div class="chart"></div> \
-              <div class="code-box"> \
-                <div class="code-controls"> \
-                  <button type="button" class="btn btn-success run-btn"> \
-                    <span class="glyphicon glyphicon-play"></span> Run \
-                  </button> \
-                  <div class="input-group refresh-ctl"> \
-                    <span class="input-group-addon"> \
-                      <div class="checkbox"> \
-                        <input type="checkbox" id="refresh-chkbox"> \
-                      </div> \
-                    </span> \
-                    <input type="text" class="form-control" id="refresh-val"> \
-                  </div> \
-                  <div class="msg"> \
-                    <span class="label"></span> \
-                    <img class="loading" src="/static/img/loading.gif"> \
-                  </div> \
-                </div> \
-                <div class="error-alert"> \
-                </div> \
-                <textarea id="code"></textarea> \
-              </div>'),
+  template: ('
   events: {
     'click .run-btn': 'onRun',
     'click #refresh-chkbox': 'setRefreshSeconds',

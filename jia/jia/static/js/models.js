@@ -81,3 +81,7 @@ var Board = Backbone.Model.extend({
     return {id: this.id};
   }
 });
+
+var PyCodeCollection = Backbone.Collection.extend({
+  model: PyCode,
+});

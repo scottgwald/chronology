@@ -7,45 +7,37 @@ body {
   float: right;
 }
 
-.pycode .code-box {
+.code-box {
   margin: 20px 0px;
 }
 
-.pycode .code-box .code-controls {
+.code-box .code-controls {
   overflow: hidden;
   margin: 10px;
 }
 
-.pycode .code-box .code-controls .run-btn {
+.code-box .code-controls .run-btn {
   float: left;
   margin-right: 10px;
 }
 
-.pycode .code-box .code-controls .refresh-ctl {
+.code-box .code-controls .refresh-ctl {
   float: left;
   width: 100px;
 }
 
-.pycode .code-box .code-controls .msg {
+.code-box .code-controls .msg {
   float: right;
   line-height: 34px;
 }
 
-.pycode .code-box .code-controls .loading {
-  display: none;
-}
-
-.pycode .code-box .code-controls .label {
-  display: none;
-}
-
-.pycode .code-box .error-alert {
+.code-box .error-alert {
   margin-bottom: 0px;
 }
 div, span, p, td {
     font-family: Arial, sans-serif;
 }
-.chart {
+rickshaw {
     display: inline-block;
     width: 100%;
 }
@@ -54,12 +46,12 @@ div, span, p, td {
     left: 8px;
 }
 
-.timeseries {
+.rickshaw_graph {
     float:left;
     width: 80%;
 }
 
-.pycode .code-box .CodeMirror {
+.code-box .CodeMirror {
   height: 250px;
   padding-top: 10px;
   font-size: 12px;
