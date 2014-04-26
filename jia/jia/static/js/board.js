@@ -74,6 +74,9 @@ function ($scope, $http, $location, $timeout) {
         console.log('error!');
       });
   };
+  $scope.initPanel = function(panel) {
+    panel.cache = {series: [{name: 'series', data: [{x: 0, y: 0}]}]};
+  }
   $scope.addPanel = function() {
     $scope.boardData.panels.unshift({
       title: '',
@@ -86,11 +89,12 @@ function ($scope, $http, $location, $timeout) {
         display_type: 'timeseries'
       }
     });
+    $scope.initPanel($scope.boardData.panels[0]);
   };
   $http({method: 'GET', url: '/board/' + board_id}).
     success(function(data, status, headers, config) {
       angular.forEach(data.panels, function(panel) {
-        panel.cache = {series: [{name: 'series', data: [{x: 0, y: 0}]}]};
+        $scope.initPanel(panel);
       });
       $scope.boardData = data;
     });

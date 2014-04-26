@@ -43,17 +43,7 @@ class Board(db.Model):
       board_dict = {
         'id': self.id,
         'title': '',
-        'panels': [{
-          'title': '',
-          'data_source': {
-            'source_type': Board.PanelSource.PYCODE,
-            'refresh_seconds': None,
-            'code': 'some code'
-            },
-          'display': {
-            'display_type': Board.PanelDisplay.TIMESERIES,
-            }
-          }]
+        'panels': []
         }
     return board_dict
     """    pycode = self.pycodes.first() or PyCode()
