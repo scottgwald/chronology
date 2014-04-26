@@ -74,6 +74,19 @@ function ($scope, $http, $location, $timeout) {
         console.log('error!');
       });
   };
+  $scope.addPanel = function() {
+    $scope.boardData.panels.unshift({
+      title: '',
+      data_source: {
+        source_type: 'pycode',
+        refresh_seconds: null,
+        code: ''
+      },
+      display: {
+        display_type: 'timeseries'
+      }
+    });
+  };
   $http({method: 'GET', url: '/board/' + board_id}).
     success(function(data, status, headers, config) {
       angular.forEach(data.panels, function(panel) {

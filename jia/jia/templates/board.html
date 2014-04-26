@@ -16,7 +16,6 @@
 
     <!-- Jia CSS -->
     <link href="http://fonts.googleapis.com/css?family=Cambo" rel="stylesheet" type="text/css">
-    <link href="/static/css/board.css" rel="stylesheet">
 
     </script>
 
@@ -35,6 +34,7 @@
     <script src="/static/js/ui-codemirror.js"></script>
     <script src="//ngyewch.github.io/angular-rickshaw/rickshaw.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
+    <link href="/static/css/board.css" rel="stylesheet">
 
 
   </head>
@@ -44,11 +44,15 @@
       <a href ng-click="saveBoard()">Save Board</a> | <a href="/">New Board</a>
     </div>
     <header>
-      <h1>{[boardData.title]}</h1>
+      <input type="text" class="form-control board-title" placeholder="New board" ng-model="boardData.title"></input>
     </header>
     <div class="board">
+      <div class="panel-navigation">
+        <a href ng-click="addPanel()">Add Panel</a>
+      </div>
+      <div style="clear: both;"></div>
       <div class="panel" ng-repeat="panel in boardData.panels">
-        {[ panel.title ]}
+        <input type="text" class="form-control panel-title" placeholder="New panel" ng-model="panel.title"></input>
         <rickshaw rickshaw-options="timeseriesOptions" rickshaw-features="timeseriesFeatures" rickshaw-series="panel.cache.series">
         </rickshaw>
         <div class="code-box">

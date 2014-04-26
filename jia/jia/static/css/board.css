@@ -7,6 +7,24 @@ body {
   float: right;
 }
 
+.panel-navigation {
+  float: right;
+  margin: 10px 0px 10px 0px;
+}
+
+input.form-control {
+  border: 0px solid;
+  border-bottom: 1px solid #ccc;
+}
+
+.board-title {
+  font-size: 20px;
+}
+
+.panel-title {
+  font-size: 14 px;
+}
+
 .code-box {
   margin: 20px 0px;
 }
@@ -138,4 +156,8 @@ rickshaw {
 .rickshaw_legend li:active {
     background: rgba(255, 255, 255, 0.2);
     border-radius: 3px;
+}
+
+.panel {
+  border:1px solid #CCCCCC;
 }

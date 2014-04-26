@@ -42,9 +42,9 @@ class Board(db.Model):
     else:
       board_dict = {
         'id': self.id,
-        'title': 'New board',
+        'title': '',
         'panels': [{
-          'title': 'New panel',
+          'title': '',
           'data_source': {
             'source_type': Board.PanelSource.PYCODE,
             'refresh_seconds': None,
