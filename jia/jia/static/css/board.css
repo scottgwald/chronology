@@ -59,14 +59,10 @@ rickshaw {
     display: inline-block;
     width: 100%;
 }
-.chart .legend {
-/*    position: relative;*/
-    left: 8px;
-}
 
 .rickshaw_graph {
-    float:left;
-    width: 80%;
+    float: left;
+    display: inline-block;
 }
 
 .code-box .CodeMirror {
@@ -92,7 +88,7 @@ rickshaw {
     display: inline-block;
     padding: 12px 5px;
     border-radius: 2px;
-    position: relative;
+    float: right;
 }
 .rickshaw_legend:hover {
     z-index: 10;

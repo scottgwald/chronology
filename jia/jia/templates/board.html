@@ -48,7 +48,12 @@
     </header>
     <div class="board">
       <div class="panel-navigation">
-        <a href ng-click="addPanel()">Add Panel</a>
+        <button type="button" class="btn btn-success" ng-click="callAllSources()">
+          <span class="glyphicon glyphicon-play"></span> Run all
+        </button>
+        <button type="button" class="btn" ng-click="addPanel()">
+          Add Panel
+        </button>
       </div>
       <div style="clear: both;"></div>
       <div class="panel" ng-repeat="panel in boardData.panels">
@@ -68,6 +73,11 @@
               </span>
               <input type="text" class="form-control" id="refresh-val">
             </div>
+            <button type="button" class="btn" ng-click="panel.data_source.display = !panel.data_source.display">
+              <span ng-show="!panel.data_source.display">Show</span>
+              <span ng-show="panel.data_source.display">Hide</span>
+              Code
+            </button>
             <div class="msg" ng-show="panel.cache.loading">
               <span class="label"></span>
               <img class="loading" src="/static/img/loading.gif">
@@ -77,7 +87,9 @@
           </div>
           <div ui-codemirror="editorOptions"
                ng-model="panel.data_source.code"
-               class="code">
+               class="code"
+               ng-show="panel.data_source.display"
+               ui-refresh="panel.data_source.display">
           </div>
         </div>
       </div>

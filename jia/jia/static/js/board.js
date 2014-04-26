@@ -11,6 +11,8 @@ app.config(['$interpolateProvider', function($interpolateProvider) {
 app.controller('boardController',
 ['$scope', '$http', '$location', '$timeout',
 function ($scope, $http, $location, $timeout) {
+  // TODO(marcua): Remove or fix up autorun code
+  // TODO(marcua): clean up old backbone.js code + pycode stuff
   var location = $location.absUrl().split('/');
   var board_id = location[location.length - 1];
   $scope.editorOptions = {
@@ -19,13 +21,19 @@ function ($scope, $http, $location, $timeout) {
     mode: 'python',
   };
   $scope.timeseriesOptions = {
-    renderer: 'line'
+    renderer: 'line',
+    width: parseInt(screen.width*.75)
   };
   $scope.timeseriesFeatures = {
     palette: 'spectrum14',
     xAxis: {},
     yAxis: {},
     hover: {},
+  };
+  $scope.callAllSources = function() {
+    _.each($scope.boardData.panels, function(panel) {
+      $scope.callSource(panel);
+    });
   };
   $scope.callSource = function(panel) {
     panel.cache.loading = true;
