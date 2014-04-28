@@ -56,24 +56,3 @@ class Board(db.Model):
     self.board_data = json.dumps(dict(board_dict.items() +
                                       [('__version__', 1)]))
 
-class PyCode(db.Model):
-  id = db.Column(db.Integer, autoincrement=True, primary_key=True)
-  board_id = db.Column(db.String, db.ForeignKey('board.id'))
-  board = db.relationship('Board', backref=db.backref('pycodes',
-                                                      lazy='dynamic'))
-  code = db.Column(db.Text, nullable=True)
-  refresh_seconds = db.Column(db.Integer, nullable=True)
-
-  def save(self):
-    db.session.add(self)
-    db.session.commit()
-
-  def json(self):
-    board = self.board or Board()
-    return {
-      'id': self.id,
-      'board': board.id,
-      'code': self.code or '',
-      'refresh_seconds': self.refresh_seconds
-      }
-
