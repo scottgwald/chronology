@@ -12,17 +12,15 @@ body {
   margin: 10px 0px 10px 0px;
 }
 
-input.form-control {
+.board-title {
+  font-size: 20px;
   border: 0px solid;
   border-bottom: 1px solid #ccc;
 }
 
-.board-title {
-  font-size: 20px;
-}
-
 .panel-title {
   font-size: 14 px;
+  border: 0px solid;
 }
 
 .code-box {
