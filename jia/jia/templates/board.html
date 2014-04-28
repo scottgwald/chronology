@@ -62,6 +62,11 @@
             <button type="button" class="btn btn-success run-btn" ng-click="callSource(panel)">
               <span class="glyphicon glyphicon-play"></span> Run
             </button>
+            <!-- TODO(marcua): CodeMirror is unhappy when we toggle
+            visibility of the editor.  It hides line numbers until you
+            click in the text area after toggling visbility, which
+            hides some of the code until the click event.  Address
+            this. -->
             <button type="button" class="btn" ng-click="panel.data_source.display = !panel.data_source.display">
               <span ng-show="!panel.data_source.display">Show</span>
               <span ng-show="panel.data_source.display">Hide</span>
