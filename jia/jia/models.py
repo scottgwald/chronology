@@ -9,8 +9,12 @@ class Board(db.Model):
     TIMESERIES = 'timeseries'
 
   id = db.Column(db.String, primary_key=True)
-  # JSON-encoded description of the board of the form
-  # { '__version__': 1, ...}, where ... is specified in `Board.json`
+  # JSON-encoded description of the board of the form { '__version__':
+  # 1, ...}, where ... is specified in `Board.json`.
+  #
+  # `__version__` is the serialization version of the board.  If, in
+  # the future, we change the serialization format of boards, we'll be
+  # able to read and migrate previously serialized boards.
   board_data = db.Column(db.String)
 
   def save(self):
