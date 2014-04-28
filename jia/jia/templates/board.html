@@ -13,26 +13,22 @@
 
     <!-- Widget CSS -->
     <link href="/static/css/rickshaw.min.css" rel="stylesheet">
-
     <link href="http://fonts.googleapis.com/css?family=Cambo" rel="stylesheet" type="text/css">
-
-    </script>
+    <link rel="stylesheet" type="text/css" href="http://codemirror.net/lib/codemirror.css"/>
+    <link rel="stylesheet" type="text/css" href="//cdnjs.cloudflare.com/ajax/libs/codemirror/4.1.0/package/theme/mdn-like.css"/>
 
     <!-- Widget JS -->
     <script src="//cdnjs.cloudflare.com/ajax/libs/d3/3.4.1/d3.min.js">
     </script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/rickshaw/1.4.6/rickshaw.min.js">
     </script>
-    <link rel="stylesheet" type="text/css" href="http://codemirror.net/lib/codemirror.css"/>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.6/angular.min.js"></script>
-    <script src="http://codemirror.net/lib/codemirror.js"></script>
-    <script src="http://codemirror.net/mode/python/python.js"></script>
-    <script src="http://codemirror.net/mode/javascript/javascript.js"></script>
-    <script src="http://codemirror.net/mode/xml/xml.js"></script>
-
+    <script src="//cdnjs.cloudflare.com/ajax/libs/codemirror/4.1.0/codemirror.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/codemirror/4.1.0/package/mode/python/python.js"></script>
     <script src="/static/js/ui-codemirror.js"></script>
     <script src="//ngyewch.github.io/angular-rickshaw/rickshaw.js"></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.0/jquery.min.js"></script>
 
     <!-- Jia CSS -->
     <link href="/static/css/board.css" rel="stylesheet">
@@ -66,14 +62,6 @@
             <button type="button" class="btn btn-success run-btn" ng-click="callSource(panel)">
               <span class="glyphicon glyphicon-play"></span> Run
             </button>
-            <div class="input-group refresh-ctl">
-              <span class="input-group-addon">
-                <div class="checkbox">
-                  <input type="checkbox" id="refresh-chkbox">
-                </div>
-              </span>
-              <input type="text" class="form-control" id="refresh-val">
-            </div>
             <button type="button" class="btn" ng-click="panel.data_source.display = !panel.data_source.display">
               <span ng-show="!panel.data_source.display">Show</span>
               <span ng-show="panel.data_source.display">Hide</span>

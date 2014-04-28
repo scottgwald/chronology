@@ -52,6 +52,10 @@ def callsource(id=None):
                                   namespace=app.config['KRONOS_NAMESPACE']),
     'events': []
     }
+
+  # TODO(marcua): We'll evenutally get rid of this security issue
+  # (i.e., `exec` is bad!) once we build a query building interface.
+  # In the meanwhile, we trust in user authentication.
   if code:
     try:
       exec code in {}, locals_dict # No globals.
@@ -59,10 +63,8 @@ def callsource(id=None):
       _, exception, tb = sys.exc_info()
       raise PyCodeError(exception, tb)
 
-  # Don't use [] accessor. `code` might contain `del response`.
   events = sorted(locals_dict.get('events', []),
                   key=lambda event: event['@time'])
-
   response = {}
   response['events'] = events
   return response

@@ -11,18 +11,19 @@ app.config(['$interpolateProvider', function($interpolateProvider) {
 app.controller('boardController',
 ['$scope', '$http', '$location', '$timeout',
 function ($scope, $http, $location, $timeout) {
-  // TODO(marcua): Remove or fix up autorun code
-  // TODO(marcua): clean up old backbone.js code + pycode stuff
+  // TODO(marcua): Re-add the sweet periodic UI refresh logic I cut
+  // out of @usmanm's code in the Angular rewrite.
   var location = $location.absUrl().split('/');
   var board_id = location[location.length - 1];
   $scope.editorOptions = {
     lineWrapping : true,
     lineNumbers: true,
     mode: 'python',
+    theme: 'mdn-like',
   };
   $scope.timeseriesOptions = {
     renderer: 'line',
-    width: parseInt(screen.width*.75)
+    width: parseInt($('.panel').width() * .73)
   };
   $scope.timeseriesFeatures = {
     palette: 'spectrum14',
@@ -37,8 +38,19 @@ function ($scope, $http, $location, $timeout) {
   };
   $scope.callSource = function(panel) {
     panel.cache.loading = true;
-    $http({method: 'POST', url: '/callsource', data: panel.data_source}).
-      success(function(data, status, headers, config) {
+    // TODO(marcua): do a better job of resizing the plot given the
+    // legend size.
+    $scope.timeseriesOptions.width = parseInt($('.panel').width() * .73);
+    $http.post('/callsource', panel.data_source)
+      .success(function(data, status, headers, config) {
+        // `data` should contain an `events` property, which is a list
+        // of Kronos-like events.  The events should be sorted in
+        // ascending time order.  An event has two fields `@time`
+        // (Kronos time: 100s of nanoseconds since the epoch), and
+        // `@value`, a floating point value.  An optional `@group`
+        // attribute will split the event stream into different
+        // groups/series.  All points in the same `@group` will be
+        // plotted on their own line.
         var series = _.groupBy(data.events, function(event) {
           return event['@group'] || 'series';
         });
@@ -56,12 +68,12 @@ function ($scope, $http, $location, $timeout) {
           series = [{name: 'series', data: [{x: 0, y: 0}]}];
         }
         panel.cache.series = series;
-      }).
-      error(function(data, status, headers, config) {
+      })
+      .error(function(data, status, headers, config) {
         // TODO(marcua): display error.
         console.log(data);
-      }).
-      finally(function() {
+      })
+      .finally(function() {
         panel.cache.loading = false;
       });
   }
@@ -74,11 +86,11 @@ function ($scope, $http, $location, $timeout) {
       return value;
     }));
     // TODO(marcua): display something on save success/failure.
-    $http({method: 'POST', url: '/board/' + board_id, data: data}).
-      success(function(data, status, headers, config) {
+    $http.post('/board/' + board_id, data)
+      .success(function(data, status, headers, config) {
         console.log('saved');
-      }).
-      error(function(data, status, headers, config) {
+      })
+      .error(function(data, status, headers, config) {
         console.log('error!');
       });
   };
@@ -99,8 +111,8 @@ function ($scope, $http, $location, $timeout) {
     });
     $scope.initPanel($scope.boardData.panels[0]);
   };
-  $http({method: 'GET', url: '/board/' + board_id}).
-    success(function(data, status, headers, config) {
+  $http.get('/board/' + board_id)
+    .success(function(data, status, headers, config) {
       angular.forEach(data.panels, function(panel) {
         $scope.initPanel(panel);
       });
