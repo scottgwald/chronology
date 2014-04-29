@@ -2,6 +2,10 @@
  * Solution to make codemirror work inside ng-repeat taken from:
  * http://plnkr.co/edit/aL1Xqk?p=info
  *
+ * This implementation addresses the following issue:
+ * https://github.com/angular-ui/ui-codemirror/issues/24
+ * which has remained unresolved for many months.
+ *
  * Binds a CodeMirror widget to a
  * <textarea> element.
  */
