@@ -10,7 +10,6 @@ from jia.auth import require_auth
 from jia.decorators import json_endpoint
 from jia.errors import PyCodeError
 from jia.models import Board
-from jia.models import PyCode
 from pykronos import KronosClient
 
 
@@ -27,13 +26,13 @@ def index(board_id=None):
   return render_template('board.html', board=board)
 
 
-@app.route('/board', methods=['POST'])
-@app.route('/board/<id>', methods=['GET', 'PUT'])
+@app.route('/board/<id>', methods=['GET', 'POST'])
 @json_endpoint
 @require_auth
 def board(id=None):
   if request.method == 'POST':
-    board = Board(id=binascii.b2a_hex(os.urandom(5)))
+    board = Board.query.filter_by(id=id).first_or_404()
+    board.set_board_data(request.get_json())
     board.save()
   else:
     board = Board.query.filter_by(id=id).first_or_404()
@@ -41,39 +40,31 @@ def board(id=None):
   return board.json()
 
 
-@app.route('/pycode', methods=['POST'])
-@app.route('/pycode/<id>', methods=['GET', 'PUT'])
+@app.route('/callsource', methods=['POST'])
 @json_endpoint
 @require_auth
-def pycode(id=None):
-  if request.method == 'POST':
-    board = Board.query.filter_by(id=request.get_json()['board']).first_or_404()
-    pycode = PyCode(board=board)
-    pycode.save()
-  else:
-    pycode = PyCode.query.filter_by(id=id).first_or_404()
-
-  if request.method != 'GET':
-    pycode.code = request.get_json().get('code')
-    pycode.refresh_seconds = request.get_json().get('refresh_seconds')
-    pycode.save()
+def callsource(id=None):
+  request_body = request.get_json()
+  code = request_body.get('code')
 
   locals_dict = {
     'kronos_client': KronosClient(app.config['KRONOS_URL'],
                                   namespace=app.config['KRONOS_NAMESPACE']),
     'events': []
     }
-  if pycode.code:
+
+  # TODO(marcua): We'll evenutally get rid of this security issue
+  # (i.e., `exec` is bad!) once we build a query building interface.
+  # In the meanwhile, we trust in user authentication.
+  if code:
     try:
-      exec pycode.code in {}, locals_dict # No globals.
+      exec code in {}, locals_dict # No globals.
     except:
       _, exception, tb = sys.exc_info()
       raise PyCodeError(exception, tb)
 
-  # Don't use [] accessor. `pycode.code` might contain `del response`.
   events = sorted(locals_dict.get('events', []),
                   key=lambda event: event['@time'])
-
-  response = pycode.json()
+  response = {}
   response['events'] = events
   return response

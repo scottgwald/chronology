@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Jia - {{ board.id }}</title>
+    <title>Jia -- Dashboard for the Chronology Project</title>
 
     <!-- Bootflat CSS -->
     <link href="/static/lib/bootflat/bootstrap/bootstrap.min.css" rel="stylesheet" media="screen">
@@ -13,47 +13,82 @@
 
     <!-- Widget CSS -->
     <link href="/static/css/rickshaw.min.css" rel="stylesheet">
-    <link href="//cdnjs.cloudflare.com/ajax/libs/codemirror/3.22.0/codemirror.min.css" rel="stylesheet">
-    <link href="//cdnjs.cloudflare.com/ajax/libs/codemirror/3.22.0/theme/mdn-like.min.css" rel="stylesheet">
-
-    <!-- Jia CSS -->
     <link href="http://fonts.googleapis.com/css?family=Cambo" rel="stylesheet" type="text/css">
-    <link href="/static/css/board.css" rel="stylesheet">
-
-    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js">
-    </script>
-
-    <!-- Bootflat JS -->
-    <script src="/static/lib/bootflat/js/bootstrap.min.js"></script>
-    <script src="/static/lib/bootflat/js/jquery.icheck.js"></script>
+    <link rel="stylesheet" type="text/css" href="http://codemirror.net/lib/codemirror.css"/>
+    <link rel="stylesheet" type="text/css" href="//cdnjs.cloudflare.com/ajax/libs/codemirror/4.1.0/package/theme/mdn-like.css"/>
 
     <!-- Widget JS -->
     <script src="//cdnjs.cloudflare.com/ajax/libs/d3/3.4.1/d3.min.js">
     </script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/rickshaw/1.4.6/rickshaw.min.js">
     </script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/codemirror/3.22.0/codemirror.min.js">
-    </script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/codemirror/3.22.0/mode/python/python.js">
-    </script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js">
-    </script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.1.2/backbone-min.js">
-    </script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/handlebars.js/2.0.0-alpha.1/handlebars.min.js">
-    </script>
-    
+    <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.6/angular.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/codemirror/4.1.0/codemirror.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/codemirror/4.1.0/package/mode/python/python.js"></script>
+    <script src="/static/js/ui-codemirror.js"></script>
+    <script src="//ngyewch.github.io/angular-rickshaw/rickshaw.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.0/jquery.min.js"></script>
+
+    <!-- Jia CSS -->
+    <link href="/static/css/board.css" rel="stylesheet">
+
+
   </head>
 
-  <body>
+  <body ng-app="boardApp" ng-controller="boardController">
+    <div class="board-navigation">
+      <a href ng-click="saveBoard()">Save Board</a> | <a href="/">New Board</a>
+    </div>
     <header>
-      <h1>Jia -- Dashboard for the Chronology Project</h1>
+      <input type="text" class="form-control board-title" placeholder="New board" ng-model="boardData.title"></input>
     </header>
-    <div class="board"></div>
-    
+    <div class="board">
+      <div class="panel-navigation">
+        <button type="button" class="btn btn-success" ng-click="callAllSources()">
+          <span class="glyphicon glyphicon-play"></span> Run all
+        </button>
+        <button type="button" class="btn" ng-click="addPanel()">
+          Add Panel
+        </button>
+      </div>
+      <div style="clear: both;"></div>
+      <div class="panel" ng-repeat="panel in boardData.panels">
+        <input type="text" class="form-control panel-title" placeholder="New panel" ng-model="panel.title"></input>
+        <rickshaw rickshaw-options="timeseriesOptions" rickshaw-features="timeseriesFeatures" rickshaw-series="panel.cache.series">
+        </rickshaw>
+        <div class="code-box">
+          <div class="code-controls">
+            <button type="button" class="btn btn-success run-btn" ng-click="callSource(panel)">
+              <span class="glyphicon glyphicon-play"></span> Run
+            </button>
+            <!-- TODO(marcua): CodeMirror is unhappy when we toggle
+            visibility of the editor.  It hides line numbers until you
+            click in the text area after toggling visbility, which
+            hides some of the code until the click event.  Address
+            this. -->
+            <button type="button" class="btn" ng-click="panel.data_source.display = !panel.data_source.display">
+              <span ng-show="!panel.data_source.display">Show</span>
+              <span ng-show="panel.data_source.display">Hide</span>
+              Code
+            </button>
+            <div class="msg" ng-show="panel.cache.loading">
+              <span class="label"></span>
+              <img class="loading" src="/static/img/loading.gif">
+            </div>
+          </div>
+          <div class="error-alert">
+          </div>
+          <div ui-codemirror="editorOptions"
+               ng-model="panel.data_source.code"
+               class="code"
+               ng-show="panel.data_source.display"
+               ui-refresh="panel.data_source.display">
+          </div>
+        </div>
+      </div>
+
     <!-- Jia JS -->
-    <script src="/static/js/utils.js"></script>
-    <script src="/static/js/models.js"></script>
-    <script src="/static/js/views.js"></script>
+    <script src="/static/js/board.js"></script>
 </body>
 </html>

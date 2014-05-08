@@ -3,43 +3,67 @@ body {
   margin: 25px 50px;
 }
 
-.pycode .code-box {
+.board-navigation {
+  float: right;
+}
+
+.panel-navigation {
+  float: right;
+  margin: 10px 0px 10px 0px;
+}
+
+.board-title {
+  font-size: 20px;
+  border: 0px solid;
+  border-bottom: 1px solid #ccc;
+}
+
+.panel-title {
+  font-size: 14 px;
+  border: 0px solid;
+}
+
+.code-box {
   margin: 20px 0px;
 }
 
-.pycode .code-box .code-controls {
+.code-box .code-controls {
   overflow: hidden;
   margin: 10px;
 }
 
-.pycode .code-box .code-controls .run-btn {
+.code-box .code-controls .run-btn {
   float: left;
   margin-right: 10px;
 }
 
-.pycode .code-box .code-controls .refresh-ctl {
+.code-box .code-controls .refresh-ctl {
   float: left;
   width: 100px;
 }
 
-.pycode .code-box .code-controls .msg {
+.code-box .code-controls .msg {
   float: right;
   line-height: 34px;
 }
 
-.pycode .code-box .code-controls .loading {
-  display: none;
-}
-
-.pycode .code-box .code-controls .label {
-  display: none;
-}
-
-.pycode .code-box .error-alert {
+.code-box .error-alert {
   margin-bottom: 0px;
 }
+div, span, p, td {
+    font-family: Arial, sans-serif;
+}
+rickshaw {
+    display: inline-block;
+    width: 100%;
+}
 
-.pycode .code-box .CodeMirror {
+.rickshaw_graph {
+    float: left;
+    display: inline-block;
+}
+
+.code-box .CodeMirror {
   height: 250px;
   padding-top: 10px;
   font-size: 12px;
@@ -52,4 +76,82 @@ body {
 
 .error-alert .error-desc {
   margin-bottom: 10px;
+}
+
+.rickshaw_legend {
+    font-family: Arial;
+    font-size: 12px;
+    color: white;
+    background: #404040;
+    display: inline-block;
+    padding: 12px 5px;
+    border-radius: 2px;
+    float: right;
+}
+.rickshaw_legend:hover {
+    z-index: 10;
+}
+.rickshaw_legend .swatch {
+    width: 10px;
+    height: 10px;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+}
+.rickshaw_legend .line {
+    clear: both;
+    line-height: 140%;
+    padding-right: 15px;
+}
+.rickshaw_legend .line .swatch {
+    display: inline-block;
+    margin-right: 3px;
+    border-radius: 2px;
+}
+.rickshaw_legend .label {
+    margin: 0;
+    white-space: nowrap;
+    display: inline;
+    font-size: inherit;
+    background-color: transparent;
+    color: inherit;
+    font-weight: normal;
+    line-height: normal;
+    padding: 0px;
+    text-shadow: none;
+}
+.rickshaw_legend .action:hover {
+    opacity: 0.6;
+}
+.rickshaw_legend .action {
+    margin-right: 0.2em;
+    font-size: 10px;
+    opacity: 0.2;
+    cursor: pointer;
+    font-size: 14px;
+}
+.rickshaw_legend .line.disabled {
+    opacity: 0.4;
+}
+.rickshaw_legend ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    margin: 2px;
+    cursor: pointer;
+}
+.rickshaw_legend li {
+    padding: 0 0 0 2px;
+    min-width: 80px;
+    white-space: nowrap;
+}
+.rickshaw_legend li:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+}
+.rickshaw_legend li:active {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.panel {
+  border:1px solid #CCCCCC;
 }
