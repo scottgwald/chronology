@@ -1,8 +1,10 @@
+boto==2.27.0
 greenlet==0.4.2
 gevent==1.0
 geventhttpclient==1.0a
+leveldb==0.193
 pycassa==1.11.0
-werkzeug==0.9.4
 python-dateutil==2.2
 requests==2.2.1
 uwsgi==2.0.1
+werkzeug==0.9.4

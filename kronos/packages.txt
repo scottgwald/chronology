@@ -1,4 +1,5 @@
 libevent-dev
+libleveldb-dev
 python-all-dev
 python-pip
 uwsgi

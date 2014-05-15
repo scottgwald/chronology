@@ -15,7 +15,7 @@ def time_to_kronos_time(time):
   """
   if isinstance(time, datetime):
     time = (time.replace(tzinfo=tzutc()) -
-              datetime.utcfromtimestamp(0)).total_seconds()
+            datetime.utcfromtimestamp(0)).total_seconds()
   return int(float(time) * 1e7)
 
 def kronos_time_to_datetime(time, round_up=False):
@@ -31,7 +31,6 @@ def uuid_to_kronos_time(uuid):
   """
   UUIDs contain a time field. Convert it to kronos time and return.
   """
-
   if not isinstance(uuid, UUID):
     raise Exception("Expected type UUID")
   return uuid.time - 0x01b21dd213814000L
@@ -64,14 +63,13 @@ def uuid_from_kronos_time(time, _type=UUIDType.RANDOM):
     clock_seq_low = randomuuid.clock_seq_low
     clock_seq_hi_variant = randomuuid.clock_seq_hi_variant
     node = randomuuid.node
-  uuid = UUID(fields = (time_low,
+  return UUID(fields = (time_low,
                         time_mid,
                         time_hi_version,
                         clock_seq_hi_variant,
                         clock_seq_low,
                         node),
               version = 1)
-  return uuid
 
 def round_down(value, base):
   """
