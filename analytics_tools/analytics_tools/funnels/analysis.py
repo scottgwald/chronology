@@ -1,7 +1,7 @@
 import logging
 from datetime import timedelta
 
-from metis.core.query.utils import get_property
+from common.event_tools import get_property
 from pykronos.client import TIMESTAMP_FIELD
 from pykronos.utils.time import datetime_to_kronos_time
 from pykronos.utils.time import timedelta_to_kronos_time

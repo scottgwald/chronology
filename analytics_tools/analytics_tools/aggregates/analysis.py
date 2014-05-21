@@ -1,4 +1,4 @@
-from metis.core.query.utils import get_property
+from common.event_tools import get_property
 from pykronos.client import TIMESTAMP_FIELD
 from pykronos.utils.time import kronos_time_to_epoch_time
 
