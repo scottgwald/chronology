@@ -19,7 +19,7 @@ from analytics_tools.aggregates import AGGREGATORS
 from analytics_tools.aggregates import aggregate_stream
 from datetime import datetime
 from dateutil.parser import parse
-from metis.core.query.utils import get_property
+from common.event_tools import get_property
 from pykronos import KronosClient
 
 log = logging.getLogger(__name__)
