@@ -19,11 +19,5 @@ class InvalidStreamName(Exception):
 class ImproperlyConfigured(Exception):
   pass
 
-class InvalidBucketIntervalComparison(Exception):
-  pass
-
-class InvalidUUIDComparison(Exception):
-  pass
-
 class NamespaceMissing(Exception):
   pass

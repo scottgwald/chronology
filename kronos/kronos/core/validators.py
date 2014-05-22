@@ -135,7 +135,7 @@ def validate_settings(settings):
       raise ImproperlyConfigured(
           '`storage[\'{}\'] must contain a `backend` key'.format(name))
 
-    path = 'kronos.storage.backends.%s' % options['backend']
+    path = 'kronos.storage.%s' % options['backend']
     module, cls = path.rsplit('.', 1)
     module = import_module(module)
     if not hasattr(module, cls):

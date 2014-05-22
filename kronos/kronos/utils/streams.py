@@ -11,8 +11,7 @@ def get_stream_properties(namespace, stream):
   events = backend.retrieve(namespace, stream, 0, now, None, configuration,
                             order=ResultOrder.DESCENDING, limit=1)
   try:
-    properties = events.next().iterkeys()
-    return filter(lambda p: not p.startswith('@'), properties)
+    return filter(lambda p: not p.startswith('@'), events.next().iterkeys())
   except StopIteration:
     return []
 

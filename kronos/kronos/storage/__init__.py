@@ -3,12 +3,12 @@
 from collections import defaultdict
 from importlib import import_module
 
+from kronos.common.cache import InMemoryLRUCache
 from kronos.conf import settings
 from kronos.core.exceptions import BackendMissing
 from kronos.core.exceptions import InvalidStreamName
 from kronos.core.exceptions import NamespaceMissing
 from kronos.core.validators import validate_stream
-from kronos.utils.cache import InMemoryLRUCache
 
 
 class StorageRouter(object):
@@ -27,7 +27,7 @@ class StorageRouter(object):
     Loads all the backends setup in settings.py.
     """
     for name, backend_settings in settings.storage.iteritems():
-      backend_path = 'kronos.storage.backends.%s' % backend_settings['backend']
+      backend_path = 'kronos.storage.%s' % backend_settings['backend']
       backend_module, backend_cls = backend_path.rsplit('.', 1)
       backend_module = import_module(backend_module)
 

@@ -188,7 +188,7 @@ class TestKronosAPIs(KronosServerTestCase):
     events = self.get(stream, 0, 4)
     self.assertEqual(len(events), 1)
     self.assertEqual(events[0][ID_FIELD], start_id)    
-    
+
   def test_streams(self):
     streams = {}
     for i in range(10):

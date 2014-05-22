@@ -5,7 +5,7 @@ from uuid import UUID
 
 from kronos.conf.constants import ID_FIELD
 from kronos.conf.constants import ResultOrder
-from kronos.storage.backends import BaseStorage
+from kronos.storage.base import BaseStorage
 from kronos.utils.math import uuid_from_kronos_time
 from kronos.utils.math import UUIDType
 

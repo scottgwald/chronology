@@ -1,8 +1,8 @@
 storage = {
   'cassandra': {
-    'backend': 'cassandra.TimeWidthCassandraStorage',
-    'hosts': ['localhost:9160'],
-    'keyspace_prefix': 'kronos_tw_test',
+    'backend': 'cassandra.CassandraStorage',
+    'hosts': ['127.0.0.1'],
+    'keyspace_prefix': 'kronos_test',
     # Set to a value greater than 0 or you will get an UnavailableException
     'replication_factor': 1,
     'default_timewidth_seconds': 2, # Keep this small for test environment.

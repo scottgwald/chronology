@@ -1,6 +1,7 @@
 import json
 import os
 
+from kronos.conf.constants import ServingMode
 from tests.server import KronosServerTestCase
 
 class TestServingMode(KronosServerTestCase):
@@ -16,19 +17,22 @@ class TestServingMode(KronosServerTestCase):
 
 
   def test_endpoints(self):
-    mode = os.environ['KRONOS_CONFIG']
-    if mode == 'serving_mode_all':
+    from kronos.conf import settings
+
+    self.assertTrue(settings.serving_mode in os.environ['KRONOS_CONFIG'])
+
+    if settings.serving_mode == ServingMode.ALL:
       found = (self.put_path, self.get_path, self.index_path,
                self.delete_path, self.streams_path)
-      notfound = ()
-    elif mode == 'serving_mode_readonly':
+      not_found = ()
+    elif settings.serving_mode == ServingMode.READONLY:
       found = (self.get_path, self.index_path, self.streams_path)
-      notfound = (self.put_path, self.delete_path)
-    elif mode == 'serving_mode_collector':
+      not_found = (self.put_path, self.delete_path)
+    elif settings.serving_mode == ServingMode.COLLECTOR:
       found = (self.put_path, self.index_path)
-      notfound = (self.get_path, self.delete_path, self.streams_path)
+      not_found = (self.get_path, self.delete_path, self.streams_path)
 
     for path in found:
       self._hit_endpoint(path, {}, {200, 400})
-    for path in notfound:
+    for path in not_found:
       self._hit_endpoint(path, {}, {404})

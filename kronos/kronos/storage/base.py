@@ -8,7 +8,6 @@ from kronos.utils.math import UUIDType
 
 
 class BaseStorage(object):
-
   # All subclasses must define `SETTINGS_VALIDATORS` mapping option names to a
   # function that takes a value for that option and returns True if it is valid
   # and False otherwise. For example, if a subclass takes one option called

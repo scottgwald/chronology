@@ -7,15 +7,27 @@ import subprocess
 import sys
 import unittest
 
+import gevent.monkey; gevent.monkey.patch_all()
+import geventhttpclient.httplib; geventhttpclient.httplib.patch()
+
 from argparse import ArgumentParser
 
-def update_settings(config_name):
+
+def load_config(config_name):
   # Configure Kronos with the right settings before running the tests.
   from kronos.conf import settings
   from tests.conf import default_settings
   settings.update(default_settings)
   patch_module = importlib.import_module('tests.conf.%s' % config_name)
   settings.update(patch_module)
+
+
+def teardown_config(config_name):
+  if config_name == 'cassandra':
+    from kronos.storage import router
+    for namespace in (router.get_backend('cassandra').namespaces
+                      .itervalues()):
+      namespace.drop()
 
 
 def test_against(*configs):
@@ -36,15 +48,11 @@ def test_against(*configs):
           subprocess.call(args, env=new_env)
       else:
         config = os.environ['KRONOS_CONFIG']
-        update_settings(config)
+        load_config(config)
         # Run the wrapped test function.
         function()
         # Do any teardown needed for some Kronos configurations.
-        if config == 'cassandra':
-          from kronos.storage import router
-          for namespace in (router.get_backend('cassandra').namespaces
-                            .itervalues()):
-            namespace._drop()
+        teardown_config(config)
     # Do this so we have a reference to the undecorated function.
     wrapper.wrapped_function = function
     return wrapper
@@ -65,7 +73,7 @@ def test_common():
 def test_cassandra():
   test_suites = unittest.defaultTestLoader.discover(
     start_dir=os.path.join(os.path.dirname(__file__),
-                           'tests/backends/cassandra'),
+                           'tests/storage/cassandra'),
     pattern='test_*.py')
   runner = unittest.TextTestRunner(verbosity=2)
   for test_suite in test_suites:
