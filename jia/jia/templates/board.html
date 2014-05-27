@@ -48,15 +48,25 @@
         <button type="button" class="btn btn-success" ng-click="callAllSources()">
           <span class="glyphicon glyphicon-play"></span> Run all
         </button>
-        <button type="button" class="btn" ng-click="addPanel()">
+        <button type="button" class="btn dropdown-toggle" ng-click="addPanel()" data-toggle="dropdown">
           Add Panel
         </button>
       </div>
       <div style="clear: both;"></div>
       <div class="panel" ng-repeat="panel in boardData.panels">
         <input type="text" class="form-control panel-title" placeholder="New panel" ng-model="panel.title"></input>
-        <rickshaw rickshaw-options="timeseriesOptions" rickshaw-features="timeseriesFeatures" rickshaw-series="panel.cache.series">
+        <rickshaw rickshaw-options="timeseriesOptions" rickshaw-features="timeseriesFeatures" rickshaw-series="panel.cache.series" ng-if="panel.display.display_type == 'timeseries'">
         </rickshaw>
+        <div class="data-table" ng-if="panel.display.display_type == 'table'">
+            <table class="table">
+              <tr>
+                <th ng-repeat="value in panel.cache.series[0].cols">{[ value ]}</th>
+              </tr>
+              <tr ng-repeat="point in panel.cache.series[0].data">
+                <td ng-repeat="value in point">{[ value ]}</td>
+              </tr>
+            </table>
+        </div>
         <div class="code-box">
           <div class="code-controls">
             <button type="button" class="btn btn-success run-btn" ng-click="callSource(panel)">
@@ -72,6 +82,10 @@
               <span ng-show="panel.data_source.display">Hide</span>
               Code
             </button>
+            <select ng-model="panel.display.display_type">
+              <option value="timeseries">Time Series</option>
+              <option value="table">Table</option>
+            </select>
             <div class="msg" ng-show="panel.cache.loading">
               <span class="label"></span>
               <img class="loading" src="/static/img/loading.gif">

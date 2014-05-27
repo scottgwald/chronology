@@ -55,17 +55,43 @@ function ($scope, $http, $location, $timeout) {
           return event['@group'] || 'series';
         });
         delete $scope.timeseriesFeatures.legend;
-        if (_.size(series) > 0) {
-          series = _.map(series, function(events, seriesName) {
-            return {name: seriesName, data: _.map(events, function(event) {
-              return {x: event['@time'] * 1e-7, y: event['@value']};
-            })}
-          });
-          if (_.size(series) > 1) {
-            $scope.timeseriesFeatures.legend = {toggle: true, highlight: true};
+        if (panel.display.display_type == 'timeseries') {
+          if (_.size(series) > 0) {
+            series = _.map(series, function(events, seriesName) {
+              return {name: seriesName, data: _.map(events, function(event) {
+                return {x: event['@time'] * 1e-7, y: event['@value']};
+              })}
+            });
+            if (_.size(series) > 1) {
+              $scope.timeseriesFeatures.legend = {toggle: true, highlight: true};
+            }
+          } else {
+            series = [{name: 'series', data: [{x: 0, y: 0}]}];
           }
-        } else {
-          series = [{name: 'series', data: [{x: 0, y: 0}]}];
+        }
+        else if (panel.display.display_type == 'table') {
+          if (_.size(series) > 0) {
+            series = _.map(series, function(events, seriesName) {
+              return {name: seriesName, cols: Object.keys(events[0]), data: _.map(events, function(event) {
+                data = [];
+                data.push(Date(event['@time'] * 1e-7));
+                Object.keys(event).forEach(function (key) {
+                  if (key != '@time') {
+                    data.push(event[key]);
+                  }
+                });
+                return data;
+              })}
+            });
+            if (_.size(series) > 1) {
+              $scope.timeseriesFeatures.legend = {toggle: true, highlight: true};
+            }
+          } else {
+            series = [{name: 'series', cols: Object.keys(events[0]), data: [{x: 0, y: 0}]}];
+          }
+        }
+        else {
+          throw "Invalid display type";
         }
         panel.cache.series = series;
       })
