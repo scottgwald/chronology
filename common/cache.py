@@ -45,3 +45,7 @@ class InMemoryLRUCache(object):
     entry[2][1] = entry[1] # entry.prev.next = entry.next
     entry[1][2] = entry[2] # entry.next.prev = entry.prev
     return entry[0]
+
+  def clear(self):
+    self.cache.clear()
+    self.sentinel[1] = self.sentinel[2] = None

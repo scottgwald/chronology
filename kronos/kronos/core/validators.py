@@ -14,6 +14,7 @@ from kronos.utils.math import time_to_kronos_time
 from kronos.utils.math import uuid_to_kronos_time
 from kronos.utils.math import uuid_from_kronos_time
 
+MAX_STREAM_LENGTH = 2048
 STREAM_REGEX = re.compile(r'^[a-z0-9\_]+(\.[a-z0-9\_]+)*$', re.I)
 
 
@@ -90,7 +91,7 @@ def validate_stream(stream):
   """
   Check that the stream name is well-formed.
   """
-  if not STREAM_REGEX.match(stream):
+  if not STREAM_REGEX.match(stream) or len(stream) > MAX_STREAM_LENGTH:
     raise InvalidStreamName(stream)
 
 
