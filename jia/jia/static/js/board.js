@@ -1,5 +1,6 @@
 var app = angular.module('boardApp', ['ui.codemirror',
-                                      'angular-rickshaw'
+                                      'angular-rickshaw',
+                                      'ngTable'
                                      ]);
 
 app.config(['$interpolateProvider', function($interpolateProvider) {
@@ -9,12 +10,13 @@ app.config(['$interpolateProvider', function($interpolateProvider) {
 }]);
 
 app.controller('boardController',
-['$scope', '$http', '$location', '$timeout',
-function ($scope, $http, $location, $timeout) {
+['$scope', '$http', '$location', '$timeout', '$filter', 'ngTableParams',
+function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
   // TODO(marcua): Re-add the sweet periodic UI refresh logic I cut
   // out of @usmanm's code in the Angular rewrite.
   var location = $location.absUrl().split('/');
   var board_id = location[location.length - 1];
+
   $scope.editorOptions = {
     lineWrapping : true,
     lineNumbers: true,
@@ -72,12 +74,22 @@ function ($scope, $http, $location, $timeout) {
         else if (panel.display.display_type == 'table') {
           if (_.size(series) > 0) {
             series = _.map(series, function(events, seriesName) {
-              return {name: seriesName, cols: Object.keys(events[0]), data: _.map(events, function(event) {
-                data = [];
-                data.push(Date(event['@time'] * 1e-7));
+              column_names = Object.keys(events[0]);
+              cols = [];
+              for (name in column_names) {
+                if (column_names[name] == '@time') {
+                  cols.push({field: 'Time'})
+                }
+                else {
+                  cols.push({field: column_names[name]})
+                }
+              }
+              return {name: seriesName, cols: cols, data: _.map(events, function(event) {
+                data = {};
+                data['Time'] = Date(event['@time'] * 1e-7);
                 Object.keys(event).forEach(function (key) {
                   if (key != '@time') {
-                    data.push(event[key]);
+                    data[key] = event[key];
                   }
                 });
                 return data;
@@ -87,8 +99,23 @@ function ($scope, $http, $location, $timeout) {
               $scope.timeseriesFeatures.legend = {toggle: true, highlight: true};
             }
           } else {
-            series = [{name: 'series', cols: Object.keys(events[0]), data: [{x: 0, y: 0}]}];
+            console.log('blanks');
+            series = [];
           }
+          panel.display.table_params = new ngTableParams({
+            page: 1,            // show first page
+            count: 10,          // count per page
+          }, {
+            total: series[0].data.length, // length of data
+            counts: [], // disable the page size toggler
+            getData: function($defer, params) {
+              // use built-in angular filter
+              var orderedData = params.sorting() ?
+                                $filter('orderBy')(series[0].data, params.orderBy()) :
+                                series[0].data;
+              $defer.resolve(orderedData.slice((params.page() - 1) * params.count(), params.page() * params.count()));
+            }
+          });
         }
         else {
           throw "Invalid display type";
