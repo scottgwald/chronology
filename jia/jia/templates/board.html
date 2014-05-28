@@ -81,6 +81,9 @@
             <button type="button" class="btn btn-success run-btn" ng-click="callSource(panel)">
               <span class="glyphicon glyphicon-play"></span> Run
             </button>
+            <a class="btn" href="#" target="_blank" download="{[ panel.title + '.csv']}" ng-click="downloadCSV(panel, $event)">
+              <span class="glyphicon glyphicon-download"></span> Download CSV
+            </a>
             <!-- TODO(marcua): CodeMirror is unhappy when we toggle
             visibility of the editor.  It hides line numbers until you
             click in the text area after toggling visbility, which

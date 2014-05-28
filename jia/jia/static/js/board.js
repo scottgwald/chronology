@@ -1,12 +1,16 @@
 var app = angular.module('boardApp', ['ui.codemirror',
                                       'angular-rickshaw',
                                       'ngTable'
-                                     ]);
+                                     ])
 
 app.config(['$interpolateProvider', function($interpolateProvider) {
   // Using {[ ]} to avoid collision with server-side {{ }}.
   $interpolateProvider.startSymbol('{[');
   $interpolateProvider.endSymbol(']}');
+}]);
+
+app.config(['$compileProvider', function($compileProvider) {
+  $compileProvider.aHrefSanitizationWhitelist(/^\s*(https?|ftp|mailto|data):/);
 }]);
 
 app.controller('boardController',
@@ -53,6 +57,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
         // attribute will split the event stream into different
         // groups/series.  All points in the same `@group` will be
         // plotted on their own line.
+        panel.cache.data = data;
         var series = _.groupBy(data.events, function(event) {
           return event['@group'] || 'series';
         });
@@ -129,6 +134,58 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
       .finally(function() {
         panel.cache.loading = false;
       });
+  }
+  $scope.downloadCSV = function (panel, event) {
+    var csv = []; // CSV represented as 2D array
+    var headerString = 'data:text/csv;charset=utf-8,';
+    
+    try {
+      var data = panel.cache.data.events;
+      if (!data.length) {
+        throw "No events";
+      }
+    } catch (e) {
+      event.target.href = headerString;
+      return;
+    }
+
+    // Create line for titles
+    var titles = Object.keys(data[0]);
+    csv.push([]);
+    for (var title in titles) {
+      csv[0].push(titles[title]);
+    }
+
+    // Add all dictionary values
+    for (var i in data) {
+      var row = data[i];
+      var new_row = [];
+      for (var j in row) {
+        var point = row[j];
+        new_row.push(point);
+      }
+      csv.push(new_row);
+    }
+
+    var csvString = '';
+
+    for (var i in csv) {
+      var row = csv[i];
+      for (var j in row) {
+        var cell = row[j] === null ? '' : row[j].toString();
+        var result = cell.replace(/"/g, '""');
+        if (result.search(/("|,|\n)/g) >= 0) {
+          result = '"' + result + '"';
+        }
+        if (j > 0) {
+          csvString += ',';
+        }
+        csvString += result;
+      }
+      csvString += '\n';
+    }
+
+    event.target.href = headerString + encodeURIComponent(csvString);
   }
   $scope.saveBoard = function() {
     // Deep copy the board data and remove the cached data.
