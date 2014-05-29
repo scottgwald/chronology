@@ -58,6 +58,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
         // groups/series.  All points in the same `@group` will be
         // plotted on their own line.
         panel.cache.data = data;
+
         var series = _.groupBy(data.events, function(event) {
           return event['@group'] || 'series';
         });
@@ -77,7 +78,9 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
           }
         }
         else if (panel.display.display_type == 'table') {
+
           if (_.size(series) > 0) {
+
             series = _.map(series, function(events, seriesName) {
               column_names = Object.keys(events[0]);
               cols = [];
@@ -100,32 +103,39 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
                 return data;
               })}
             });
-            if (_.size(series) > 1) {
-              $scope.timeseriesFeatures.legend = {toggle: true, highlight: true};
-            }
           } else {
-            console.log('blanks');
             series = [];
           }
-          panel.display.table_params = new ngTableParams({
-            page: 1,            // show first page
-            count: 10,          // count per page
-          }, {
-            total: series[0].data.length, // length of data
-            counts: [], // disable the page size toggler
-            getData: function($defer, params) {
-              // use built-in angular filter
-              var orderedData = params.sorting() ?
-                                $filter('orderBy')(series[0].data, params.orderBy()) :
-                                series[0].data;
-              $defer.resolve(orderedData.slice((params.page() - 1) * params.count(), params.page() * params.count()));
-            }
-          });
+
+          if (typeof panel.display.table_params === 'undefined') {
+            panel.display.table_params = new ngTableParams({
+              page: 1,            // show first page
+              count: 10,          // count per page
+            }, {
+              total: series[0].data.length, // length of data
+              counts: [], // disable the page size toggler
+              getData: function($defer, params) {
+                // use built-in angular filter
+                var orderedData = params.sorting() ?
+                                  $filter('orderBy')(params.series[0].data, params.orderBy()) :
+                                  params.series[0].data;
+                params.total(params.series[0].data.length);
+                $defer.resolve(orderedData.slice((params.page() - 1) * params.count(), params.page() * params.count()));
+              }
+            });
+            // Pointer for getData
+            panel.display.table_params.series = series;
+          }
+          else {
+            panel.display.table_params.series = series;
+            panel.display.table_params.reload();
+          }
         }
         else {
           throw "Invalid display type";
         }
         panel.cache.series = series;
+        console.log('this works');
       })
       .error(function(data, status, headers, config) {
         // TODO(marcua): display error.
