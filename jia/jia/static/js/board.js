@@ -1,4 +1,5 @@
 var app = angular.module('boardApp', ['ui.codemirror',
+                                      'ui.bootstrap',
                                       'angular-rickshaw',
                                       'ngTable'
                                      ])
@@ -21,6 +22,10 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
   var location = $location.absUrl().split('/');
   var board_id = location[location.length - 1];
 
+  $scope.displayTypes = [
+    'Time Series',
+    'Table'
+  ];
   $scope.editorOptions = {
     lineWrapping : true,
     lineNumbers: true,
@@ -37,6 +42,10 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
     yAxis: {},
     hover: {},
   };
+  $scope.changeDisplayType = function(panel, type) {
+    panel.display.display_type = type;
+    panel.displayTypeDropdownOpen = false;
+  }
   $scope.callAllSources = function() {
     _.each($scope.boardData.panels, function(panel) {
       $scope.callSource(panel);
@@ -63,7 +72,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
           return event['@group'] || 'series';
         });
         delete $scope.timeseriesFeatures.legend;
-        if (panel.display.display_type == 'timeseries') {
+        if (panel.display.display_type == 'Time Series') {
           if (_.size(series) > 0) {
             series = _.map(series, function(events, seriesName) {
               return {name: seriesName, data: _.map(events, function(event) {
@@ -77,7 +86,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
             series = [{name: 'series', data: [{x: 0, y: 0}]}];
           }
         }
-        else if (panel.display.display_type == 'table') {
+        else if (panel.display.display_type == 'Table') {
 
           if (_.size(series) > 0) {
 
@@ -135,7 +144,6 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
           throw "Invalid display type";
         }
         panel.cache.series = series;
-        console.log('this works');
       })
       .error(function(data, status, headers, config) {
         // TODO(marcua): display error.
@@ -216,6 +224,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
   };
   $scope.initPanel = function(panel) {
     panel.cache = {series: [{name: 'series', data: [{x: 0, y: 0}]}]};
+    panel.displayTypeDropdownOpen = false;
   }
   $scope.addPanel = function() {
     $scope.boardData.panels.unshift({
@@ -226,7 +235,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
         code: ''
       },
       display: {
-        display_type: 'timeseries'
+        display_type: 'Time Series'
       }
     });
     $scope.initPanel($scope.boardData.panels[0]);
