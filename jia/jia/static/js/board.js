@@ -68,11 +68,12 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
         // plotted on their own line.
         panel.cache.data = data;
 
-        var series = _.groupBy(data.events, function(event) {
-          return event['@group'] || 'series';
-        });
-        delete $scope.timeseriesFeatures.legend;
         if (panel.display.display_type == 'Time Series') {
+          var series = _.groupBy(data.events, function(event) {
+            return event['@group'] || 'series';
+          });
+          delete $scope.timeseriesFeatures.legend;
+
           if (_.size(series) > 0) {
             series = _.map(series, function(events, seriesName) {
               return {name: seriesName, data: _.map(events, function(event) {
@@ -87,7 +88,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
           }
         }
         else if (panel.display.display_type == 'Table') {
-
+          series = [data.events];
           if (_.size(series) > 0) {
 
             series = _.map(series, function(events, seriesName) {
