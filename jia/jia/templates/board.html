@@ -63,7 +63,7 @@
         <div class="data-table" ng-if="panel.display.display_type == 'Table'">
           <table class="table" ng-table="panel.display.table_params">
             <tr>
-              <th ng-repeat="column in panel.cache.series[0].cols" class="sortable"
+              <th ng-repeat="column in panel.cache.series.cols" class="sortable"
                   ng-class="{
                     'sort-asc': panel.display.table_params.isSortBy(column.field, 'asc'),
                     'sort-desc': panel.display.table_params.isSortBy(column.field, 'desc')
@@ -73,7 +73,7 @@
               </th>
             </tr>
             <tr ng-repeat="point in $data">
-              <td ng-repeat="column in panel.cache.series[0].cols" sortable="column.field">{[ point[column.field] ]}</td>
+              <td ng-repeat="column in panel.cache.series.cols" sortable="column.field">{[ point[column.field] ]}</td>
             </tr>
           </table>
         </div>
@@ -96,7 +96,7 @@
               <span ng-show="panel.data_source.display"><span class="glyphicon glyphicon-eye-close"></span> Hide</span>
               Code
             </button>
-            <a class="btn" href="#" target="_blank" download="{[ panel.title + '.csv']}" ng-click="downloadCSV(panel, $event)" ng-if="panel.cache.series[0].data.length > 1">
+            <a class="btn" href="#" target="_blank" download="{[ panel.title + '.csv']}" ng-click="downloadCSV(panel, $event)" ng-if="panel.cache.series.data.length > 1">
               <span class="glyphicon glyphicon-download"></span> Download CSV
             </a>
             <!-- TODO(marcua): CodeMirror is unhappy when we toggle

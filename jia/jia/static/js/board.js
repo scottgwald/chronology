@@ -88,33 +88,33 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
           }
         }
         else if (panel.display.display_type == 'Table') {
-          series = [data.events];
-          if (_.size(series) > 0) {
+          var events = data.events;
+          var series = {};
+          if (_.size(events) > 0) {
 
-            series = _.map(series, function(events, seriesName) {
-              column_names = Object.keys(events[0]);
-              cols = [];
-              for (name in column_names) {
-                if (column_names[name] == '@time') {
-                  cols.push({field: 'Time'})
-                }
-                else {
-                  cols.push({field: column_names[name]})
-                }
+            column_names = Object.keys(events[0]);
+            cols = [];
+            for (name in column_names) {
+              if (column_names[name] == '@time') {
+                cols.push({field: 'Time'})
               }
-              return {name: seriesName, cols: cols, data: _.map(events, function(event) {
-                data = {};
-                data['Time'] = Date(event['@time'] * 1e-7);
-                Object.keys(event).forEach(function (key) {
-                  if (key != '@time') {
-                    data[key] = event[key];
-                  }
-                });
-                return data;
-              })}
-            });
+              else {
+                cols.push({field: column_names[name]})
+              }
+            }
+            series = {name: 'events', cols: cols, data: _.map(events, function(event) {
+              data = {};
+              data['Time'] = Date(event['@time'] * 1e-7);
+              Object.keys(event).forEach(function (key) {
+                if (key != '@time') {
+                  data[key] = event[key];
+                }
+              });
+              return data;
+            })}
+
           } else {
-            series = [];
+            series = {};
           }
 
           if (typeof panel.display.table_params === 'undefined') {
@@ -122,14 +122,14 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
               page: 1,            // show first page
               count: 10,          // count per page
             }, {
-              total: series[0].data.length, // length of data
+              total: series.data.length, // length of data
               counts: [], // disable the page size toggler
               getData: function($defer, params) {
                 // use built-in angular filter
                 var orderedData = params.sorting() ?
-                                  $filter('orderBy')(params.series[0].data, params.orderBy()) :
-                                  params.series[0].data;
-                params.total(params.series[0].data.length);
+                                  $filter('orderBy')(params.series.data, params.orderBy()) :
+                                  params.series.data;
+                params.total(params.series.data.length);
                 $defer.resolve(orderedData.slice((params.page() - 1) * params.count(), params.page() * params.count()));
               }
             });
