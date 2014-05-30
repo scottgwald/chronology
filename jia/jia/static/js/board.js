@@ -73,7 +73,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
         // groups/series.  All points in the same `@group` will be
         // plotted on their own line.
         panel.cache.data = data;
-        console.log(panel.display.display_type.title);
+        
         if (panel.display.display_type.title == 'timeseries') {
           var series = _.groupBy(data.events, function(event) {
             return event['@group'] || 'series';
