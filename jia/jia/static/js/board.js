@@ -121,8 +121,8 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
             series = {};
           }
 
-          if (typeof panel.display.table_params === 'undefined') {
-            panel.display.table_params = new ngTableParams({
+          if (typeof panel.cache.table_params === 'undefined') {
+            panel.cache.table_params = new ngTableParams({
               page: 1,            // show first page
               count: 10,          // count per page
             }, {
@@ -138,11 +138,11 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
               }
             });
             // Pointer for getData
-            panel.display.table_params.series = series;
+            panel.cache.table_params.series = series;
           }
           else {
-            panel.display.table_params.series = series;
-            panel.display.table_params.reload();
+            panel.cache.table_params.series = series;
+            panel.cache.table_params.reload();
           }
         }
         else {
