@@ -23,8 +23,8 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
   var board_id = location[location.length - 1];
 
   $scope.displayTypes = [
-    'Time Series',
-    'Table'
+    {title: 'timeseries', display_as: 'Time Series'},
+    {title: 'table', display_as: 'Table'}
   ];
 
   $scope.editorOptions = {
@@ -73,8 +73,8 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
         // groups/series.  All points in the same `@group` will be
         // plotted on their own line.
         panel.cache.data = data;
-
-        if (panel.display.display_type == 'Time Series') {
+        console.log(panel.display.display_type.title);
+        if (panel.display.display_type.title == 'timeseries') {
           var series = _.groupBy(data.events, function(event) {
             return event['@group'] || 'series';
           });
@@ -93,7 +93,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
             series = [{name: 'series', data: [{x: 0, y: 0}]}];
           }
         }
-        else if (panel.display.display_type == 'Table') {
+        else if (panel.display.display_type.title == 'table') {
           var events = data.events;
           var series = {};
           if (_.size(events) > 0) {
@@ -244,7 +244,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
         code: ''
       },
       display: {
-        display_type: 'Time Series'
+        display_type: $scope.displayTypes[0]
       }
     });
     $scope.initPanel($scope.boardData.panels[0]);

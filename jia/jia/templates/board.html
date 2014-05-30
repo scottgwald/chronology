@@ -58,9 +58,9 @@
       <div style="clear: both;"></div>
       <div class="panel" ng-repeat="panel in boardData.panels">
         <input type="text" class="form-control panel-title" placeholder="New panel" ng-model="panel.title"></input>
-        <rickshaw rickshaw-options="timeseriesOptions" rickshaw-features="timeseriesFeatures" rickshaw-series="panel.cache.series" ng-if="panel.display.display_type == 'Time Series'">
+        <rickshaw rickshaw-options="timeseriesOptions" rickshaw-features="timeseriesFeatures" rickshaw-series="panel.cache.series" ng-if="panel.display.display_type.title == 'timeseries'">
         </rickshaw>
-        <div class="data-table" ng-if="panel.display.display_type == 'Table'">
+        <div class="data-table" ng-if="panel.display.display_type.title == 'table'">
           <table class="table" ng-table="panel.cache.table_params">
             <tr>
               <th ng-repeat="column in panel.cache.series.cols" class="sortable"
@@ -84,13 +84,12 @@
             </button>
             <div class="btn-group" dropdown is-open="panel.displayTypeDropdownOpen">
               <button type="button" class="btn btn-primary dropdown-toggle display-type-btn" ng-disabled="disabled">
-                {[ panel.display.display_type ]} <span class="caret"></span>
+                {[ panel.display.display_type.display_as ]} <span class="caret"></span>
               </button>
               <ul class="dropdown-menu" role="menu">
-                <li ng-repeat="choice in displayTypes" ng-click="changeDisplayType(panel, choice)"><a href="#">{[ choice ]}</a></li>
+                <li ng-repeat="choice in displayTypes" ng-click="changeDisplayType(panel, choice)"><a href="#">{[ choice.display_as ]}</a></li>
               </ul>
             </div>
-
             <button type="button" class="btn" ng-click="panel.data_source.display = !panel.data_source.display">
               <span ng-show="!panel.data_source.display"><span class="glyphicon glyphicon-eye-open"></span> Show</span>
               <span ng-show="panel.data_source.display"><span class="glyphicon glyphicon-eye-close"></span> Hide</span>
