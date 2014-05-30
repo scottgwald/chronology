@@ -28,11 +28,10 @@ body {
 }
 
 .code-box .code-controls {
-  overflow: hidden;
   margin: 10px;
 }
 
-.code-box .code-controls .run-btn {
+.code-box .code-controls .display-type-btn {
   float: left;
   margin-right: 10px;
 }
@@ -154,4 +153,26 @@ rickshaw {
 
 .panel {
   border:1px solid #CCCCCC;
+}
+
+/* Hack to fix bottom border on ng-table with dynamic cols */
+.ng-table.table {
+  border-collapse: separate;
+}
+
+.ng-table.table > tfoot > tr:first-child td {
+  border-top: none;
+}
+
+.ng-table.table > tbody > tr:last-child td {
+  border-bottom: solid 1px #ddd;
+}
+
+.ng-table.table > tfoot > tr:first-child {
+  border-top: solid 1px #ddd;
+}
+
+/* Hard override on ng-table counts */
+.ng-table-counts {
+  display: none;
 }

@@ -13,6 +13,7 @@
 
     <!-- Widget CSS -->
     <link href="/static/css/rickshaw.min.css" rel="stylesheet">
+    <link href="/static/css/ng-table.min.css" rel="stylesheet">
     <link href="http://fonts.googleapis.com/css?family=Cambo" rel="stylesheet" type="text/css">
     <link rel="stylesheet" type="text/css" href="http://codemirror.net/lib/codemirror.css"/>
     <link rel="stylesheet" type="text/css" href="//cdnjs.cloudflare.com/ajax/libs/codemirror/4.1.0/package/theme/mdn-like.css"/>
@@ -28,6 +29,8 @@
     <script src="//cdnjs.cloudflare.com/ajax/libs/codemirror/4.1.0/package/mode/python/python.js"></script>
     <script src="/static/js/ui-codemirror.js"></script>
     <script src="//ngyewch.github.io/angular-rickshaw/rickshaw.js"></script>
+    <script src="/static/js/ng-table.min.js"></script>
+    <script src="/static/js/ui-bootstrap-tpls-0.11.0.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.0/jquery.min.js"></script>
 
     <!-- Jia CSS -->
@@ -48,30 +51,58 @@
         <button type="button" class="btn btn-success" ng-click="callAllSources()">
           <span class="glyphicon glyphicon-play"></span> Run all
         </button>
-        <button type="button" class="btn" ng-click="addPanel()">
+        <button type="button" class="btn dropdown-toggle" ng-click="addPanel()" data-toggle="dropdown">
           Add Panel
         </button>
       </div>
       <div style="clear: both;"></div>
       <div class="panel" ng-repeat="panel in boardData.panels">
         <input type="text" class="form-control panel-title" placeholder="New panel" ng-model="panel.title"></input>
-        <rickshaw rickshaw-options="timeseriesOptions" rickshaw-features="timeseriesFeatures" rickshaw-series="panel.cache.series">
+        <rickshaw rickshaw-options="timeseriesOptions" rickshaw-features="timeseriesFeatures" rickshaw-series="panel.cache.series" ng-if="panel.display.display_type.title == 'timeseries'">
         </rickshaw>
+        <div class="data-table" ng-if="panel.display.display_type.title == 'table'">
+          <table class="table" ng-table="panel.cache.table_params">
+            <tr>
+              <th ng-repeat="column in panel.cache.series.cols" class="sortable"
+                  ng-class="{
+                    'sort-asc': panel.cache.table_params.isSortBy(column.field, 'asc'),
+                    'sort-desc': panel.cache.table_params.isSortBy(column.field, 'desc')
+                  }"
+                  ng-click="$parent.panel.cache.table_params.sorting(column.field, $parent.panel.cache.table_params.isSortBy(column.field, 'asc') ? 'desc' : 'asc');">
+                <div>{[ column.title ]}</div>
+              </th>
+            </tr>
+            <tr ng-repeat="point in $data">
+              <td ng-repeat="column in panel.cache.series.cols" sortable="column.field">{[ point[column.field] ]}</td>
+            </tr>
+          </table>
+        </div>
         <div class="code-box">
           <div class="code-controls">
             <button type="button" class="btn btn-success run-btn" ng-click="callSource(panel)">
               <span class="glyphicon glyphicon-play"></span> Run
             </button>
+            <div class="btn-group" dropdown is-open="panel.displayTypeDropdownOpen">
+              <button type="button" class="btn btn-primary dropdown-toggle display-type-btn" ng-disabled="disabled">
+                {[ panel.display.display_type.display_as ]} <span class="caret"></span>
+              </button>
+              <ul class="dropdown-menu" role="menu">
+                <li ng-repeat="choice in displayTypes" ng-click="changeDisplayType(panel, choice)"><a href="#">{[ choice.display_as ]}</a></li>
+              </ul>
+            </div>
+            <button type="button" class="btn" ng-click="panel.data_source.display = !panel.data_source.display">
+              <span ng-show="!panel.data_source.display"><span class="glyphicon glyphicon-eye-open"></span> Show</span>
+              <span ng-show="panel.data_source.display"><span class="glyphicon glyphicon-eye-close"></span> Hide</span>
+              Code
+            </button>
+            <a class="btn" href="#" target="_blank" download="{[ panel.title + '.csv']}" ng-click="downloadCSV(panel, $event)" ng-if="panel.cache.series.data.length > 1">
+              <span class="glyphicon glyphicon-download"></span> Download CSV
+            </a>
             <!-- TODO(marcua): CodeMirror is unhappy when we toggle
             visibility of the editor.  It hides line numbers until you
             click in the text area after toggling visbility, which
             hides some of the code until the click event.  Address
             this. -->
-            <button type="button" class="btn" ng-click="panel.data_source.display = !panel.data_source.display">
-              <span ng-show="!panel.data_source.display">Show</span>
-              <span ng-show="panel.data_source.display">Hide</span>
-              Code
-            </button>
             <div class="msg" ng-show="panel.cache.loading">
               <span class="label"></span>
               <img class="loading" src="/static/img/loading.gif">

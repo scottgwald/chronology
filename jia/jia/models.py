@@ -7,6 +7,7 @@ class Board(db.Model):
 
   class PanelDisplay(object):
     TIMESERIES = 'timeseries'
+    TABLE = 'table'
 
   id = db.Column(db.String, primary_key=True)
   # JSON-encoded description of the board of the form { '__version__':
