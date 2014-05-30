@@ -26,31 +26,37 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
     'Time Series',
     'Table'
   ];
+
   $scope.editorOptions = {
     lineWrapping : true,
     lineNumbers: true,
     mode: 'python',
     theme: 'mdn-like',
   };
+
   $scope.timeseriesOptions = {
     renderer: 'line',
     width: parseInt($('.panel').width() * .73)
   };
+
   $scope.timeseriesFeatures = {
     palette: 'spectrum14',
     xAxis: {},
     yAxis: {},
     hover: {},
   };
+
   $scope.changeDisplayType = function(panel, type) {
     panel.display.display_type = type;
     panel.displayTypeDropdownOpen = false;
   }
+
   $scope.callAllSources = function() {
     _.each($scope.boardData.panels, function(panel) {
       $scope.callSource(panel);
     });
   };
+
   $scope.callSource = function(panel) {
     panel.cache.loading = true;
     // TODO(marcua): do a better job of resizing the plot given the
@@ -95,23 +101,21 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
             column_names = Object.keys(events[0]);
             cols = [];
             for (name in column_names) {
-              if (column_names[name] == '@time') {
-                cols.push({field: 'Time'})
-              }
-              else {
-                cols.push({field: column_names[name]})
-              }
+              cols.push({title: column_names[name], field: column_names[name].hashCode()});
             }
+
             series = {name: 'events', cols: cols, data: _.map(events, function(event) {
               data = {};
-              data['Time'] = Date(event['@time'] * 1e-7);
               Object.keys(event).forEach(function (key) {
-                if (key != '@time') {
-                  data[key] = event[key];
+                if (key == '@time') {
+                  data[key.hashCode()] = Date(event[key] * 1e-7);
+                }
+                else {
+                  data[key.hashCode()] = event[key];
                 }
               });
               return data;
-            })}
+            })};
 
           } else {
             series = {};
@@ -154,6 +158,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
         panel.cache.loading = false;
       });
   }
+  
   $scope.downloadCSV = function (panel, event) {
     var csv = []; // CSV represented as 2D array
     var headerString = 'data:text/csv;charset=utf-8,';
@@ -206,6 +211,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
 
     event.target.href = headerString + encodeURIComponent(csvString);
   }
+
   $scope.saveBoard = function() {
     // Deep copy the board data and remove the cached data.
     var data = JSON.parse(JSON.stringify($scope.boardData, function(key, value) {
@@ -223,10 +229,12 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
         console.log('error!');
       });
   };
+
   $scope.initPanel = function(panel) {
     panel.cache = {series: [{name: 'series', data: [{x: 0, y: 0}]}]};
     panel.displayTypeDropdownOpen = false;
   }
+
   $scope.addPanel = function() {
     $scope.boardData.panels.unshift({
       title: '',
@@ -241,6 +249,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
     });
     $scope.initPanel($scope.boardData.panels[0]);
   };
+
   $http.get('/board/' + board_id)
     .success(function(data, status, headers, config) {
       angular.forEach(data.panels, function(panel) {
@@ -249,3 +258,14 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
       $scope.boardData = data;
     });
 }]);
+
+String.prototype.hashCode = function() {
+  var hash = 0, i, chr, len;
+  if (this.length == 0) return hash;
+  for (i = 0, len = this.length; i < len; i++) {
+    chr   = this.charCodeAt(i);
+    hash  = ((hash << 5) - hash) + chr;
+    hash |= 0; // Convert to 32bit integer
+  }
+  return 'a' + hash;
+};

@@ -69,7 +69,7 @@
                     'sort-desc': panel.display.table_params.isSortBy(column.field, 'desc')
                   }"
                   ng-click="$parent.panel.display.table_params.sorting(column.field, $parent.panel.display.table_params.isSortBy(column.field, 'asc') ? 'desc' : 'asc');">
-                <div>{[ column.field ]}</div>
+                <div>{[ column.title ]}</div>
               </th>
             </tr>
             <tr ng-repeat="point in $data">
