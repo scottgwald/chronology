@@ -51,5 +51,6 @@ _default_stream_configuration = {
 namespace_to_streams_configuration = {
   default_namespace: _default_stream_configuration,
   'namespace1': _default_stream_configuration,
-  'namespace2': _default_stream_configuration
+  'namespace2': _default_stream_configuration,
+  'computed': _default_stream_configuration
   }

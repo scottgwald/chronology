@@ -5,3 +5,5 @@
 .coverage
 .tox
 *.egg-info
+coverage_html
+settings.cfg

@@ -5,17 +5,24 @@ from dateutil.tz import tzutc
 EPOCH = datetime.utcfromtimestamp(0).replace(tzinfo=tzutc())
 
 
-def datetime_to_kronos_time(dt):
+def datetime_to_epoch_time(dt):
   """
-  Kronos expects timestamps to be the number of 100ns intervals since the epoch.
-  This function takes a Python `datetime` object and returns the corresponding
-  Kronos timestamp. If `dt` is a native datetime object (not timezone aware)
+  If `dt` is a native datetime object (not timezone aware)
   then this function assumes that the timezone in UTC.
   """
   # If the datetime is native, assume that the timezone is UTC.
   if not dt.tzinfo:
     dt = dt.replace(tzinfo=tzutc())
-  return epoch_time_to_kronos_time((dt - EPOCH).total_seconds())
+  return (dt - EPOCH).total_seconds()
+
+
+def datetime_to_kronos_time(dt):
+  """
+  Kronos expects timestamps to be the number of 100ns intervals since the epoch.
+  This function takes a Python `datetime` object and returns the corresponding
+  Kronos timestamp.
+  """
+  return epoch_time_to_kronos_time(datetime_to_epoch_time(dt))
 
 
 def kronos_time_to_datetime(time):
