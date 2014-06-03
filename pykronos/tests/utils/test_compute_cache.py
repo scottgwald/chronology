@@ -15,6 +15,7 @@ class ComputeCacheTest(unittest.TestCase):
                                blocking=False,
                                sleep_block=0.2)
     self.total_events = 500
+    self.computed_namespace = 'computed'
 
   def compute_cache_test(function):
     """A wrapper that sets up a stream with test data.
@@ -32,7 +33,7 @@ class ComputeCacheTest(unittest.TestCase):
       increment = timedelta_to_kronos_time(timedelta(minutes=1))
       for i in xrange(self.total_events):
         self.client.put({
-          self.stream: [{'@time': self.start_time + (increment * i),
+          self.stream: [{TIMESTAMP_FIELD: self.start_time + (increment * i),
                          'a': i % 5, 'b': i}]})
       self.client.flush()
       function(self)
@@ -57,4 +58,21 @@ class ComputeCacheTest(unittest.TestCase):
 
   @compute_cache_test
   def test_cache_layer(self):
-    self.assertEqual({1, 2, 3, 4}, set(map(lambda event: event['a'], events)))
+    cache = QueryCache(self.client, filter_and_sum, 60, self.computed_namespace)
+    start_time = kronos_time_to_datetime(self.start_time) - timedelta(minutes=10)
+    end_time = kronos_time_to_datetime(self.start_time) + (
+      timedelta(minutes=self.total_events + 10))
+    untrusted_time = kronos_time_to_datetime(self.start_time) + (
+      timedelta(minutes=(self.total_events / 2) - 5))
+    results = list(
+      cache.compute_and_cache(start_time, end_time, untrusted_time))
+
+    # Verify all results were computed correctly.
+    result_time = self.start_time
+    self.assertEqual(len(results), 25)
+    for idx, result in enumerate(results):
+      self.assertEqual(result[TIMESTAMP_FIELD], result_time)
+      self.assertEqual(result['b_sum'], sum([2, 7, 12, 17] + [20 * idx * 4]))
+      result_time += timedelta_to_kronos_time(timedelta(minutes=20))               
+
+    # Verify only trusted results are cached.

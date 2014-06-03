@@ -1,5 +1,6 @@
 class QueryCache(object):
   QUERY_CACHE_VERSION = 1
+  CACHE_KEY = 'cached'
 
   def __init__(self, client, query_function, bucket_width, scratch_namespace):
     self._client = client
@@ -53,7 +54,7 @@ class QueryCache(object):
       if len(bucket_events) == 1:
         first_result = bucket_events[0]
         yield (kronos_time_to_epoch_time(bucket_events[TIMESTAMP_FIELD]),
-               bucket_events['cached'])
+               bucket_events[QueryCache.CACHE_KEY])
 
   def cached_results(self, start_time, end_time)
     self._sanity_check_time(start_time, end_time)
@@ -73,8 +74,9 @@ class QueryCache(object):
     cached_bucket_iterator = (self._cached_results(start_time, end_time)
                               .__iter__())
 
-    # For any cached result with a timestamp before the
-    # untrusted_time, remove it from the list of desired buckets.
+    # Use either the cached results or compute any uncached buckets.
+    # Cache previously uncached results if they are guaranteed to have
+    # happened before the untrusted time.
     current_cached_bucket = None
     for required_bucket in required_buckets:
       if current_cached_bucket == None:
@@ -82,20 +84,31 @@ class QueryCache(object):
           current_cached_bucket = cached_bucket_iterator.next()
         except StopIteration:
           pass
-      if current_cached_bucket != None and current_cached_bucket[0] == required_bucket:
-        for event in current_cached_bucket[1]:
-          yield event
+      emit_events = None
+      if current_cached_bucket != None and (
+        current_cached_bucket[0] == required_bucket):
+        emit_events = current_cached_bucket[1]
       else:
+        # We don't have cached events, so compute the query.
         bucket_start = kronos_time_to_datetime(
           epoch_time_to_kronos_time(required_bucket))
         bucket_end = kronos_time_to_datetime(
           epoch_time_to_kronos_time(required_bucket + self._bucket_width))
         bucket_events = list(self._query_function(bucket_start, bucket_end))
-        self._client.delete(...)
-        self._client.put(...)
-        for event in bucket_events:
-          yield event
+        emit_events = bucket_events
+        # If all events in the bucket happened before the untrusted
+        # time, cache the query results.
+        if bucket_end < untrusted_time:
+          caching_event = {TIMESTAMP_FIELD: bucket_start,
+                           QueryCache.CACHE_KEY: bucket_events}
+          self._client.delete(self._scratch_stream, bucket_start,
+                              bucket_start + timedelta(milliseconds=1),
+                              namespace=self._scratch_namespace)
+          self._client.put({self._stream_name: [caching_event]},
+                           namespace=self._scratch_namespace)
+      for event in emit_events:
+        yield event
 
+# TODO(marcua): tests.
 # TODO(marcua): document all functions.
 # TODO(marcua): document the class, including limitations.
-# TODO(marcua): tests.
