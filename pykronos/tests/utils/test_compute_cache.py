@@ -1,13 +1,14 @@
 import functools
-import time
 import unittest
 
+from collections import defaultdict
 from datetime import datetime
-
+from datetime import timedelta
 from pykronos import KronosClient
 from pykronos.client import TIMESTAMP_FIELD
-from pykronos.utils.time import kronos_time_now
-
+from pykronos.utils.cache import QueryCache
+from pykronos.utils.time import datetime_to_kronos_time
+from pykronos.utils.time import timedelta_to_kronos_time
 
 class ComputeCacheTest(unittest.TestCase):
   def setUp(self):
@@ -16,30 +17,30 @@ class ComputeCacheTest(unittest.TestCase):
                                sleep_block=0.2)
     self.total_events = 500
     self.computed_namespace = 'computed'
+    self.increment = timedelta(minutes=1)
+    self.start_time = datetime(2014, 6, 4, 22)
+    self.bucket_width = timedelta(minutes=20)
 
   def compute_cache_test(function):
     """A wrapper that sets up a stream with test data.
     
     The stream takes the name of the function being run, and contains
-    `self.total_events` events.  The events are each one minute apart.
-    Half of them have an `@time` before kronos_time_now(), and the
-    other half have an `@time` after kronos_time_now().
+    `self.total_events` events.  The events are each one
+    `self.increment` apart.
     """
     @functools.wraps(function)
     def wrapper(self):
-      self.start_time = kronos_time_now() - timedelta_to_kronos_time(
-        timedelta(minutes=self.total_events / 2))
       self.stream = 'ComputeCacheTest_%s' % (function.__name__)
-      increment = timedelta_to_kronos_time(timedelta(minutes=1))
       for i in xrange(self.total_events):
         self.client.put({
-          self.stream: [{TIMESTAMP_FIELD: self.start_time + (increment * i),
+          self.stream: [{TIMESTAMP_FIELD: 
+                         self.start_time + (self.increment * i),
                          'a': i % 5, 'b': i}]})
       self.client.flush()
       function(self)
     return wrapper
 
-  def filter_and_sum(start_time, end_time):
+  def filter_and_sum(self, start_time, end_time):
     """Bin `self.stream` into buckets, returning the sum of `b` when `a` == 2.
 
     For all events between `start_time` and `end_time`, create an
@@ -48,7 +49,7 @@ class ComputeCacheTest(unittest.TestCase):
     """
     events = self.client.get(self.stream, start_time, end_time)
     counts = defaultdict(int)
-    grouping_minutes = timedelta_to_kronos_time(timedelta(minutes=20))
+    grouping_minutes = timedelta_to_kronos_time(self.bucket_width)
     for event in events:
       if event['a'] == 2:
         counts[event['@time'] -
@@ -58,21 +59,28 @@ class ComputeCacheTest(unittest.TestCase):
 
   @compute_cache_test
   def test_cache_layer(self):
-    cache = QueryCache(self.client, filter_and_sum, 60, self.computed_namespace)
-    start_time = kronos_time_to_datetime(self.start_time) - timedelta(minutes=10)
-    end_time = kronos_time_to_datetime(self.start_time) + (
-      timedelta(minutes=self.total_events + 10))
-    untrusted_time = kronos_time_to_datetime(self.start_time) + (
+    cache = QueryCache(self.client, self.filter_and_sum, self.bucket_width,
+                       self.computed_namespace)
+    start_time = self.start_time - (self.bucket_width * 3)
+    end_time = self.start_time + (self.total_events * self.increment) + (
+      self.bucket_width * 3)
+    untrusted_time = self.start_time + (
       timedelta(minutes=(self.total_events / 2) - 5))
     results = list(
       cache.compute_and_cache(start_time, end_time, untrusted_time))
 
     # Verify all results were computed correctly.
-    result_time = self.start_time
     self.assertEqual(len(results), 25)
+    result_time = self.start_time
     for idx, result in enumerate(results):
-      self.assertEqual(result[TIMESTAMP_FIELD], result_time)
-      self.assertEqual(result['b_sum'], sum([2, 7, 12, 17] + [20 * idx * 4]))
-      result_time += timedelta_to_kronos_time(timedelta(minutes=20))               
+      self.assertEqual(result[TIMESTAMP_FIELD],
+                       datetime_to_kronos_time(result_time))
+      self.assertEqual(result['b_sum'], sum([2, 7, 12, 17] + [idx * 4 * (
+              self.bucket_width.total_seconds() / 60)]))
+      result_time += self.bucket_width
 
     # Verify only trusted results are cached.
+
+# TODO(marcua): more tests
+# TODO(marcua): document all functions.
+# TODO(marcua): document the class, including limitations.
