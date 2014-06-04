@@ -57,6 +57,17 @@ class ComputeCacheTest(unittest.TestCase):
     for group_time in sorted(counts.iterkeys()):
       yield {'@time': group_time, 'b_sum': counts[group_time]}
 
+  def verify_results(self, results, expected_results):
+    self.client.flush()
+    self.assertEqual(len(results), expected_results)
+    result_time = self.start_time
+    for idx, result in enumerate(results):
+      self.assertEqual(result[TIMESTAMP_FIELD],
+                       datetime_to_kronos_time(result_time))
+      self.assertEqual(result['b_sum'], sum([2, 7, 12, 17] + [idx * 4 * (
+              self.bucket_width.total_seconds() / 60)]))
+      result_time += self.bucket_width
+
   @compute_cache_test
   def test_cache_layer(self):
     cache = QueryCache(self.client, self.filter_and_sum, self.bucket_width,
@@ -66,27 +77,58 @@ class ComputeCacheTest(unittest.TestCase):
       self.bucket_width * 3)
     untrusted_time = self.start_time + (
       timedelta(minutes=(self.total_events / 2) - 25))
-    results = list(
-      cache.compute_and_cache(start_time, end_time, untrusted_time))
-
-    def verify_results(results, expected_results):
-      self.client.flush()
-      self.assertEqual(len(results), expected_results)
-      result_time = self.start_time
-      for idx, result in enumerate(results):
-        self.assertEqual(result[TIMESTAMP_FIELD],
-                         datetime_to_kronos_time(result_time))
-        self.assertEqual(result['b_sum'], sum([2, 7, 12, 17] + [idx * 4 * (
-                self.bucket_width.total_seconds() / 60)]))
-        result_time += self.bucket_width
 
     # Verify all results were computed correctly.
-    verify_results(results, 25)
+    results = list(
+      cache.compute_and_cache(start_time, end_time, untrusted_time))
+    self.verify_results(results, 25)
 
     # Verify only trusted results are cached.
     results = list(cache.cached_results(start_time, end_time))
-    verify_results(results, 11)
+    self.verify_results(results, 11)
 
-# TODO(marcua): more tests
+    # Running the same operations twice should result in the same
+    # results as before.
+    results = list(
+      cache.compute_and_cache(start_time, end_time, untrusted_time))
+    self.verify_results(results, 25)
+    results = list(cache.cached_results(start_time, end_time))
+    self.verify_results(results, 11)
+
+    # Increasing the trusted time should increase the cached results.
+    untrusted_time = untrusted_time + timedelta(minutes=40)
+    results = list(
+      cache.compute_and_cache(start_time, end_time, untrusted_time))
+    self.verify_results(results, 25)
+    results = list(cache.cached_results(start_time, end_time))
+    self.verify_results(results, 13)
+
+    # Decreasing trusted time shouldn't remove results.
+    untrusted_time = untrusted_time - timedelta(minutes=40)
+    results = list(
+      cache.compute_and_cache(start_time, end_time, untrusted_time))
+    self.verify_results(results, 25)
+    results = list(cache.cached_results(start_time, end_time))
+    self.verify_results(results, 13)
+
+    # If there are two cached entries, that cached time should no
+    # longer be returned.
+    duplicate_result = dict(results[10])
+    duplicate_result['b_sum'] = 0
+    self.client.put({cache._scratch_stream:
+                       [duplicate_result]},
+                    namespace=cache._scratch_namespace)
+    self.client.flush()
+    safe_results = list(cache.cached_results(start_time, end_time))
+    self.assertEqual(results[:10]+ results[11:], safe_results)
+
+    # Rerunning the cache/computation should re-cache the corrupted
+    # element.
+    results = list(
+      cache.compute_and_cache(start_time, end_time, untrusted_time))
+    self.verify_results(results, 25)
+    results = list(cache.cached_results(start_time, end_time))
+    self.verify_results(results, 13)
+
 # TODO(marcua): document all functions.
 # TODO(marcua): document the class, including limitations.
