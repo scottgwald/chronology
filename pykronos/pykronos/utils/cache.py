@@ -125,3 +125,4 @@ class QueryCache(object):
                            namespace=self._scratch_namespace)
       for event in emit_events:
         yield event
+      self._client.flush()

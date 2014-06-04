@@ -65,21 +65,27 @@ class ComputeCacheTest(unittest.TestCase):
     end_time = self.start_time + (self.total_events * self.increment) + (
       self.bucket_width * 3)
     untrusted_time = self.start_time + (
-      timedelta(minutes=(self.total_events / 2) - 5))
+      timedelta(minutes=(self.total_events / 2) - 25))
     results = list(
       cache.compute_and_cache(start_time, end_time, untrusted_time))
 
+    def verify_results(results, expected_results):
+      self.client.flush()
+      self.assertEqual(len(results), expected_results)
+      result_time = self.start_time
+      for idx, result in enumerate(results):
+        self.assertEqual(result[TIMESTAMP_FIELD],
+                         datetime_to_kronos_time(result_time))
+        self.assertEqual(result['b_sum'], sum([2, 7, 12, 17] + [idx * 4 * (
+                self.bucket_width.total_seconds() / 60)]))
+        result_time += self.bucket_width
+
     # Verify all results were computed correctly.
-    self.assertEqual(len(results), 25)
-    result_time = self.start_time
-    for idx, result in enumerate(results):
-      self.assertEqual(result[TIMESTAMP_FIELD],
-                       datetime_to_kronos_time(result_time))
-      self.assertEqual(result['b_sum'], sum([2, 7, 12, 17] + [idx * 4 * (
-              self.bucket_width.total_seconds() / 60)]))
-      result_time += self.bucket_width
+    verify_results(results, 25)
 
     # Verify only trusted results are cached.
+    results = list(cache.cached_results(start_time, end_time))
+    verify_results(results, 11)
 
 # TODO(marcua): more tests
 # TODO(marcua): document all functions.
