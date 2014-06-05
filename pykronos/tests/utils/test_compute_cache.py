@@ -68,6 +68,28 @@ class ComputeCacheTest(unittest.TestCase):
               self.bucket_width.total_seconds() / 60)]))
       result_time += self.bucket_width
 
+  def test_cache_exceptions(self):
+    # Bucket width shouldn't be more granular than 1 second.
+    def bad_bucket_width():
+      return QueryCache(self.client, self.filter_and_sum,
+                        self.bucket_width + timedelta(milliseconds=1),
+                        self.computed_namespace)
+    self.assertRaises(ValueError, bad_bucket_width)
+
+    # stat_time and end_time should align to bucket_width boundaries.
+    cache = QueryCache(self.client, self.filter_and_sum, self.bucket_width,
+                       self.computed_namespace)
+    start_time = self.start_time - (self.bucket_width * 3)
+    end_time = self.start_time + (self.total_events * self.increment) + (
+      self.bucket_width * 3)
+    untrusted_time = self.start_time + (
+      timedelta(minutes=(self.total_events / 2) - 25))
+    def bad_start_boundary():
+      return list(
+        cache.compute_and_cache(start_time + timedelta(minutes=1),
+                                end_time, untrusted_time))
+    self.assertRaises(ValueError, bad_start_boundary)
+
   @compute_cache_test
   def test_cache_layer(self):
     cache = QueryCache(self.client, self.filter_and_sum, self.bucket_width,
