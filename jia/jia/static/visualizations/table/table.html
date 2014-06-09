@@ -1,0 +1,15 @@
+<table class="table" ng-table="module.tableParams">
+  <tr>
+    <th ng-repeat="column in module.tableParams.series.cols" class="sortable"
+        ng-class="{
+          'sort-asc': module.tableParams.isSortBy(column.field, 'asc'),
+          'sort-desc': module.tableParams.isSortBy(column.field, 'desc')
+        }"
+        ng-click="$parent.module.tableParams.sorting(column.field, $parent.module.tableParams.isSortBy(column.field, 'asc') ? 'desc' : 'asc');">
+      <div>{[ column.title ]}</div>
+    </th>
+  </tr>
+  <tr ng-repeat="point in $data">
+    <td ng-repeat="column in module.tableParams.series.cols" sortable="column.field">{[ point[column.field] ]}</td>
+  </tr>
+</table>

@@ -1,7 +1,9 @@
 var app = angular.module('boardApp', ['ui.codemirror',
                                       'ui.bootstrap',
                                       'angular-rickshaw',
-                                      'ngTable'
+                                      'ngTable',
+                                      'timeseries',
+                                      'table'
                                      ])
 
 app.config(['$interpolateProvider', function($interpolateProvider) {
@@ -10,22 +12,23 @@ app.config(['$interpolateProvider', function($interpolateProvider) {
   $interpolateProvider.endSymbol(']}');
 }]);
 
+// Add data to acceptable hrefs for CSV to be generated client side
 app.config(['$compileProvider', function($compileProvider) {
   $compileProvider.aHrefSanitizationWhitelist(/^\s*(https?|ftp|mailto|data):/);
 }]);
 
 app.controller('boardController',
-['$scope', '$http', '$location', '$timeout', '$filter', 'ngTableParams',
-function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
+['$scope', '$http', '$location', '$timeout', '$filter', 'ngTableParams', 'timeseries', 'table',
+function ($scope, $http, $location, $timeout, $filter, ngTableParams, timeseries, table) {
   // TODO(marcua): Re-add the sweet periodic UI refresh logic I cut
   // out of @usmanm's code in the Angular rewrite.
   var location = $location.absUrl().split('/');
-  var board_id = location[location.length - 1];
+  var boardId = location[location.length - 1];
 
-  $scope.displayTypes = [
-    {title: 'timeseries', display_as: 'Time Series'},
-    {title: 'table', display_as: 'Table'}
-  ];
+  $scope.visualizations = {
+    'timeseries': timeseries,
+    'table': table
+  };
 
   $scope.editorOptions = {
     lineWrapping : true,
@@ -34,21 +37,15 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
     theme: 'mdn-like',
   };
 
-  $scope.timeseriesOptions = {
-    renderer: 'line',
-    width: parseInt($('.panel').width() * .73)
-  };
-
-  $scope.timeseriesFeatures = {
-    palette: 'spectrum14',
-    xAxis: {},
-    yAxis: {},
-    hover: {},
-  };
-
-  $scope.changeDisplayType = function(panel, type) {
-    panel.display.display_type = type;
-    panel.displayTypeDropdownOpen = false;
+  $scope.changeVisualization = function(panel, type) {
+    // Avoid recalculating stuff if the user selects the type that is already being viewed
+    if (type.info.title != panel.display.visualization) {
+      panel.display.visualization = type.info.title;
+      panel.cache.visualizations[type.info.title] = new type.visualization();
+      panel.cache.visualization = panel.cache.visualizations[type.info.title];
+      panel.cache.visualization.setData(panel.cache.data);
+    }
+    panel.cache.visualizationDropdownOpen = false;
   }
 
   $scope.callAllSources = function() {
@@ -59,96 +56,11 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
 
   $scope.callSource = function(panel) {
     panel.cache.loading = true;
-    // TODO(marcua): do a better job of resizing the plot given the
-    // legend size.
-    $scope.timeseriesOptions.width = parseInt($('.panel').width() * .73);
+    
     $http.post('/callsource', panel.data_source)
       .success(function(data, status, headers, config) {
-        // `data` should contain an `events` property, which is a list
-        // of Kronos-like events.  The events should be sorted in
-        // ascending time order.  An event has two fields `@time`
-        // (Kronos time: 100s of nanoseconds since the epoch), and
-        // `@value`, a floating point value.  An optional `@group`
-        // attribute will split the event stream into different
-        // groups/series.  All points in the same `@group` will be
-        // plotted on their own line.
         panel.cache.data = data;
-        
-        if (panel.display.display_type.title == 'timeseries') {
-          var series = _.groupBy(data.events, function(event) {
-            return event['@group'] || 'series';
-          });
-          delete $scope.timeseriesFeatures.legend;
-
-          if (_.size(series) > 0) {
-            series = _.map(series, function(events, seriesName) {
-              return {name: seriesName, data: _.map(events, function(event) {
-                return {x: event['@time'] * 1e-7, y: event['@value']};
-              })}
-            });
-            if (_.size(series) > 1) {
-              $scope.timeseriesFeatures.legend = {toggle: true, highlight: true};
-            }
-          } else {
-            series = [{name: 'series', data: [{x: 0, y: 0}]}];
-          }
-        }
-        else if (panel.display.display_type.title == 'table') {
-          var events = data.events;
-          var series = {};
-          if (_.size(events) > 0) {
-
-            column_names = Object.keys(events[0]);
-            cols = [];
-            for (name in column_names) {
-              cols.push({title: column_names[name], field: column_names[name].hashCode()});
-            }
-
-            series = {name: 'events', cols: cols, data: _.map(events, function(event) {
-              data = {};
-              Object.keys(event).forEach(function (key) {
-                if (key == '@time') {
-                  data[key.hashCode()] = Date(event[key] * 1e-7);
-                }
-                else {
-                  data[key.hashCode()] = event[key];
-                }
-              });
-              return data;
-            })};
-
-          } else {
-            series = {};
-          }
-
-          if (typeof panel.cache.table_params === 'undefined') {
-            panel.cache.table_params = new ngTableParams({
-              page: 1,            // show first page
-              count: 10,          // count per page
-            }, {
-              total: series.data.length, // length of data
-              counts: [], // disable the page size toggler
-              getData: function($defer, params) {
-                // use built-in angular filter
-                var orderedData = params.sorting() ?
-                                  $filter('orderBy')(params.series.data, params.orderBy()) :
-                                  params.series.data;
-                params.total(params.series.data.length);
-                $defer.resolve(orderedData.slice((params.page() - 1) * params.count(), params.page() * params.count()));
-              }
-            });
-            // Pointer for getData
-            panel.cache.table_params.series = series;
-          }
-          else {
-            panel.cache.table_params.series = series;
-            panel.cache.table_params.reload();
-          }
-        }
-        else {
-          throw "Invalid display type";
-        }
-        panel.cache.series = series;
+        panel.cache.visualization.setData(data);
       })
       .error(function(data, status, headers, config) {
         // TODO(marcua): display error.
@@ -164,9 +76,9 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
     var headerString = 'data:text/csv;charset=utf-8,';
     
     try {
-      var data = panel.cache.data.events;
+      var data = panel.cache.data.points;
       if (!data.length) {
-        throw "No events";
+        throw "No data";
       }
     } catch (e) {
       event.target.href = headerString;
@@ -183,12 +95,12 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
     // Add all dictionary values
     for (var i in data) {
       var row = data[i];
-      var new_row = [];
+      var newRow = [];
       for (var j in row) {
         var point = row[j];
-        new_row.push(point);
+        newRow.push(point);
       }
-      csv.push(new_row);
+      csv.push(newRow);
     }
 
     var csvString = '';
@@ -220,8 +132,9 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
       }
       return value;
     }));
+
     // TODO(marcua): display something on save success/failure.
-    $http.post('/board/' + board_id, data)
+    $http.post('/board/' + boardId, data)
       .success(function(data, status, headers, config) {
         console.log('saved');
       })
@@ -231,12 +144,23 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
   };
 
   $scope.initPanel = function(panel) {
-    panel.cache = {series: [{name: 'series', data: [{x: 0, y: 0}]}]};
-    panel.displayTypeDropdownOpen = false;
+    panel.cache = {
+      data: {points: [{'@time': 0, '@value': 0}]},
+      visualizations: {}
+    };
+
+    // Initialize the active visualization type
+    var visualizationType = panel.display.visualization;
+    var newVisualization = new $scope.visualizations[visualizationType].visualization();
+    panel.cache.visualizations[visualizationType] = newVisualization;
+    panel.cache.visualization = panel.cache.visualizations[visualizationType];
+
+    // Flag to toggle bootstrap dropdown menu status
+    panel.cache.visualizationDropdownOpen = false;
   }
 
   $scope.addPanel = function() {
-    $scope.boardData.panels.unshift({
+    var panel = {
       title: '',
       data_source: {
         source_type: 'pycode',
@@ -244,13 +168,14 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
         code: ''
       },
       display: {
-        display_type: $scope.displayTypes[0]
+        visualization: 'timeseries'
       }
-    });
+    };
+    $scope.boardData.panels.unshift(panel);
     $scope.initPanel($scope.boardData.panels[0]);
   };
 
-  $http.get('/board/' + board_id)
+  $http.get('/board/' + boardId)
     .success(function(data, status, headers, config) {
       angular.forEach(data.panels, function(panel) {
         $scope.initPanel(panel);
@@ -258,6 +183,27 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams) {
       $scope.boardData = data;
     });
 }]);
+
+app.directive('visualization', function ($http, $compile) {
+  var linker = function($scope, element, attrs) {
+    $scope.$watch('module', function () {
+      $http.get(['static', 'visualizations', $scope.module.info.title, $scope.module.info.template].join('/'))
+        .success(function(data, status, headers, config) {
+          element.html(data);
+          $compile(element.contents())($scope);
+        });
+    });
+  }
+
+  return {
+    restrict: "E",
+    replace: true,
+    link: linker,
+    scope: {
+      module:'='
+    }
+  };
+});
 
 String.prototype.hashCode = function() {
   var hash = 0, i, chr, len;
@@ -267,5 +213,6 @@ String.prototype.hashCode = function() {
     hash  = ((hash << 5) - hash) + chr;
     hash |= 0; // Convert to 32bit integer
   }
+  // Must start with a letter to make ng-table happy
   return 'a' + hash;
 };
