@@ -2,7 +2,7 @@ var module = angular.module('timeseries', ['angular-rickshaw']);
 
 module.factory('timeseries', function () {
 
-  var meta = {
+  var info = {
     title: 'timeseries',
     readableTitle: 'Time Series',
     template: 'timeseries.html',
@@ -44,13 +44,13 @@ module.factory('timeseries', function () {
     };
     
     this.setData = function (data, msg) {
-      // `data` should contain an `points` property, which is a list
+      // `data` should contain an `events` property, which is a list
       // of Kronos-like events.  The events should be sorted in
       // ascending time order.  An event has at least two fields `@time`
       // (Kronos time: 100s of nanoseconds since the epoch), and
       // `@value`, a floating point value.  An optional `@group`
       // attribute will split the event stream into different
-      // groups/series.  All points in the same `@group` will be
+      // groups/series.  All events in the same `@group` will be
       // plotted on their own line.
 
       // TODO(marcua): do a better job of resizing the plot given the

@@ -3,7 +3,8 @@ var app = angular.module('boardApp', ['ui.codemirror',
                                       'angular-rickshaw',
                                       'ngTable',
                                       'timeseries',
-                                      'table'
+                                      'table',
+                                      'gauge'
                                      ])
 
 app.config(['$interpolateProvider', function($interpolateProvider) {
@@ -18,8 +19,8 @@ app.config(['$compileProvider', function($compileProvider) {
 }]);
 
 app.controller('boardController',
-['$scope', '$http', '$location', '$timeout', '$filter', 'ngTableParams', 'timeseries', 'table',
-function ($scope, $http, $location, $timeout, $filter, ngTableParams, timeseries, table) {
+['$scope', '$http', '$location', '$timeout', '$filter', 'ngTableParams', 'timeseries', 'table', 'gauge',
+function ($scope, $http, $location, $timeout, $filter, ngTableParams, timeseries, table, gauge) {
   // TODO(marcua): Re-add the sweet periodic UI refresh logic I cut
   // out of @usmanm's code in the Angular rewrite.
   var location = $location.absUrl().split('/');
@@ -27,7 +28,8 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams, timeseries
 
   $scope.visualizations = {
     'timeseries': timeseries,
-    'table': table
+    'table': table,
+    'gauge': gauge,
   };
 
   $scope.editorOptions = {
@@ -76,7 +78,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams, timeseries
     var headerString = 'data:text/csv;charset=utf-8,';
     
     try {
-      var data = panel.cache.data.points;
+      var data = panel.cache.data.events;
       if (!data.length) {
         throw "No data";
       }
@@ -145,7 +147,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams, timeseries
 
   $scope.initPanel = function(panel) {
     panel.cache = {
-      data: {points: [{'@time': 0, '@value': 0}]},
+      data: {events: [{'@time': 0, '@value': 0}]},
       visualizations: {}
     };
 
