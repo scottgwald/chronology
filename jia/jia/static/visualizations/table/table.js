@@ -1,22 +1,44 @@
-var module = angular.module('table', ['ngTable']);
+var module = angular.module('jia.table', ['ngTable']);
 
 module.factory('table', function ($filter, ngTableParams) {
 
-  var info = {
+  var meta = {
     title: 'table',
     readableTitle: 'Table',
     template: 'table.html',
+
+    css: [
+      '/static/css/ng-table.min.css',
+    ],
+
+    js: [
+      '/static/js/ng-table.min.js',
+    ],
 
     optionalFields: [
       '@time',
       '@group'
     ]
-  }
+  };
 
   var visualization = function () {
 
-    this.info = info;
+    this.meta = meta;
     this.data = [];
+
+    // Provide a hash method for strings
+    // ng-table requires unique variable-like IDs for cols
+    String.prototype.hashCode = function () {
+      var hash = 0, i, chr, len;
+      if (this.length == 0) return 'a0';
+      for (i = 0, len = this.length; i < len; i++) {
+        chr   = this.charCodeAt(i);
+        hash  = ((hash << 5) - hash) + chr;
+        hash |= 0; // Convert to 32bit integer
+      }
+      // Must start with a letter to make ng-table happy
+      return 'a' + hash;
+    };
 
     this.setData = function (data, msg) {
       var events = data.events;
@@ -71,11 +93,11 @@ module.factory('table', function ($filter, ngTableParams) {
         this.tableParams.reload();
       }
     }
-  }
+  };
 
   return {
-    info: info,
+    meta: meta,
     visualization: visualization
-  }
+  };
 
 });

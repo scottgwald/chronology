@@ -1,19 +1,20 @@
-var module = angular.module('timeseries', ['angular-rickshaw']);
+var module = angular.module('jia.timeseries', ['angular-rickshaw']);
 
 module.factory('timeseries', function () {
 
-  var info = {
+  var meta = {
     title: 'timeseries',
     readableTitle: 'Time Series',
     template: 'timeseries.html',
 
     css: [
-      "/static/lib/rickshaw/rickshaw.min.css",
+      "//cdnjs.cloudflare.com/ajax/libs/rickshaw/1.4.6/rickshaw.min.css",
     ],
 
     js: [
-      "/static/lib/rickshaw/rickshaw.min.js",
-      "/static/lib/angular-rickshaw/rickshaw.js"
+      "//cdnjs.cloudflare.com/ajax/libs/d3/3.4.1/d3.min.js",
+      "//cdnjs.cloudflare.com/ajax/libs/rickshaw/1.4.6/rickshaw.min.js",
+      "//ngyewch.github.io/angular-rickshaw/rickshaw.js"
     ],
 
     requiredFields: [
@@ -28,7 +29,7 @@ module.factory('timeseries', function () {
 
   var visualization = function () {
 
-    this.info = info;
+    this.meta = meta;
     this.series = [{name: 'series', data: [{x: 0, y: 0}]}];
 
     this.timeseriesOptions = {
@@ -80,7 +81,7 @@ module.factory('timeseries', function () {
   }
 
   return {
-    info: info,
+    meta: meta,
     visualization: visualization
   }
 });

@@ -1,11 +1,9 @@
 var app = angular.module('boardApp', ['ui.codemirror',
                                       'ui.bootstrap',
-                                      'angular-rickshaw',
-                                      'ngTable',
-                                      'timeseries',
-                                      'table',
-                                      'gauge'
-                                     ])
+                                      'jia.timeseries',
+                                      'jia.table',
+                                      'jia.gauge'
+                                     ]);
 
 app.config(['$interpolateProvider', function($interpolateProvider) {
   // Using {[ ]} to avoid collision with server-side {{ }}.
@@ -19,36 +17,43 @@ app.config(['$compileProvider', function($compileProvider) {
 }]);
 
 app.controller('boardController',
-['$scope', '$http', '$location', '$timeout', '$filter', 'ngTableParams', 'timeseries', 'table', 'gauge',
-function ($scope, $http, $location, $timeout, $filter, ngTableParams, timeseries, table, gauge) {
+['$scope', '$http', '$location', '$timeout', '$injector',
+function ($scope, $http, $location, $timeout, $injector) {
   // TODO(marcua): Re-add the sweet periodic UI refresh logic I cut
   // out of @usmanm's code in the Angular rewrite.
   var location = $location.absUrl().split('/');
   var boardId = location[location.length - 1];
 
-  $scope.visualizations = {
-    'timeseries': timeseries,
-    'table': table,
-    'gauge': gauge,
-  };
-
   $scope.editorOptions = {
-    lineWrapping : true,
+    lineWrapping: true,
     lineNumbers: true,
     mode: 'python',
     theme: 'mdn-like',
   };
 
+  this.loadVisualizations = function () {
+    var visualizations = {};
+    _.each(app.requires, function (dependency) {
+      if (dependency.indexOf('jia.') == 0) {
+        module = dependency.substring('jia.'.length);
+        visualizations[module] = $injector.get(module);
+      }
+    });
+    return visualizations;
+  };
+
+  $scope.visualizations = this.loadVisualizations();
+
   $scope.changeVisualization = function(panel, type) {
     // Avoid recalculating stuff if the user selects the type that is already being viewed
-    if (type.info.title != panel.display.visualization) {
-      panel.display.visualization = type.info.title;
-      panel.cache.visualizations[type.info.title] = new type.visualization();
-      panel.cache.visualization = panel.cache.visualizations[type.info.title];
+    if (type.meta.title != panel.display.display_type) {
+      panel.display.display_type = type.meta.title;
+      panel.cache.visualizations[type.meta.title] = new type.visualization();
+      panel.cache.visualization = panel.cache.visualizations[type.meta.title];
       panel.cache.visualization.setData(panel.cache.data);
     }
     panel.cache.visualizationDropdownOpen = false;
-  }
+  };
 
   $scope.callAllSources = function() {
     _.each($scope.boardData.panels, function(panel) {
@@ -71,7 +76,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams, timeseries
       .finally(function() {
         panel.cache.loading = false;
       });
-  }
+  };
   
   $scope.downloadCSV = function (panel, event) {
     var csv = []; // CSV represented as 2D array
@@ -124,7 +129,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams, timeseries
     }
 
     event.target.href = headerString + encodeURIComponent(csvString);
-  }
+  };
 
   $scope.saveBoard = function() {
     // Deep copy the board data and remove the cached data.
@@ -152,14 +157,14 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams, timeseries
     };
 
     // Initialize the active visualization type
-    var visualizationType = panel.display.visualization;
+    var visualizationType = panel.display.display_type;
     var newVisualization = new $scope.visualizations[visualizationType].visualization();
     panel.cache.visualizations[visualizationType] = newVisualization;
     panel.cache.visualization = panel.cache.visualizations[visualizationType];
 
     // Flag to toggle bootstrap dropdown menu status
     panel.cache.visualizationDropdownOpen = false;
-  }
+  };
 
   $scope.addPanel = function() {
     var panel = {
@@ -170,7 +175,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams, timeseries
         code: ''
       },
       display: {
-        visualization: 'timeseries'
+        display_type: 'timeseries'
       }
     };
     $scope.boardData.panels.unshift(panel);
@@ -189,7 +194,7 @@ function ($scope, $http, $location, $timeout, $filter, ngTableParams, timeseries
 app.directive('visualization', function ($http, $compile) {
   var linker = function($scope, element, attrs) {
     $scope.$watch('module', function () {
-      $http.get(['static', 'visualizations', $scope.module.info.title, $scope.module.info.template].join('/'))
+      $http.get(['static', 'visualizations', $scope.module.meta.title, $scope.module.meta.template].join('/'))
         .success(function(data, status, headers, config) {
           element.html(data);
           $compile(element.contents())($scope);
@@ -206,15 +211,3 @@ app.directive('visualization', function ($http, $compile) {
     }
   };
 });
-
-String.prototype.hashCode = function() {
-  var hash = 0, i, chr, len;
-  if (this.length == 0) return hash;
-  for (i = 0, len = this.length; i < len; i++) {
-    chr   = this.charCodeAt(i);
-    hash  = ((hash << 5) - hash) + chr;
-    hash |= 0; // Convert to 32bit integer
-  }
-  // Must start with a letter to make ng-table happy
-  return 'a' + hash;
-};

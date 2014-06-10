@@ -1,11 +1,15 @@
-var module = angular.module('gauge', ['angular-rickshaw']);
+var module = angular.module('jia.gauge', []);
 
 module.factory('gauge', function () {
 
-  var info = {
+  var meta = {
     title: 'gauge',
     readableTitle: 'Gauge',
     template: 'gauge.html',
+
+    css: [
+      '/static/visualizations/gauge/gauge.css'
+    ],
 
     requiredFields: [
       '@value'
@@ -13,7 +17,7 @@ module.factory('gauge', function () {
   };
 
   var visualization = function () {
-    this.info = info;
+    this.meta = meta;
     this.value = 0;
     
     this.setData = function (data, msg) {
@@ -22,7 +26,7 @@ module.factory('gauge', function () {
   }
 
   return {
-    info: info,
+    meta: meta,
     visualization: visualization
   }
 });
