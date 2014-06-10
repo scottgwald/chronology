@@ -4,23 +4,15 @@ import unittest
 from collections import defaultdict
 from datetime import datetime
 from datetime import timedelta
+from mock import patch
 from pykronos import KronosClient
 from pykronos.client import TIMESTAMP_FIELD
 from pykronos.utils.cache import QueryCache
 from pykronos.utils.time import datetime_to_kronos_time
 from pykronos.utils.time import timedelta_to_kronos_time
 
-class FuncCounter(object):
-  def __init__(self, wrapped):
-    self.counter = 0
-    self._wrapped = wrapped
 
-  def __call__(self, *args, **kwargs):
-    self.counter += 1
-    return self._wrapped(*args, **kwargs)
-  
-
-class ComputeCacheTest(unittest.TestCase):
+class QueryCacheTest(unittest.TestCase):
   def setUp(self):
     self.client = KronosClient('http://localhost:9191/',
                                blocking=False,
@@ -69,8 +61,11 @@ class ComputeCacheTest(unittest.TestCase):
 
   def verify_results(self, result_func, cache, expected_results,
                      expected_computations):
-    initial_computations = cache._compute_and_cache_bucket.counter
-    results = result_func()
+    with patch.object(cache, '_compute_and_cache_bucket',
+                      wraps=cache._compute_and_cache_bucket) as mock_method:
+      results = result_func()
+      self.assertEqual(mock_method.call_count, expected_computations)
+
     self.assertEqual(len(results), expected_results)
     result_time = self.start_time
     for idx, result in enumerate(results):
@@ -79,8 +74,6 @@ class ComputeCacheTest(unittest.TestCase):
       self.assertEqual(result['b_sum'], sum([2, 7, 12, 17] + [idx * 4 * (
               self.bucket_width.total_seconds() / 60)]))
       result_time += self.bucket_width
-    self.assertEqual(cache._compute_and_cache_bucket.counter - initial_computations,
-                     expected_computations)
 
   def test_cache_exceptions(self):
     # Bucket width shouldn't be more granular than 1 second.
@@ -108,7 +101,6 @@ class ComputeCacheTest(unittest.TestCase):
   def test_cache_layer(self):
     cache = QueryCache(self.client, self.filter_and_sum,
                        self.bucket_width, self.computed_namespace)
-    cache._compute_and_cache_bucket = FuncCounter(cache._compute_and_cache_bucket)
     start_time = self.start_time - (self.bucket_width * 3)
     end_time = self.start_time + (self.total_events * self.increment) + (
       self.bucket_width * 3)
@@ -130,6 +122,17 @@ class ComputeCacheTest(unittest.TestCase):
     self.verify_results(lambda: list(
         cache.compute_and_cache(start_time, end_time, untrusted_time)),
                         cache, 25, 17)
+    self.verify_results(lambda: list(
+        cache.cached_results(start_time, end_time)),
+                        cache, 11, 0)
+
+    # Overlapping time queries should result in the same
+    # results as before, and benefit from the cache.
+    self.verify_results(lambda: list(
+        cache.compute_and_cache(start_time - self.bucket_width,
+                                end_time + self.bucket_width,
+                                untrusted_time)),
+                        cache, 25, 19)
     self.verify_results(lambda: list(
         cache.cached_results(start_time, end_time)),
                         cache, 11, 0)

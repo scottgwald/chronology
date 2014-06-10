@@ -23,10 +23,10 @@ class QueryCache(object):
   resulting computation for the future.
 
   Given an opaque function that retrieves and computes time series
-  based on a start and end time, calculates and saves the resulting
-  computed series results in a Kronos scratch namespace.  Future
-  queries to similar time ranges will be retrieved from the cache
-  rather than computed again.
+  based on a start and end time, the cache calculates and saves the
+  resulting computed series results in a Kronos scratch namespace.
+  Future queries to similar time ranges will be retrieved from the
+  cache rather than computed again.
 
   Design considerations:
   - We store one Kronos event per time bucket, which is fine if a
@@ -87,6 +87,12 @@ class QueryCache(object):
     unique cache stream name.  Different `query_function`
     implementations at different `bucket_width` values will be cached
     to different streams.
+
+    TODO(marcua): This approach won't work for dynamically-generated
+    functions.  We will want to either:
+      1) Hash the function closure/containing scope.
+      2) Ditch this approach and rely on the caller to tell us all the
+         information that makes this function unique.
     """
     query_details = [
       str(QueryCache.QUERY_CACHE_VERSION),
@@ -228,10 +234,9 @@ class QueryCache(object):
 
     # Get any cached results, grouped by bucket.
     if force_compute is True:
-      cached_bucket_iterator = [].__iter__()
+      cached_bucket_iterator = iter([])
     else:
-      cached_bucket_iterator = (self._cached_results(start_time, end_time)
-                                .__iter__())
+      cached_bucket_iterator = iter(self._cached_results(start_time, end_time))
 
     # Use either the cached results or compute any uncached buckets.
     # Cache previously uncached results if they are guaranteed to have
@@ -244,7 +249,7 @@ class QueryCache(object):
         except StopIteration:
           pass
       emit_events = None
-      if current_cached_bucket != None and (
+      if (current_cached_bucket != None) and (
         current_cached_bucket[0] == required_bucket):
         emit_events = current_cached_bucket[1]
         current_cached_bucket = None
