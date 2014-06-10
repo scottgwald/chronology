@@ -21,3 +21,7 @@ ALLOWED_EMAILS = map(re.compile, [
 '.+@YOUR_DOMAIN.COM$',
 ])
 ENABLE_GOOGLE_AUTH = False
+GOOGLE_CLIENT_ID = ''
+GOOGLE_CLIENT_SECRET = ''
+# Set http://yourdomain.com/google_callback as an authorized redirect URI
+# when you set up your client ID at https://console.developers.google.com/
