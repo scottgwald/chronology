@@ -37,7 +37,7 @@ def require_auth(fn):
         params = dict(response_type='code',
                       scope=' '.join(scope),
                       client_id=app.config['GOOGLE_CLIENT_ID'],
-                      approval_prompt='force',  # or 'auto'
+                      approval_prompt='auto',
                       redirect_uri=url_for('google_callback', _external=True))
         url = auth_uri + '?' + urllib.urlencode(params)
         session['next'] = request.path
