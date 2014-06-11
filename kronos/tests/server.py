@@ -80,4 +80,4 @@ class KronosServerTestCase(unittest.TestCase):
                                      data=json.dumps(data),
                                      buffered=True)
     self.assertEqual(response.status_code, 200)
-    return dict(map(json.loads, response.data.splitlines()))
+    return map(json.loads, response.data.splitlines())

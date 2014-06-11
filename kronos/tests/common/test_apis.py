@@ -196,13 +196,10 @@ class TestKronosAPIs(KronosServerTestCase):
       stream = 'TestKronosAPIs_test_streams_{}'.format(n)
       self.put(stream, [{'@time': n, n: None, 'lol': 'cat'}])
       streams[stream] = n
-    streams = {stream: properties
-               for stream, properties in self.get_streams().iteritems()
-               if stream.startswith('TestKronosAPIs_test_streams_')}
-    self.assertEqual(len(streams), 10)
-    for stream, properties in streams.iteritems():
-      n = stream.replace('TestKronosAPIs_test_streams_', '')
-      self.assertEqual(set(properties), {n, 'lol'})
+    retrieved_streams = {stream for stream in self.get_streams()
+                         if stream.startswith('TestKronosAPIs_test_streams_')}
+    self.assertEqual(len(retrieved_streams), 10)
+    self.assertEqual(retrieved_streams, set(streams.iterkeys()))
 
   def test_namespaces(self):
     namespace1 = 'namespace1'
