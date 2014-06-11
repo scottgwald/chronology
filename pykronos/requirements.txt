@@ -1,3 +1,4 @@
 # Django>=1.4 --- no hard depdendency; only needed if KronosMiddleware is used.
 python-dateutil==2.2
 requests==2.2.1
+mock==1.0.1
