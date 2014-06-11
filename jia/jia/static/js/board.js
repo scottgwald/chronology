@@ -44,13 +44,37 @@ function ($scope, $http, $location, $timeout, $injector) {
 
   $scope.visualizations = this.loadVisualizations();
 
+  $scope.log = function () {
+    this.infos = [];
+    this.info = function (message) {
+      this.infos.push(message);
+    };
+
+    this.warns = [];
+    this.warn = function (message) {
+      this.warns.push(message);
+    };
+
+    this.errors = [];
+    this.error = function (message) {
+      this.errors.push(message);
+    };
+
+    this.clear = function () {
+      this.infos = [];
+      this.warns = [];
+      this.errors = [];
+    };
+  };
+
   $scope.changeVisualization = function(panel, type) {
     // Avoid recalculating stuff if the user selects the type that is already being viewed
     if (type.meta.title != panel.display.display_type) {
+      panel.cache.log.clear();
       panel.display.display_type = type.meta.title;
       panel.cache.visualizations[type.meta.title] = new type.visualization();
       panel.cache.visualization = panel.cache.visualizations[type.meta.title];
-      panel.cache.visualization.setData(panel.cache.data);
+      panel.cache.visualization.setData(panel.cache.data, panel.cache.log);
     }
     panel.cache.visualizationDropdownOpen = false;
   };
@@ -63,15 +87,15 @@ function ($scope, $http, $location, $timeout, $injector) {
 
   $scope.callSource = function(panel) {
     panel.cache.loading = true;
+    panel.cache.log.clear();
     
     $http.post('/callsource', panel.data_source)
       .success(function(data, status, headers, config) {
         panel.cache.data = data;
-        panel.cache.visualization.setData(data);
+        panel.cache.visualization.setData(data, panel.cache.log);
       })
       .error(function(data, status, headers, config) {
-        // TODO(marcua): display error.
-        console.log(data);
+        panel.cache.log.error("Could not reach server");
       })
       .finally(function() {
         panel.cache.loading = false;
@@ -153,7 +177,8 @@ function ($scope, $http, $location, $timeout, $injector) {
   $scope.initPanel = function(panel) {
     panel.cache = {
       data: {events: [{'@time': 0, '@value': 0}]},
-      visualizations: {}
+      visualizations: {},
+      log: new $scope.log()
     };
 
     // Initialize the active visualization type

@@ -176,3 +176,13 @@ rickshaw {
 .ng-table-counts {
   display: none;
 }
+
+.log {
+  margin: 10px;
+}
+
+.log ul {
+  display: inline-block;
+  vertical-align: middle;
+  padding-left: 30px;
+}

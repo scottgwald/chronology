@@ -96,7 +96,23 @@
               <img class="loading" src="/static/img/loading.gif">
             </div>
           </div>
-          <div class="error-alert">
+          <div class="error log alert alert-error" ng-if="panel.cache.log.errors.length">
+            <span class="glyphicon glyphicon-remove-sign"></span>
+            <ul>
+              <li ng-repeat="message in panel.cache.log.errors">{[ message ]}</li>
+            </ul>
+          </div>
+          <div class="warn log alert alert-warn" ng-if="panel.cache.log.warns.length">
+            <span class="glyphicon glyphicon-exclamation-sign"></span>
+            <ul>
+              <li ng-repeat="message in panel.cache.log.warns">{[ message ]}</li>
+            </ul>
+          </div>
+          <div class="info log alert alert-info" ng-if="panel.cache.log.infos.length">
+            <span class="glyphicon glyphicon-info-sign"></span>
+            <ul>
+              <li ng-repeat="message in panel.cache.log.infos">{[ message ]}</li>
+            </ul>
           </div>
           <div ui-codemirror="editorOptions"
                ng-model="panel.data_source.code"

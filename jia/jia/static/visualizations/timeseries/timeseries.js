@@ -74,6 +74,7 @@ module.factory('timeseries', function () {
         }
       } else {
         series = [{name: 'series', data: [{x: 0, y: 0}]}];
+        msg.warn("Data contains no events");
       }
 
       this.series = series;
