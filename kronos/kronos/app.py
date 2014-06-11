@@ -18,7 +18,6 @@ from kronos.core.validators import validate_stream
 from kronos.storage import router
 from kronos.utils.decorators import endpoint
 from kronos.utils.decorators import ENDPOINTS
-from kronos.utils.streams import get_stream_properties
 
 GREENLET_POOL = gevent.pool.Pool(size=settings.node['greenlet_pool_size'])
 
