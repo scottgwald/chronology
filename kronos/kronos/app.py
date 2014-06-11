@@ -217,8 +217,7 @@ def list_streams(environment, start_response, headers):
     for stream in backend.streams(namespace):
       if stream.startswith(prefix) and stream not in streams_seen_so_far:
         streams_seen_so_far.add(stream)
-        properties = get_stream_properties(namespace, stream)
-        yield '{0}\r\n'.format(json.dumps((stream, properties)))
+        yield '{0}\r\n'.format(json.dumps(stream))
   yield ''
 
 
