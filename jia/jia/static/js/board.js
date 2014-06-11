@@ -217,12 +217,12 @@ function ($scope, $http, $location, $timeout, $injector) {
 }]);
 
 app.directive('visualization', function ($http, $compile) {
-  var linker = function($scope, element, attrs) {
-    $scope.$watch('module', function () {
-      $http.get(['static', 'visualizations', $scope.module.meta.title, $scope.module.meta.template].join('/'))
+  var linker = function(scope, element, attrs) {
+    scope.$watch('module', function () {
+      $http.get(['static', 'visualizations', scope.module.meta.title, scope.module.meta.template].join('/'))
         .success(function(data, status, headers, config) {
           element.html(data);
-          $compile(element.contents())($scope);
+          $compile(element.contents())(scope);
         });
     });
   }
