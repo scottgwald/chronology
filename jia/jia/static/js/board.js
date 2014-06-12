@@ -1,4 +1,5 @@
-var app = angular.module('boardApp', ['ui.codemirror',
+var app = angular.module('boardApp', ['ngSanitize',
+                                      'ui.codemirror',
                                       'ui.bootstrap',
                                       'jia.timeseries',
                                       'jia.table',
@@ -17,8 +18,8 @@ app.config(['$compileProvider', function($compileProvider) {
 }]);
 
 app.controller('boardController',
-['$scope', '$http', '$location', '$timeout', '$injector',
-function ($scope, $http, $location, $timeout, $injector) {
+['$scope', '$http', '$location', '$timeout', '$injector', '$sce', '$sanitize',
+function ($scope, $http, $location, $timeout, $injector, $sce, $sanitize) {
   // TODO(marcua): Re-add the sweet periodic UI refresh logic I cut
   // out of @usmanm's code in the Angular rewrite.
   var location = $location.absUrl().split('/');
@@ -47,18 +48,27 @@ function ($scope, $http, $location, $timeout, $injector) {
   $scope.log = function () {
     this.infos = [];
     this.info = function (message) {
-      this.infos.push(message);
+      this.write(this.infos, message, code);
     };
 
     this.warns = [];
     this.warn = function (message) {
-      this.warns.push(message);
+      this.write(this.infos, message, code);
     };
 
     this.errors = [];
     this.error = function (message) {
-      this.errors.push(message);
+      this.write(this.infos, message, code);
     };
+
+    this.write = function (log, message, code) {
+      message = message.replace(/\</g, '&lt;').replace(/\>/g, '&gt;');
+      message = $sanitize(message);
+      if (code) {
+        message = "<pre>" + message + "</pre>";
+      }
+      log.push($sce.trustAsHtml(message));
+    }
 
     this.clear = function () {
       this.infos = [];
@@ -95,7 +105,18 @@ function ($scope, $http, $location, $timeout, $injector) {
         panel.cache.visualization.setData(data, panel.cache.log);
       })
       .error(function(data, status, headers, config) {
-        panel.cache.log.error("Could not reach server");
+        if (status == 400) {
+          panel.cache.log.error(data.message)
+          panel.cache.log.error(data.data.name + ": " + data.data.message);
+          var traceback = "";
+          _.each(data.data.traceback, function (trace) {
+            traceback += trace;
+          });
+          panel.cache.log.error(traceback, true);
+        }
+        else {
+          panel.cache.log.error("Could not reach server");
+        }
       })
       .finally(function() {
         panel.cache.loading = false;
