@@ -100,19 +100,19 @@
           <div class="error log alert alert-error" ng-if="panel.cache.log.errors.length">
             <div class="alert-icon"><span class="glyphicon glyphicon-remove-sign"></span></div>
             <ul>
-              <li ng-repeat="message in panel.cache.log.errors">{[ message ]}</li>
+              <li ng-repeat="message in panel.cache.log.errors" ng-bind-html="message"></li>
             </ul>
           </div>
           <div class="warn log alert alert-warn" ng-if="panel.cache.log.warns.length">
             <div class="alert-icon"><span class="glyphicon glyphicon-exclamation-sign"></span></div>
             <ul>
-              <li ng-repeat="message in panel.cache.log.warns">{[ message ]}</li>
+              <li ng-repeat="message in panel.cache.log.warns" ng-bind-html="message"></li>
             </ul>
           </div>
           <div class="info log alert alert-info" ng-if="panel.cache.log.infos.length">
             <div class="alert-icon"><span class="glyphicon glyphicon-info-sign"></span></div>
             <ul>
-              <li ng-repeat="message in panel.cache.log.infos">{[ message ]}</li>
+              <li ng-repeat="message in panel.cache.log.infos" ng-bind-html="message"></li>
             </ul>
           </div>
           <div ui-codemirror="editorOptions"

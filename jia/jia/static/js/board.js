@@ -47,17 +47,17 @@ function ($scope, $http, $location, $timeout, $injector, $sce, $sanitize) {
 
   $scope.log = function () {
     this.infos = [];
-    this.info = function (message) {
+    this.info = function (message, code) {
       this.write(this.infos, message, code);
     };
 
     this.warns = [];
-    this.warn = function (message) {
+    this.warn = function (message, code) {
       this.write(this.infos, message, code);
     };
 
     this.errors = [];
-    this.error = function (message) {
+    this.error = function (message, code) {
       this.write(this.infos, message, code);
     };
 
