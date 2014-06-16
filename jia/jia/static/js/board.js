@@ -53,12 +53,12 @@ function ($scope, $http, $location, $timeout, $injector, $sce, $sanitize) {
 
     this.warns = [];
     this.warn = function (message, code) {
-      this.write(this.infos, message, code);
+      this.write(this.warns, message, code);
     };
 
     this.errors = [];
     this.error = function (message, code) {
-      this.write(this.infos, message, code);
+      this.write(this.errors, message, code);
     };
 
     this.write = function (log, message, code) {
