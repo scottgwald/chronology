@@ -19,6 +19,7 @@
     <!-- Widget JS -->
     <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.6/angular.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.6/angular-sanitize.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/codemirror/4.1.0/codemirror.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/codemirror/4.1.0/package/mode/python/python.js"></script>
     <script src="/static/js/ui-codemirror.js"></script>
@@ -62,7 +63,7 @@
         </button>
       </div>
       <div style="clear: both;"></div>
-      <div class="panel" ng-repeat="panel in boardData.panels">
+      <div class="panel" ng-repeat="panel in boardData.panels" ng-cloak>
         <input type="text" class="form-control panel-title" placeholder="New panel" ng-model="panel.title"></input>
         <visualization ng-repeat="visualization in panel.cache.visualizations" module="visualization" ng-if="visualization.meta.title == panel.display.display_type"></visualization>
         <div class="code-box">
@@ -97,21 +98,21 @@
             </div>
           </div>
           <div class="error log alert alert-error" ng-if="panel.cache.log.errors.length">
-            <span class="glyphicon glyphicon-remove-sign"></span>
+            <div class="alert-icon"><span class="glyphicon glyphicon-remove-sign"></span></div>
             <ul>
-              <li ng-repeat="message in panel.cache.log.errors">{[ message ]}</li>
+              <li ng-repeat="message in panel.cache.log.errors" ng-bind-html="message"></li>
             </ul>
           </div>
           <div class="warn log alert alert-warn" ng-if="panel.cache.log.warns.length">
-            <span class="glyphicon glyphicon-exclamation-sign"></span>
+            <div class="alert-icon"><span class="glyphicon glyphicon-exclamation-sign"></span></div>
             <ul>
-              <li ng-repeat="message in panel.cache.log.warns">{[ message ]}</li>
+              <li ng-repeat="message in panel.cache.log.warns" ng-bind-html="message"></li>
             </ul>
           </div>
           <div class="info log alert alert-info" ng-if="panel.cache.log.infos.length">
-            <span class="glyphicon glyphicon-info-sign"></span>
+            <div class="alert-icon"><span class="glyphicon glyphicon-info-sign"></span></div>
             <ul>
-              <li ng-repeat="message in panel.cache.log.infos">{[ message ]}</li>
+              <li ng-repeat="message in panel.cache.log.infos" ng-bind-html="message"></li>
             </ul>
           </div>
           <div ui-codemirror="editorOptions"
