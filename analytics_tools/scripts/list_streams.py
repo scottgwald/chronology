@@ -4,7 +4,7 @@
 A script to list the available streams on a Kronos server.
 
 example usage:
-  python list_streams.py --kronos-url http://your-kronos.instance:port [--namespace some_namespace]
+  python scripts/list_streams.py --kronos-url http://your-kronos.instance:port [--namespace some_namespace]
 """
 
 import argparse

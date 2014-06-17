@@ -4,9 +4,9 @@
 A script to inspect a Kronos stream.
 
 example usage:
-  python stream_inspector.py --start 2014-01-7T10:49:41.5-03:00 --end 2014-09-25T11:49:41.5-02:00 --kronos-url http://your-kronos.instance:port --stream the.name.of.a.stream print
-  python stream_inspector.py --start 2014-01-7T10:49:41.5-03:00 --end 2014-09-25T11:49:41.5-02:00 --kronos-url http://your-kronos.instance.com:port --stream the.name.of.a.stream csv --fields field1 field2
-  python stream_inspector.py --start 2014-01-7T10:49:41.5-03:00 --end 2014-09-25T11:49:41.5-02:00 --kronos-url http://your-kronos.instance.com:port --stream the.name.of.a.stream aggregate --field field1 --aggregator count --time-bucket-width [3600 would be an hour]
+  python scripts/stream_inspector.py --start 2014-01-7T10:49:41.5-03:00 --end 2014-09-25T11:49:41.5-02:00 --kronos-url http://your-kronos.instance:port --stream the.name.of.a.stream print
+  python scripts/stream_inspector.py --start 2014-01-7T10:49:41.5-03:00 --end 2014-09-25T11:49:41.5-02:00 --kronos-url http://your-kronos.instance.com:port --stream the.name.of.a.stream csv --fields field1 field2
+  python scripts/stream_inspector.py --start 2014-01-7T10:49:41.5-03:00 --end 2014-09-25T11:49:41.5-02:00 --kronos-url http://your-kronos.instance.com:port --stream the.name.of.a.stream aggregate --field field1 --aggregator count --time-bucket-width [3600 would be an hour]
 """
 
 import argparse

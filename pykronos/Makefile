@@ -6,6 +6,8 @@ clean:
 	sudo rm -rf build dist *.egg-info
 test: clean
 	python runtests.py
+install:
+	python setup.py install
 testcoverage: clean
 	coverage run runtests.py
 htmlcoverage: clean

@@ -4,11 +4,13 @@ import json
 import requests
 import time
 import traceback
+import types
 import sys
 
 from collections import defaultdict
 from contextlib import contextmanager
 from datetime import datetime
+from dateutil.parser import parse
 from threading import Lock
 from threading import Thread
 
@@ -128,8 +130,11 @@ class KronosClient(object):
       for event in events:
         if TIMESTAMP_FIELD not in event:
           event[TIMESTAMP_FIELD] = timestamp
-        elif isinstance(event[TIMESTAMP_FIELD], datetime):
-          event[TIMESTAMP_FIELD] = datetime_to_kronos_time(
+        else:
+          if isinstance(event[TIMESTAMP_FIELD], types.StringTypes):
+            event[TIMESTAMP_FIELD] = parse(event[TIMESTAMP_FIELD])
+          if isinstance(event[TIMESTAMP_FIELD], datetime):
+            event[TIMESTAMP_FIELD] = datetime_to_kronos_time(
               event[TIMESTAMP_FIELD])
 
     namespace = namespace or self.namespace
@@ -166,6 +171,10 @@ class KronosClient(object):
     events returned.  An optional `order` requests results in `ASCENDING`
     or `DESCENDING` order.
     """
+    if isinstance(start_time, types.StringTypes):
+      start_time = parse(start_time)
+    if isinstance(end_time, types.StringTypes):
+      end_time = parse(end_time)      
     if isinstance(start_time, datetime):
       start_time = datetime_to_kronos_time(start_time)
     if isinstance(end_time, datetime):
@@ -219,6 +228,10 @@ class KronosClient(object):
     `start_time` and `end_time`.  An optional `start_id` allows the
     client to delete events starting from an ID rather than a timestamp.
     """
+    if isinstance(start_time, types.StringTypes):
+      start_time = parse(start_time)
+    if isinstance(end_time, types.StringTypes):
+      end_time = parse(end_time)      
     if isinstance(start_time, datetime):
       start_time = datetime_to_kronos_time(start_time)
     if isinstance(end_time, datetime):

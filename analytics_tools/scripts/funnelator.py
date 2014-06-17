@@ -5,7 +5,7 @@ A script to calculate funnels from various kronos streams that all
 share the same user-identifying field.
 
 example usage:
-  python funnelator.py --kronos-url http://kronos-url.com:port --user-field userId --start 2013-09-25T10:49:41.5-03:00 --end 2014-09-25T10:49:41.5-03:00 --streams stream1 stream2 stream3
+  python scripts/funnelator.py --kronos-url http://kronos-url.com:port --user-field userId --start 2013-09-25T10:49:41.5-03:00 --end 2014-09-25T10:49:41.5-03:00 --streams stream1 stream2 stream3
 """
 import argparse
 import logging
