@@ -1,5 +1,6 @@
 import atexit
 import cloudpickle
+import functools
 import gipc
 import itertools
 import multiprocessing
@@ -80,6 +81,16 @@ class AbstractExecutor(object):
     self.current_task_id += 1
     return Task(task_id, func, args, kwargs)
   
+  def async(self, func):
+    """
+    Decorator that will execute `func` asynchronously using this Executor and
+    return an AsyncResult object.
+    """
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+      return self.submit(func, args, kwargs)
+    return wrapper
+
   def submit(self, func, args=None, kwargs=None):
     """
     Schedules the callable, func, to be executed asynchronously as

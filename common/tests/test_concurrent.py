@@ -36,7 +36,7 @@ class ExecutorTest(unittest.TestCase):
       self.assertEqual(result, func('hello'))
 
   @executor_test
-  def test_async(self):
+  def test_nonblocking(self):
     func = lambda: gevent.sleep(0.2)
     # We have a concurrent factor of 9 for both executors so if we schedule
     # N `func` calls, we should have to wait for approximately
@@ -73,3 +73,21 @@ class ExecutorTest(unittest.TestCase):
         except gevent.Timeout:
           self.fail()
       self.executor.wait(results) # Wait for executor to be totally free.
+
+  @executor_test
+  def test_async_decorator(self):
+    @self.executor.async
+    def func():
+      gevent.sleep(0.2)
+      return 'lolcat'
+    
+    start_time = time.time()
+    result = func()
+    call_duration = time.time() - start_time
+    self.assertTrue(isinstance(result, gevent.event.AsyncResult))
+    result = result.get()
+    wait_duration = time.time() - start_time
+    self.assertTrue(call_duration < 0.05)
+    self.assertTrue(wait_duration >= 0.2)
+    self.assertTrue(wait_duration <= 0.25)
+    self.assertEqual(result, 'lolcat')
