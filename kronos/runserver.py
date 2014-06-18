@@ -1,8 +1,7 @@
 #!/usr/bin/python
+import kronos.core.monkey; kronos.core.monkey.patch_all()
 
-import gevent.monkey; gevent.monkey.patch_all()
 import gevent.pywsgi
-import geventhttpclient.httplib; geventhttpclient.httplib.patch()
 
 import imp
 import logging; logging.basicConfig()

@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+import kronos.core.monkey; kronos.core.monkey.patch_all()
+
 import functools
 import importlib
 import os
@@ -7,11 +9,10 @@ import subprocess
 import sys
 import unittest
 
-import gevent.monkey; gevent.monkey.patch_all()
-import geventhttpclient.httplib; geventhttpclient.httplib.patch()
 
 from argparse import ArgumentParser
 
+from kronos.core.exceptions import BackendMissing
 
 def load_config(config_name):
   # Configure Kronos with the right settings before running the tests.
@@ -23,12 +24,11 @@ def load_config(config_name):
 
 
 def teardown_config(config_name):
-  if config_name == 'cassandra':
-    from kronos.storage import router
-    for namespace in (router.get_backend('cassandra').namespaces
-                      .itervalues()):
-      namespace.drop()
-
+  from kronos.storage import router
+  try:
+    router.get_backend(config_name)._clear()
+  except BackendMissing:
+    pass
 
 def test_against(*configs):
   def decorator(function):
@@ -59,7 +59,7 @@ def test_against(*configs):
   return decorator
 
 
-@test_against('memory', 'cassandra')
+@test_against('memory', 'cassandra', 'elasticsearch')
 def test_common():
   test_suites = unittest.defaultTestLoader.discover(
     start_dir=os.path.join(os.path.dirname(__file__), 'tests/common'),

@@ -1,0 +1,67 @@
+{
+  "template": "{{ event_index_prefix }}*",
+  "settings": {
+    "index.number_of_shards": 2,
+    "index.number_of_replicas": 0,
+    "index.auto_expand_replicas": false,
+    "index.refresh_interval": "60s",
+    "index.store.compress.stored": true,
+    "index.query.default_field": "_source",
+    "analysis": {
+      "analyzer": {
+        "string_analyzer": {
+          "filter": [
+            "standard",
+            "lowercase",
+            "stop",
+            "asciifolding"
+          ],
+          "type": "custom",
+          "tokenizer": "uax_url_email"
+        }
+      }
+    }
+  },
+  "mappings": {
+    "_default_": {
+      "_all": {
+        "enabled": false
+      },
+      "_source": {
+        "compress": false
+      },
+      "_id": {
+        "path": "{{ id_field }}"
+      },
+      "_timestamp" : { 
+        "enabled" : true 
+      },
+      "numeric_detection" : true,
+      "dynamic_templates": [
+        {
+          "string_template": {
+            "match": "*",
+            "match_mapping_type": "string",
+            "mapping": {
+              "type": "string",
+              "index": "analyzed",
+              "analyzer": "string_analyzer"
+            }
+          }
+        }
+      ],
+      "properties": {
+        "{{ id_field }}": {
+          "type": "string",
+          "store": "no",
+          "index": "not_analyzed"
+        },
+        "{{ timestamp_field }}": {
+          "type": "float",
+          "store": "no",
+          "index": "analyzed"
+        }
+      }
+    }
+  }
+}

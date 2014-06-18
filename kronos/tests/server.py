@@ -23,6 +23,11 @@ class KronosServerTestCase(unittest.TestCase):
     self.delete_path = '%s/delete' % EVENT_BASE_PATH
     self.index_path = '%s/index' % BASE_PATH    
     self.streams_path = '%s/streams' % BASE_PATH
+  
+  def index(self):
+    response = self.http_client.get(path=self.index_path)
+    self.assertEqual(response.status_code, 200)
+    return json.loads(response.data)
 
   def put(self, stream_or_mapping, events=None, namespace=None):
     data = {}
@@ -42,6 +47,7 @@ class KronosServerTestCase(unittest.TestCase):
   def get(self, stream, start_time, end_time, start_id=None, limit=None,
           order=None, namespace=None):
     data = {'stream': stream, 'end_time': end_time}
+    
     if start_id:
       data['start_id'] = start_id
     else:

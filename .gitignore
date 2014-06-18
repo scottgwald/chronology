@@ -5,5 +5,7 @@
 .coverage
 .tox
 *.egg-info
+*.swp
+*.swo
 coverage_html
 settings.cfg
