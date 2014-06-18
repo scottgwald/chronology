@@ -13,4 +13,4 @@ testcoverage: clean
 htmlcoverage: clean
 	coverage html -d coverage_html
 readme: clean
-	python ../common/readmeify.py < demo.py > README.md
+	python pykronos/common/readmeify.py < demo.py > README.md

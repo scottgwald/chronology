@@ -1,9 +1,10 @@
-cassandra-driver==2.0.0b1
+cassandra-driver==2.0.2
 greenlet==0.4.2
-gevent==1.0
-geventhttpclient==1.0a
+gevent==1.0.1
+geventhttpclient==1.1.0
+gipc==0.4.0
 pycassa==1.11.0
-werkzeug==0.9.4
+werkzeug==0.9.6
 python-dateutil==2.2
-requests==2.2.1
-uwsgi==2.0.1
+requests==2.3.0
+uwsgi==2.0.5.1

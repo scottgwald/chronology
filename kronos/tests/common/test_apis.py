@@ -156,17 +156,17 @@ class TestKronosAPIs(KronosServerTestCase):
 
     # Test delete from non-existent streams.
     num_deleted = self.delete(stream, 0, 4)
-    for num in num_deleted.itervalues():
+    for num in num_deleted[stream].itervalues():
       self.assertEqual(num, 0)
 
     # Test delete with intervals that have and don't have events.
     self.put(stream, event1)
     num_deleted = self.delete(stream, 2, 4)
-    for num in num_deleted.itervalues():
+    for num in num_deleted[stream].itervalues():
       self.assertEqual(num, 0)
     self.assertEqual(len(self.get(stream, 0, 4)), 1)
     num_deleted = self.delete(stream, 0, 1)
-    for num in num_deleted.itervalues():
+    for num in num_deleted[stream].itervalues():
       self.assertEqual(num, 1)
     self.assertEqual(len(self.get(stream, 0, 4)), 0)
 
@@ -174,7 +174,7 @@ class TestKronosAPIs(KronosServerTestCase):
     self.put(stream, event2 + event3)
     self.assertEqual(len(self.get(stream, 0, 4)), 2)
     num_deleted = self.delete(stream, 2, 2)
-    for num in num_deleted.itervalues():
+    for num in num_deleted[stream].itervalues():
       self.assertEqual(num, 2)
     self.assertEqual(len(self.get(stream, 0, 4)), 0)
 
@@ -183,7 +183,7 @@ class TestKronosAPIs(KronosServerTestCase):
     start_id = self.get(stream, 0, 4, limit=1)[0][ID_FIELD]
     self.assertEqual(len(self.get(stream, 0, 4)), 2)
     num_deleted = self.delete(stream, None, 2, start_id=start_id)
-    for num in num_deleted.itervalues():
+    for num in num_deleted[stream].itervalues():
       self.assertEqual(num, 1)
     events = self.get(stream, 0, 4)
     self.assertEqual(len(events), 1)

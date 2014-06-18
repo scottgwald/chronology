@@ -44,9 +44,11 @@ if __name__ == '__main__':
   from kronos.app import application
 
   if args.reload:
-    werkzeug.serving.run_with_reloader(
-      lambda: gevent.pywsgi.WSGIServer(('0.0.0.0', int(args.port)),
-                                       application).serve_forever())
+    def reload():
+      print 'Reloading kronosd...'
+      gevent.pywsgi.WSGIServer(('0.0.0.0', int(args.port)),
+                               application).serve_forever()
+    werkzeug.serving.run_with_reloader(reload)
   else:
     gevent.pywsgi.WSGIServer(('0.0.0.0', int(args.port)),
                              application).serve_forever()

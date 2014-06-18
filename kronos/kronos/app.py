@@ -1,5 +1,3 @@
-import gevent
-import gevent.pool
 import json
 import sys
 import time
@@ -12,6 +10,7 @@ import kronos
 from kronos.core.validators import validate_settings
 from kronos.conf import settings; validate_settings(settings)
 
+from kronos.common.concurrent import GreenletExecutor
 from kronos.conf.constants import ResultOrder
 from kronos.core.validators import validate_event
 from kronos.core.validators import validate_stream
@@ -19,9 +18,10 @@ from kronos.storage import router
 from kronos.utils.decorators import endpoint
 from kronos.utils.decorators import ENDPOINTS
 
-GREENLET_POOL = gevent.pool.Pool(size=settings.node['greenlet_pool_size'])
+async_executor = GreenletExecutor(
+  num_greenlets=settings.node.greenlet_pool_size)
 
-
+  
 @endpoint('/1.0/index')
 def index(environment, start_response, headers):
   """
@@ -29,18 +29,20 @@ def index(environment, start_response, headers):
   Doesn't expect any URL parameters.
   """
 
-  status = {'service': 'kronosd',
-            'version': kronos.__version__,
-            'id': settings.node['id'],
-            'storage': {}}
+  start_time = time.time()
+  response = {'service': 'kronosd',
+              'version': kronos.__version__,
+              'id': settings.node['id'],
+              'storage': {}}
 
   # Check if each backend is alive
   for name, backend in router.get_backends():
-    status['storage'][name] = {'ok': backend.is_alive(),
-                               'backend': settings.storage[name]['backend']}
-
+    response['storage'][name] = {'alive': backend.is_alive(),
+                                 'backend': settings.storage[name]['backend']}
+  response['@took'] = '{0}ms'.format(1000 * (time.time() - start_time))
+  
   start_response('200 OK', headers)
-  return json.dumps(status)
+  return json.dumps(response)
 
 @endpoint('/1.0/events/put', methods=['POST'])
 def put_events(environment, start_response, headers):
@@ -76,31 +78,29 @@ def put_events(environment, start_response, headers):
       except Exception, e:
         errors.append(repr(e))
 
-  # Spawn greenlets to insert events asynchronously into matching backends.
-  greenlets = []
+  results = {}
   for stream, events in events_to_insert.iteritems():
     backends = router.backends_to_mutate(namespace, stream)
     for backend, configuration in backends.iteritems():
-      greenlet = GREENLET_POOL.spawn(
-          backend.insert,
-          namespace,
-          stream,
-          events,
-          configuration)
-      greenlets.append(greenlet)
+      results[(stream, backend.name)] = async_executor.submit(
+        backend.insert,
+        [namespace, stream, events, configuration])
 
   # TODO(usmanm): Add async option to API and bypass this wait in that case?
   # Wait for all backends to finish inserting.
-  gevent.joinall(greenlets)
+  async_executor.wait(results.values())
 
-  # Did any greenlet fail?
-  for greenlet in greenlets:
-    if not greenlet.successful():
-      errors.append(repr(greenlet.exception))
+  # Did any insertion fail?
+  response = defaultdict(dict)
+  for (stream, backend), result in results.iteritems():
+    try:
+      result.get()
+      response[stream][backend] = len(events_to_insert[stream])
+    except Exception, e:
+      response[stream][backend] = -1
+      errors.append(repr(e))
 
   # Return count of valid events per stream.
-  response = { stream : len(events) for stream, events in
-                                        events_to_insert.iteritems() }
   response['@took'] = '{0}ms'.format(1000 * (time.time() - start_time))
   if errors:
     response['@errors'] = errors
@@ -133,7 +133,7 @@ def get_events(environment, start_response, headers):
   request_json = environment['json']
   try:
     validate_stream(request_json['stream'])
-  except Exception as e:
+  except Exception, e:
     start_response('400 Bad Request', headers)
     yield json.dumps({'@errors' : [repr(e)]})
     return
@@ -179,26 +179,46 @@ def delete_events(environment, start_response, headers):
   Either start_time or start_id should be specified. 
   """
 
+  start_time = time.time()
   request_json = environment['json']
   try:
     validate_stream(request_json['stream'])
-  except Exception as e:
+  except Exception, e:
     start_response('400 Bad Request', headers)
     return json.dumps({'@errors' : [repr(e)]})
 
   namespace = request_json.get('namespace', settings.default_namespace)
   backends = router.backends_to_mutate(namespace, request_json['stream'])
-  status = {}
+  statuses = {}
   for backend, conf in backends.iteritems():
-    status[backend.name] = backend.delete(
-        namespace,
-        request_json['stream'],
-        long(request_json.get('start_time', 0)),
-        long(request_json['end_time']),
-        request_json.get('start_id'),
-        conf)
+    statuses[backend.name] = async_executor.submit(
+      backend.delete,
+      [namespace,
+       request_json['stream'],
+       long(request_json.get('start_time', 0)),
+       long(request_json['end_time']),
+       request_json.get('start_id'),
+       conf])
+
+  async_executor.wait(statuses.values())
+
+  errors = []
+  response = {}
+  for backend, status in statuses.iteritems():
+    try:
+      response[backend] = status.get()
+    except Exception, e:
+      errors.append(repr(e))
+      response[backend] = -1
+
+  response = {request_json['stream']: response}
+  response['@took'] = '{0}ms'.format(1000 * (time.time() - start_time))
+  if errors:
+    statuses['@errors'] = errors
+  
   start_response('200 OK', headers)
-  return json.dumps(status)
+  return json.dumps(response)
+
 
 @endpoint('/1.0/streams', methods=['POST'])
 def list_streams(environment, start_response, headers):
