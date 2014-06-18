@@ -22,6 +22,10 @@ class Board(db.Model):
     db.session.add(self)
     db.session.commit()
 
+  def delete(self):
+    db.session.delete(self)
+    db.session.commit()
+
   def json(self):
     """A JSON-encoded description of this board.
 

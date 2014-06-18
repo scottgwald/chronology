@@ -1,6 +1,15 @@
 body {
   font-family: 'Cambo', serif;
   margin: 25px 50px;
+  padding-top: 50px;
+}
+
+a {
+  cursor: pointer;
+}
+
+.navbar-brand:hover {
+  color: #fff !important;
 }
 
 .board-navigation {
@@ -16,6 +25,11 @@ body {
   font-size: 20px;
   border: 0px solid;
   border-bottom: 1px solid #ccc;
+}
+
+.required {
+  border-bottom: 1px solid #f00 !important;
+  background: #fee;
 }
 
 .panel-title {

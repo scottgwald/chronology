@@ -1,11 +1,11 @@
-var app = angular.module('boardApp', ['ngSanitize',
-                                      'ui.codemirror',
-                                      'ui.bootstrap',
-                                      'jia.timeseries',
-                                      'jia.table',
-                                      'jia.gauge',
-                                      'jia.barchart'
-                                     ]);
+var app = angular.module('jia.boards', ['ngSanitize',
+                                        'ui.codemirror',
+                                        'ui.bootstrap',
+                                        'jia.timeseries',
+                                        'jia.table',
+                                        'jia.gauge',
+                                        'jia.barchart'
+                                       ]);
 
 app.config(['$interpolateProvider', function($interpolateProvider) {
   // Using {[ ]} to avoid collision with server-side {{ }}.
@@ -18,13 +18,14 @@ app.config(['$compileProvider', function($compileProvider) {
   $compileProvider.aHrefSanitizationWhitelist(/^\s*(https?|ftp|mailto|data):/);
 }]);
 
-app.controller('boardController',
-['$scope', '$http', '$location', '$timeout', '$injector', '$sce', '$sanitize',
-function ($scope, $http, $location, $timeout, $injector, $sce, $sanitize) {
+app.controller('BoardController',
+['$scope', '$http', '$location', '$timeout', '$injector', '$routeParams',
+ '$sce', '$sanitize', '$modal',
+function ($scope, $http, $location, $timeout, $injector, $routeParams,
+          $sce, $sanitize, $modal) {
   // TODO(marcua): Re-add the sweet periodic UI refresh logic I cut
   // out of @usmanm's code in the Angular rewrite.
-  var location = $location.absUrl().split('/');
-  var boardId = location[location.length - 1];
+  $scope.boardId = $routeParams.boardId;
 
   $scope.editorOptions = {
     lineWrapping: true,
@@ -177,24 +178,56 @@ function ($scope, $http, $location, $timeout, $injector, $sce, $sanitize) {
     event.target.href = headerString + encodeURIComponent(csvString);
   };
 
-  $scope.saveBoard = function() {
+  $scope.cleanBoard = function () {
     // Deep copy the board data and remove the cached data.
-    var data = JSON.parse(JSON.stringify($scope.boardData, function(key, value) {
+    
+    if (!$scope.boardData) {
+      return undefined;
+    }
+
+    return JSON.parse(JSON.stringify($scope.boardData, function(key, value) {
       if (key === 'cache') {
         return undefined;
       }
       return value;
     }));
+  }
 
-    // TODO(marcua): display something on save success/failure.
-    $http.post('/board/' + boardId, data)
+  $scope.saveBoard = function() {
+    if ($scope.boardData.title == "") {
+      $scope.missingTitle = true;
+      return;
+    }
+
+    var data = $scope.cleanBoard();
+
+    // TODO(marcua): display something on save failure.
+    $http.post('/board/' + $scope.boardId, data)
       .success(function(data, status, headers, config) {
-        console.log('saved');
+        $scope.boardHasChanges = false;
+        if ($scope.boardId = 'new'){
+          $scope.boardId = data.id;
+          $location.path('/boards/' + $scope.boardId);
+        }
+        $scope.getBoards();
       })
       .error(function(data, status, headers, config) {
         console.log('error!');
       });
   };
+
+  $scope.deleteBoard = function () {
+    var title = $scope.boardData.title || "this board";
+    if (confirm("Are you sure you want to delete " + title + "?")) {
+      $http.post('/board/' + $scope.boardId + '/delete')
+        .success(function (data, status, headers, config) {
+          if (data.status == 'success') {
+            $scope.getBoards();
+            $location.path('/boards/new');
+          }
+        });
+    }
+  }
 
   $scope.initPanel = function(panel) {
     panel.cache = {
@@ -229,13 +262,89 @@ function ($scope, $http, $location, $timeout, $injector, $sce, $sanitize) {
     $scope.initPanel($scope.boardData.panels[0]);
   };
 
-  $http.get('/board/' + boardId)
-    .success(function(data, status, headers, config) {
-      angular.forEach(data.panels, function(panel) {
-        $scope.initPanel(panel);
+  $scope.getBoards = function () {
+    $http.get('/boards')
+      .success(function(data, status, headers, config) {
+        $scope.boards = data.boards;
       });
-      $scope.boardData = data;
+  }
+
+  $scope.getBoards();
+
+  $scope.getStreams = function () {
+    $http.get('/streams')
+      .success(function(data, status, headers, config) {
+        $scope.streams = data.streams;
+      });
+  }
+
+  $scope.getStreams();
+
+  $scope.showStreams = function () {
+    $modal.open({
+      templateUrl: '/static/partials/streams.html',
+      scope: $scope
     });
+  }
+
+  $scope.$watch($scope.cleanBoard, function (newVal, oldVal) {
+    // The initial setting of boardData doesn't count as a change in my books
+    if (typeof newVal == 'undefined' || typeof oldVal == 'undefined') {
+      return;
+    }
+    if (newVal.title != oldVal.title && newVal.title != '') {
+      $scope.missingTitle = false;
+    }
+    if (!$scope.boardHasChanges && newVal != oldVal) {
+      $scope.boardHasChanges = true;
+    }
+  }, true); // Deep watch
+
+  if ($scope.boardId != 'new') {
+    $http.get('/board/' + $scope.boardId)
+      .success(function(data, status, headers, config) {
+        angular.forEach(data.panels, function(panel) {
+          $scope.initPanel(panel);
+        });
+        $scope.boardData = data;
+      });
+  }
+  else {
+    $scope.boardData = {
+      title: '',
+      panels: []
+    };
+  }
+
+  var leavingPageText = "Anything not saved will be lost.";
+
+  window.onbeforeunload = function () {
+    if ($scope.boardHasChanges){
+      return leavingPageText;
+    }
+  }
+
+  $scope.$on('$destroy', function () {
+    window.onbeforeunload = undefined;
+  });
+
+  $scope.$on('$locationChangeStart', function(event, next, current) {
+    if($scope.boardHasChanges &&
+       !confirm(leavingPageText +
+                "\n\nAre you sure you want to leave this page?")) {
+      event.preventDefault();
+    }
+  });
+
+  Mousetrap.bind(['ctrl+s', 'meta+s'], function(e) {
+    if (e.preventDefault) {
+      e.preventDefault();
+    } else {
+      // internet explorer
+      e.returnValue = false;
+    }
+    $scope.saveBoard();
+  });
 }]);
 
 app.directive('visualization', function ($http, $compile) {
