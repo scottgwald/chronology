@@ -27,14 +27,14 @@ function assert_non_dirty() {
 }
 
 function assert_single_arg() {
-  if (( $# -ne 1 )); then
-    echo "Please provide a single argument to be used as the commit message."
+  if [[ $# -ne 1 ]]; then
+    echo "Please provide a single argument to be used as the commit message. Provided $#."
     exit 1
   fi
 }
 
 assert_non_dirty
-#assert_single_arg
+assert_single_arg "$@"
 
 branch=$(git_branch)
 git checkout master
