@@ -56,7 +56,9 @@ module.factory('table', function ($filter, ngTableParams) {
           data = {};
           Object.keys(event).forEach(function (key) {
             if (key == '@time') {
-              data[key.hashCode()] = Date(event[key] * 1e-7);
+              var date = new Date(event[key] * 1e-4);
+              var dateString = date.toLocaleDateString() + " " + date.toLocaleTimeString();
+              data[key.hashCode()] = dateString;
             }
             else {
               data[key.hashCode()] = event[key];

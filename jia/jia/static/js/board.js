@@ -3,7 +3,8 @@ var app = angular.module('boardApp', ['ngSanitize',
                                       'ui.bootstrap',
                                       'jia.timeseries',
                                       'jia.table',
-                                      'jia.gauge'
+                                      'jia.gauge',
+                                      'jia.barchart'
                                      ]);
 
 app.config(['$interpolateProvider', function($interpolateProvider) {
@@ -106,7 +107,7 @@ function ($scope, $http, $location, $timeout, $injector, $sce, $sanitize) {
       })
       .error(function(data, status, headers, config) {
         if (status == 400) {
-          panel.cache.log.error(data.message)
+          panel.cache.log.error(data.message);
           panel.cache.log.error(data.data.name + ": " + data.data.message);
           var traceback = "";
           _.each(data.data.traceback, function (trace) {

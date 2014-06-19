@@ -21,6 +21,9 @@ module.factory('gauge', function () {
     this.value = 0;
     
     this.setData = function (data, msg) {
+      if (data.events.length > 1) {
+        msg.warn("Gauge accepts one value. Only the most recent is shown.");
+      }
       this.value = data.events[data.events.length - 1]['@value'];
     }
   }
