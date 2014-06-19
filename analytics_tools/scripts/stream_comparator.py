@@ -15,6 +15,7 @@ import json
 import logging
 import sys
 from pykronos import KronosClient
+from pykronos import ID_FIELD
 from pykronos import TIMESTAMP_FIELD
 
 log = logging.getLogger(__name__)
@@ -73,6 +74,7 @@ def main(args):
     if event1:
       assert event1[TIMESTAMP_FIELD] >= current_timestamp
       if event1[TIMESTAMP_FIELD] == current_timestamp:
+        del event1[ID_FIELD]
         stream1_hashes.add(hashlib.sha224(json.dumps(event1, sort_keys=True))
                            .hexdigest())
       else:
@@ -81,6 +83,7 @@ def main(args):
     if event2:
       assert event2[TIMESTAMP_FIELD] >= current_timestamp
       if event2[TIMESTAMP_FIELD] == current_timestamp:
+        del event2[ID_FIELD]
         stream2_hashes.add(hashlib.sha224(json.dumps(event2, sort_keys=True))
                            .hexdigest())
       else:

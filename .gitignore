@@ -9,3 +9,4 @@
 *.swo
 coverage_html
 settings.cfg
+incubator-spark
