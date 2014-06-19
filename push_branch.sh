@@ -46,3 +46,6 @@ echo "> Committing..."
 git commit -am "$1"
 echo "> Pushes commit to origin/master..."
 git push origin master
+echo "> Cleaning up feature branch..."
+git branch -D "$branch"
+git push origin :"$branch"
