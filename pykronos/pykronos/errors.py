@@ -1,0 +1,2 @@
+class KronosClientError(Exception):
+  pass
