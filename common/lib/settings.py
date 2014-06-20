@@ -8,7 +8,7 @@ class AttributeProxyDict(dict):
   def __getattr__(self, attr):
     value = self[attr]
     if isinstance(value, dict):
-      value = AttributeProxyDict(value)
+      self[attr] = value = AttributeProxyDict(value)
     return value
 
   def __getitem__(self, item):

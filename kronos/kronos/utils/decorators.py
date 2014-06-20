@@ -47,6 +47,12 @@ def endpoint(url, methods=['GET']):
     @wraps(function)
     def wrapper(environment, start_response):
       try:
+        if function.func_name not in (_serving_mode_endpoints
+                                      [settings.serving_mode]):
+          start_response('403 Forbidden',
+                         [('Content-Type', 'application/json')])
+          return json.dumps({'@errors': ['kronosd is configured to block '
+                                         'access to this endpoint.']})
         req_method = environment['REQUEST_METHOD']
 
         # If the request method is not allowed, return 405.
@@ -97,8 +103,7 @@ def endpoint(url, methods=['GET']):
     # Map the URL to serve to this function. Only map certain
     # endpoints if serving_mode is restrictive.
     global ENDPOINTS
-    if function.func_name in _serving_mode_endpoints[settings.serving_mode]:
-      ENDPOINTS[url] = wrapper
+    ENDPOINTS[url] = wrapper
 
     return wrapper
 
