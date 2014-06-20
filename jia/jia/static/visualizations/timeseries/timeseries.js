@@ -25,7 +25,7 @@ module.factory('timeseries', function () {
     optionalFields: [
       '@group'
     ]
-  }
+  };
 
   var visualization = function () {
 

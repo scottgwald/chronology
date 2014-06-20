@@ -14,16 +14,51 @@ from pykronos import KronosClient
 
 
 @app.route('/', methods=['GET'])
+@require_auth
+def index():
+  return render_template('index.html')
+
+
 @app.route('/<board_id>', methods=['GET'])
 @require_auth
-def index(board_id=None):
-  if not board_id:
-    # Create a new board and redirect to it.
-    board = Board(id=binascii.b2a_hex(os.urandom(5)))
-    board.save()
-    return redirect('/%s' % board.id, code=302)
-  board = Board.query.filter_by(id=board_id).first_or_404()
-  return render_template('board.html', board=board)
+def redirect_old_board_url(board_id=None):
+  """
+  After switching to angular routing, board URLs changed.
+  This redirect transfers old board URLs to the new ones and can probably be
+  phased out eventually.
+  """
+  return redirect('/#/boards/%s' % board_id)
+
+
+@app.route('/streams', methods=['GET'])
+@json_endpoint
+@require_auth
+def streams():
+  client = KronosClient(app.config['KRONOS_URL'],
+                        namespace=app.config['KRONOS_NAMESPACE'])
+  kronos_streams = client.get_streams(namespace=app.config['KRONOS_NAMESPACE'])
+  kronos_streams = list(kronos_streams)
+  return {
+    'streams': kronos_streams,
+  }
+
+
+@app.route('/boards', methods=['GET'])
+@json_endpoint
+@require_auth
+def boards(id=None):
+  board_query = Board.query.all()
+  boards = []
+  for board in board_query:
+    board_data = board.json()
+    boards.append({
+      'id': board_data['id'],
+      'title': board_data['title'],
+    })
+
+  return {
+    'boards': boards
+  }
 
 
 @app.route('/board/<id>', methods=['GET', 'POST'])
@@ -31,13 +66,31 @@ def index(board_id=None):
 @require_auth
 def board(id=None):
   if request.method == 'POST':
-    board = Board.query.filter_by(id=id).first_or_404()
-    board.set_board_data(request.get_json())
+    board_data = request.get_json()
+    if id == 'new':
+      new_id = binascii.b2a_hex(os.urandom(5))
+      board = Board(id=new_id)
+      board_data['id'] = new_id
+    else:
+      board = Board.query.filter_by(id=id).first_or_404()
+    board.set_board_data(board_data)
     board.save()
   else:
     board = Board.query.filter_by(id=id).first_or_404()
 
   return board.json()
+
+
+@app.route('/board/<id>/delete', methods=['POST'])
+@json_endpoint
+@require_auth
+def delete_board(id=None):
+  board = Board.query.filter_by(id=id).first_or_404()
+  board.delete()
+
+  return {
+    'status': 'success'
+  }
 
 
 @app.route('/callsource', methods=['POST'])

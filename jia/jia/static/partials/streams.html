@@ -1,0 +1,14 @@
+<div class="modal-header">
+  <button type="button" class="close" ng-click="$close()" aria-hidden="true">&times;</button>
+  <h4 class="modal-title">Available Streams</h4>
+</div>
+<div class="modal-body">
+  <ul class="list-group">
+    <li class="list-group-item" ng-repeat="stream in streams">{[ stream ]}</li>
+  </ul>
+</div>
+<div class="modal-footer">
+  <button type="button" class="btn btn-default" ng-click="$close()">Close</button>
+</div>
+
+
