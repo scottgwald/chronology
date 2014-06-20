@@ -140,4 +140,4 @@ class CassandraStorage(BaseStorage):
   def _clear(self):
     for namespace in self.namespaces.itervalues():
       namespace.drop()
-
+      namespace.create_session()
