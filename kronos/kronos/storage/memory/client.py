@@ -10,6 +10,7 @@ from kronos.utils.math import uuid_from_kronos_time
 from kronos.utils.math import UUIDType
 from kronos.utils.validate import is_pos_int
 
+
 class Event(dict):
   """
   An event is stored in memory as a dictionary.
@@ -34,6 +35,7 @@ class Event(dict):
 
     return 0
 
+
 class InMemoryStorage(BaseStorage):
   """
   The in memory storage backend maintains a sorted list of events per stream
@@ -42,7 +44,7 @@ class InMemoryStorage(BaseStorage):
   """
 
   SETTINGS_VALIDATORS = {
-    'default_max_items': is_pos_int,
+    'max_items': is_pos_int,
   }
   
   def __init__(self, name, **settings):
@@ -58,7 +60,7 @@ class InMemoryStorage(BaseStorage):
     insert. Make room for the events to insert if necessary by deleting the
     oldest events. Then insert each event in time sorted order.
     """
-    max_items = configuration.get('max_items', self.default_max_items)  
+    max_items = configuration['max_items']
     for event in events:
       while len(self.db[namespace][stream]) >= max_items:
         self.db[namespace][stream].pop(0)
@@ -122,4 +124,4 @@ class InMemoryStorage(BaseStorage):
     return self.db[namespace].iterkeys()
 
   def _clear(self):
-    self.db = defaultdict(lambda: defaultdict(list))
+    self.db.clear()

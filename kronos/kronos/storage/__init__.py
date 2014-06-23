@@ -4,6 +4,7 @@ from collections import defaultdict
 from importlib import import_module
 
 from kronos.common.cache import InMemoryLRUCache
+from kronos.common.settings import merge_dicts
 from kronos.conf import settings
 from kronos.core.exceptions import BackendMissing
 from kronos.core.exceptions import InvalidStreamName
@@ -59,7 +60,8 @@ class StorageRouter(object):
         backends = options['backends']
         for backend_name, configuration in backends.iteritems():
           backend = self.get_backend(backend_name)
-          prefix_confs[prefix][backend] = configuration or {}
+          prefix_confs[prefix][backend] = merge_dicts(backend._settings,
+                                                      configuration or {})
 
   def get_namespaces(self):
     return self.namespaces

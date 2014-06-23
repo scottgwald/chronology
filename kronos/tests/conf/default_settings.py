@@ -9,7 +9,7 @@ serving_mode = ServingMode.ALL
 storage = {
   'memory': {
     'backend': 'memory.InMemoryStorage',
-    'default_max_items': 50000
+    'max_items': 50000
   },
   'cassandra': {
     'backend': 'cassandra.CassandraStorage',
@@ -17,8 +17,8 @@ storage = {
     'keyspace_prefix': 'kronos_test',
     # Set to a value greater than 0 or you will get an UnavailableException
     'replication_factor': 1,
-    'default_timewidth_seconds': 2, # Keep this small for test environment.
-    'default_shards_per_bucket': 3,
+    'timewidth_seconds': 2, # Keep this small for test environment.
+    'shards_per_bucket': 3,
     'read_size': 10
   },
   'elasticsearch': {

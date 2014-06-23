@@ -2,6 +2,7 @@ from collections import defaultdict
 
 from kronos.conf import settings
 from kronos.conf.constants import ResultOrder
+from kronos.conf.constants import MAX_LIMIT
 from kronos.conf.constants import TIMESTAMP_FIELD
 from kronos.storage import router
 from kronos.storage.cassandra.internals import StreamShard
@@ -22,9 +23,8 @@ class TestCassandraBackend(KronosServerTestCase):
     super(TestCassandraBackend, self).setUp()
     self.backend = router.get_backend('cassandra')
     self.namespace = self.backend.namespaces['kronos']
-    self.shards = settings.storage['cassandra']['default_shards_per_bucket']
-    self.width_seconds = (settings.storage['cassandra']
-                          ['default_timewidth_seconds'])
+    self.shards = settings.storage['cassandra']['shards_per_bucket']
+    self.width_seconds = settings.storage['cassandra']['timewidth_seconds']
     self.width = time_to_kronos_time(self.width_seconds)
 
   def test_stream_sharding(self):
@@ -46,7 +46,7 @@ class TestCassandraBackend(KronosServerTestCase):
     
     for shard in xrange(self.shards):
       stream_shard = StreamShard(stream.session, stream_name, 0, self.width,
-                                 shard, ResultOrder.ASCENDING, 100)
+                                 shard, ResultOrder.ASCENDING, MAX_LIMIT, 100)
       events = list(stream_shard.iterator(uuid_from_time(0),
                                           uuid_from_time(2)))
       self.assertTrue(len(events) > 0)
@@ -77,8 +77,8 @@ class TestCassandraBackend(KronosServerTestCase):
       for shard in xrange(self.shards):
         stream_shard = StreamShard(stream.session, stream_name,
                                    time_to_kronos_time(start_time),
-                                   self.width,
-                                   shard, ResultOrder.ASCENDING, 100)
+                                   self.width, shard, ResultOrder.ASCENDING,
+                                   MAX_LIMIT, 100)
         events = stream_shard.iterator(
           uuid_from_time(start_time, UUIDType.LOWEST),
           uuid_from_time(start_time + self.width_seconds))
@@ -140,7 +140,7 @@ class TestCassandraBackend(KronosServerTestCase):
     # Change default width to be 4 seconds instead of 2.
     # NOTE: Since we can't change time widths on the fly, we'll have to
     # manually invalidate the stream cache.
-    self.backend.default_timewidth_seconds = time_to_kronos_time(4)
+    self.backend.timewidth_seconds = time_to_kronos_time(4)
     self.namespace.stream_cache.delete(stream_name)
 
     # All of these events should now go into bucket with start time 0.
@@ -155,8 +155,8 @@ class TestCassandraBackend(KronosServerTestCase):
       for shard in xrange(self.shards):
         stream_shard = StreamShard(stream.session, stream_name,
                                    time_to_kronos_time(start_time),
-                                   self.width,
-                                   shard, ResultOrder.ASCENDING, 100)
+                                   self.width, shard, ResultOrder.ASCENDING,
+                                   MAX_LIMIT, 100)
         events = stream_shard.iterator(uuid_from_time(start_time,
                                                       UUIDType.LOWEST),
                                        uuid_from_time(start_time + 4))
@@ -167,4 +167,4 @@ class TestCassandraBackend(KronosServerTestCase):
     self.assertEqual(sum(shard_to_events.itervalues()), 120)
 
     # Revert default width settings.
-    self.backend.default_timewidth_seconds = time_to_kronos_time(2)
+    self.backend.timewidth_seconds = time_to_kronos_time(2)

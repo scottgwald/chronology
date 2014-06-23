@@ -24,6 +24,7 @@ class BaseStorage(object):
     for setting in self.__class__.SETTINGS_VALIDATORS:
       setattr(self, setting, settings[setting])
       assert self.__class__.SETTINGS_VALIDATORS[setting](getattr(self, setting))
+    self._settings = settings
 
   def is_alive(self):
     raise NotImplementedError('Must implement `is_alive` method for %s' %

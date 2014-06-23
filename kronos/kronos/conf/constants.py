@@ -1,6 +1,6 @@
 ID_FIELD = '@id'
 TIMESTAMP_FIELD = '@time'
-
+MAX_LIMIT = 2**31 - 1 # Max 32-bit signed int.
 
 class ResultOrder(object):
   ASCENDING = 'ascending'

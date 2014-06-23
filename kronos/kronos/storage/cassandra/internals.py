@@ -14,8 +14,9 @@ from types import StringTypes
 from uuid import UUID
 
 from kronos.common.cache import InMemoryLRUCache
-from kronos.conf.constants import ResultOrder
 from kronos.conf.constants import ID_FIELD
+from kronos.conf.constants import MAX_LIMIT
+from kronos.conf.constants import ResultOrder
 from kronos.conf.constants import TIMESTAMP_FIELD
 from kronos.storage.cassandra.errors import CassandraStorageError
 from kronos.storage.cassandra.errors import InvalidStreamComparison
@@ -105,14 +106,16 @@ class StreamShard(object):
     key = ? AND
     id >= ? AND
     id <= ?
-    ORDER BY id
-    %s"""
+    ORDER BY id %s
+    LIMIT ?
+    """
   
-  def __init__(self, session, stream, start_time, width, shard, order,
+  def __init__(self, session, stream, start_time, width, shard, order, limit,
                read_size):
     self.session = session
     self.order = order
     self.read_size = read_size
+    self.limit = limit
     self.key = StreamShard.get_key(stream, start_time, shard)
 
     # If we want to sort in descending order, compare the end of the
@@ -150,7 +153,8 @@ class StreamShard(object):
         _routing_key='key',
         fetch_size=self.read_size or 2000,
         consistency_level=ConsistencyLevel.ONE)
-    events = self.session.execute(self.select_cql, (self.key, start_id, end_id))
+    events = self.session.execute(self.select_cql,
+                                  (self.key, start_id, end_id, self.limit))
     for event in events:
       try:
         yield StreamEvent(event[0], self)
@@ -265,13 +269,14 @@ class Stream(object):
     shards = self.get_overlapping_shards(start_id._kronos_time,
                                          end_id._kronos_time)
     shards = sorted(map(lambda shard: StreamShard(self.session,
-                                                    self.stream,
-                                                    shard['start_time'],
-                                                    shard['width'],
-                                                    shard['shard'],
-                                                    order,
-                                                    self.read_size), shards))
-
+                                                  self.stream,
+                                                  shard['start_time'],
+                                                  shard['width'],
+                                                  shard['shard'],
+                                                  order,
+                                                  limit,
+                                                  self.read_size),
+                        shards))
     iterators = {}
     event_heap = []
 
@@ -371,9 +376,9 @@ class Stream(object):
     num_deleted = 0
     for shard in shards:
       shard = StreamShard(self.session, self.stream,
-                            shard['start_time'], shard['width'],
-                            shard['shard'], ResultOrder.ASCENDING,
-                            read_size=self.read_size)
+                          shard['start_time'], shard['width'],
+                          shard['shard'], ResultOrder.ASCENDING,
+                          MAX_LIMIT, read_size=self.read_size)
       for event in shard.iterator(start_id, end_id):
         if event.id == start_id:
           continue

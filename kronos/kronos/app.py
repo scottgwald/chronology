@@ -1,5 +1,4 @@
 import json
-import sys
 import time
 
 from collections import defaultdict
@@ -11,6 +10,7 @@ from kronos.core.validators import validate_settings
 from kronos.conf import settings; validate_settings(settings)
 
 from kronos.common.concurrent import GreenletExecutor
+from kronos.conf.constants import MAX_LIMIT
 from kronos.conf.constants import ResultOrder
 from kronos.core.validators import validate_event
 from kronos.core.validators import validate_stream
@@ -139,7 +139,7 @@ def get_events(environment, start_response, headers):
     return
 
   namespace = request_json.get('namespace', settings.default_namespace)
-  limit = int(request_json.get('limit', sys.maxint))
+  limit = int(request_json.get('limit', MAX_LIMIT))
   if limit <= 0:
     events_from_backend = []
   else:

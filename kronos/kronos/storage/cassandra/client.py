@@ -25,10 +25,10 @@ class CassandraStorageException(Exception):
 
 class CassandraStorage(BaseStorage): 
   SETTINGS_VALIDATORS = {
-    'default_timewidth_seconds': 
+    'timewidth_seconds': 
        lambda x: (int(x) > 0 and 
                   time_to_kronos_time(int(x)) <= Stream.MAX_WIDTH),
-    'default_shards_per_bucket': is_pos_int,
+    'shards_per_bucket': is_pos_int,
     'hosts': is_list,
     'keyspace_prefix': is_non_empty_str,
     'replication_factor': lambda x: int(x) >= 1,
@@ -74,12 +74,9 @@ class CassandraStorage(BaseStorage):
 
   def get_stream(self, namespace, stream, configuration):
     namespace = self.namespaces[namespace]
-    width = configuration.get('timewidth_seconds',
-                              self.default_timewidth_seconds)
-    width = time_to_kronos_time(width)
-    shards = int(configuration.get('shards_per_bucket',
-                                   self.default_shards_per_bucket))
-    return namespace.get_stream(stream, width, shards)
+    width = time_to_kronos_time(configuration['timewidth_seconds'])
+    return namespace.get_stream(stream, width,
+                                int(configuration['shards_per_bucket']))
 
   def _insert(self, namespace, stream, events, configuration):
     """

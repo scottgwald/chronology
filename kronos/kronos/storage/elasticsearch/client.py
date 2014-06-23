@@ -7,7 +7,10 @@ from kronos.conf.constants import ID_FIELD, TIMESTAMP_FIELD
 from kronos.conf.constants import ResultOrder
 from kronos.storage.base import BaseStorage
 from kronos.utils.math import uuid_to_kronos_time
-from kronos.utils.validate import is_non_empty_str, is_pos_int, is_bool, is_list
+from kronos.utils.validate import is_bool
+from kronos.utils.validate import is_list
+from kronos.utils.validate import is_non_empty_str
+from kronos.utils.validate import is_pos_int
 
 
 DOT = u'\uFF0E'

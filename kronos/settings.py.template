@@ -11,7 +11,7 @@ serving_mode = ServingMode.ALL
 storage = {
   'memory': {
     'backend': 'memory.InMemoryStorage',
-    'default_max_items': 1000
+    'max_items': 1000
   },
 }
 

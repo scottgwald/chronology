@@ -3,6 +3,18 @@ import imp
 import json
 
 
+def merge_dicts(dict1, dict2, make_copy=True):
+  """ Recursively merges dict2 with dict1. Otherwise if both dict1 and dict2
+  have a key, it is overwritten by the value in dict2. """
+  if make_copy:
+    dict1 = copy.copy(dict1)
+  for key, value in dict2.iteritems():
+    if isinstance(dict1.get(key), dict) and isinstance(value, dict):
+      value = merge_dicts(dict1[key], value, make_copy=False)
+    dict1[key] = value
+  return dict1
+
+
 # TODO(usmanm): Figure out funky behaviour when keys have periods in them.
 class AttributeProxyDict(dict):
   def __getattr__(self, attr):
@@ -24,17 +36,6 @@ class AttributeProxyDict(dict):
 
 class Settings(AttributeProxyDict):
   @staticmethod
-  def merge_dicts(dict1, dict2, make_copy=True):
-    """ Recursively merges dict2 with dict1. """
-    if make_copy:
-      dict1 = copy.copy(dict1)
-    for key, value in dict2.iteritems():
-      if isinstance(dict1.get(key), dict) and isinstance(value, dict):
-        value = Settings.merge_dicts(dict1[key], value, make_copy=False)
-      dict1[key] = value
-    return dict1
-
-  @staticmethod
   def dictify(obj):
     if isinstance(obj, dict):
       return obj
@@ -54,6 +55,6 @@ class Settings(AttributeProxyDict):
       self.update(json.loads(content))
 
   def update(self, source):
-    attrs = Settings.merge_dicts(self, Settings.dictify(source))
+    attrs = merge_dicts(self, Settings.dictify(source))
     self.clear()
     super(Settings, self).update(attrs)
