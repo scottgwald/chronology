@@ -1,6 +1,9 @@
 ID_FIELD = '@id'
 TIMESTAMP_FIELD = '@time'
+
 MAX_LIMIT = 2**31 - 1 # Max 32-bit signed int.
+SETTINGS_PATH = '/etc/kronos/settings.py'
+
 
 class ResultOrder(object):
   ASCENDING = 'ascending'
@@ -13,6 +16,7 @@ class ResultOrder(object):
   @staticmethod
   def get_short_name(order):
     return 'asc' if order == ResultOrder.ASCENDING else 'desc'
+
 
 class ServingMode(object):
   ALL = 'all'

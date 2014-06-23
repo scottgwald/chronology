@@ -28,10 +28,16 @@ if __name__ == '__main__':
                       help='path of config file to use')
   args = parser.parse_args()
 
-
-  # If a config file path is given, import that as the `settings` module.
+  settings.clear()
   if args.config:
+    # If a config file path is given, import that as the `settings` module.  
     settings.update(imp.load_source('kronos.conf.run_settings', args.config))
+  else:
+    # Otherwise use default settings. This is to ensure we never try to read
+    # the settings for the configured kronos service when using this runner
+    # script.
+    from kronos.conf import default_settings
+    settings.update(default_settings)
 
   # Override the `debug` in the settings module and `debug` for
   # `args`.
