@@ -70,7 +70,7 @@ class CassandraStorage(BaseStorage):
     """
     Is our connection to Cassandra alive?
     """
-    self.cluster.is_shutdown
+    return not bool(self.cluster.is_shutdown)
 
   def get_stream(self, namespace, stream, configuration):
     namespace = self.namespaces[namespace]
