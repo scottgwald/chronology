@@ -307,6 +307,11 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
           $scope.initPanel(panel);
         });
         $scope.boardData = data;
+      })
+      .error(function(data, status, headers, config) {
+        if (status == 404) {
+          $location.path('/boards/new');
+        }
       });
   }
   else {
