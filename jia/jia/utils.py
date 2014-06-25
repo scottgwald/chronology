@@ -33,3 +33,4 @@ def send_mail(recipients, subject, message, from_addr=None):
   s = smtplib.SMTP('localhost')
   s.sendmail(from_addr, recipients, msg.as_string())
   s.quit()
+

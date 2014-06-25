@@ -35,7 +35,7 @@ def _send_with_auth(values, secret_key, url):
     method='POST')
 
   # Add the auth_token, re-encode, and send
-  values['auth_token'] = create_token(secret_key, dict(request.form))
+  values['auth_token'] = create_token(key, dict(request.form))
   data = urllib.urlencode(values)
   req = urllib2.Request(url, data)
   response = urllib2.urlopen(req)
@@ -53,7 +53,7 @@ def schedule(code, interval, secret_key=default_key, url=default_url):
     'interval': interval,
     'code': code,
   }
-  return _send_with_auth(values, secret_key, url)
+  return _send_with_auth(values, key, url)
 
 
 def cancel(task_id, secret_key=default_key, url=default_url):
@@ -62,4 +62,5 @@ def cancel(task_id, secret_key=default_key, url=default_url):
   values = {
     'id': task_id,
   }
-  return _send_with_auth(values, secret_key, url)
+  return _send_with_auth(values, key, url)
+
