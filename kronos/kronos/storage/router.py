@@ -1,7 +1,7 @@
 from collections import defaultdict
 from importlib import import_module
 
-from kronos.common.cache import InMemoryLRUCache
+from kronos.common.cache import memoize
 from kronos.common.lazy import LazyObjectMetaclass
 from kronos.common.settings import merge_dicts
 from kronos.conf import settings
@@ -26,8 +26,6 @@ class StorageRouter(object):
     self.backends = dict()
     self.prefix_read_backends = dict()
     self.prefix_confs = dict()
-    self.stream_to_prefix_cache = defaultdict(lambda: 
-                                              InMemoryLRUCache(max_items=500))
     self.namespaces = settings.namespace_to_streams_configuration.keys()
     self.load_backends()
     self.load_prefix_configurations()
@@ -78,24 +76,13 @@ class StorageRouter(object):
   def get_configuration(self, namespace, stream, backend):
     return self.backends_to_mutate(namespace, stream)[backend]
 
+  @memoize(max_items=10000)
   def get_matching_prefix(self, namespace, stream):
     """
     We look at the stream prefixs configured in stream.yaml and match stream
     to the longest prefix.
     """
-    try:
-      prefix = self.stream_to_prefix_cache[namespace].get(stream)
-      if prefix:
-        if isinstance(prefix, Exception):
-          raise prefix
-        return prefix
-    except KeyError:
-      pass
-    try:
-      validate_stream(stream)
-    except InvalidStreamName, e:
-      self.stream_to_prefix_cache[namespace][stream] = e
-      raise e
+    validate_stream(stream)
     default_prefix = ''
     longest_prefix = default_prefix
     for prefix in self.prefix_confs[namespace]:
@@ -106,7 +93,6 @@ class StorageRouter(object):
       if len(prefix) <= len(longest_prefix):
         continue
       longest_prefix = prefix
-    self.stream_to_prefix_cache[namespace].set(stream, longest_prefix)
     return longest_prefix
     
   def backends_to_mutate(self, namespace, stream):

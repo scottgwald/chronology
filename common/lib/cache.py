@@ -1,3 +1,6 @@
+import functools
+
+
 class InMemoryLRUCache(object):
   """
   In-memory LRU Cache backed by a doubly linked circular list with a sentinel
@@ -49,3 +52,25 @@ class InMemoryLRUCache(object):
   def clear(self):
     self.cache.clear()
     self.sentinel[1] = self.sentinel[2] = None
+
+
+def memoize(max_items=1000):
+  def decorator(func):
+    cache = InMemoryLRUCache(max_items=max_items)
+    @functools.wraps(func)
+    def wrapper(*args):
+      try:
+        success, value = cache.get(args)
+      except KeyError:
+        try:
+          value = func(*args)
+          success = True
+        except Exception, e:
+          value = e
+          success = False
+        cache.set(args, (success, value))
+      if success:
+        return value
+      raise value
+    return wrapper
+  return decorator
