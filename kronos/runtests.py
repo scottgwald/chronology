@@ -28,7 +28,7 @@ TESTS = {
 
 
 def use_backend(backend_name):
-  from kronos.storage import router
+  from kronos.storage.router import router
   # Use only `backend_name` for both reads and writes.
   for namespace in settings.namespace_to_streams_configuration:
     settings.namespace_to_streams_configuration[namespace] = {
@@ -43,7 +43,7 @@ def use_backend(backend_name):
 
 
 def clear_backend(backend_name):
-  from kronos.storage import router
+  from kronos.storage.router import router
   router.get_backend(backend_name)._clear()
 
 

@@ -1,7 +1,7 @@
 import time
 
 from kronos.conf.constants import ResultOrder
-from kronos.storage import router
+from kronos.storage.router import router
 from kronos.utils.math import time_to_kronos_time
 
 def get_stream_properties(namespace, stream):

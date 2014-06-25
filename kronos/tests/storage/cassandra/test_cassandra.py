@@ -4,8 +4,8 @@ from kronos.conf import settings
 from kronos.conf.constants import ResultOrder
 from kronos.conf.constants import MAX_LIMIT
 from kronos.conf.constants import TIMESTAMP_FIELD
-from kronos.storage import router
 from kronos.storage.cassandra.internals import StreamShard
+from kronos.storage.router import router
 from kronos.utils.math import kronos_time_to_time
 from kronos.utils.math import round_down
 from kronos.utils.math import time_to_kronos_time

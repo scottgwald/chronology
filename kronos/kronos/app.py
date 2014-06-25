@@ -1,3 +1,10 @@
+import sys
+
+# If running as service, we must call all these patch functions.
+if 'gevent.monkey' not in sys.modules:
+  import gevent.monkey; gevent.monkey.patch_all()
+  import kronos.core.monkey; kronos.core.monkey.patch_all()
+
 import json
 import time
 
@@ -14,7 +21,7 @@ from kronos.conf.constants import MAX_LIMIT
 from kronos.conf.constants import ResultOrder
 from kronos.core.validators import validate_event
 from kronos.core.validators import validate_stream
-from kronos.storage import router
+from kronos.storage.router import router
 from kronos.utils.decorators import endpoint
 from kronos.utils.decorators import ENDPOINTS
 
@@ -43,6 +50,7 @@ def index(environment, start_response, headers):
   
   start_response('200 OK', headers)
   return json.dumps(response)
+
 
 @endpoint('/1.0/events/put', methods=['POST'])
 def put_events(environment, start_response, headers):
