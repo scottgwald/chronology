@@ -122,16 +122,17 @@ class AbstractExecutor(object):
     self._shutdown()
 
   @classmethod
-  def wait(cls, results, num=None):
+  def wait(cls, results, num=None, timeout=None):
     """
     Blocks till `num` of the results are ready. If `num` is None, then blocks
     till all of the results are ready. `results` must be an iterable of
-    AsyncResult objects returned by Executor.submit().
+    AsyncResult objects returned by Executor.submit(). `timeout` is specified
+    in seconds and is the time for which `wait` will block.
     """
     if not hasattr(results, 'len'):
       results = list(results)
     num = min(num, len(results))
-    return wait(objects=results, count=num)
+    return wait(objects=results, count=num, timeout=timeout)
 
 
 class GreenletExecutor(AbstractExecutor):
