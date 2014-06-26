@@ -86,17 +86,18 @@ def process_args():
                            'between start and end. Only return streams where '
                            'all events are fetched within timout (in seconds)'))
   args = parser.parse_args()
+
+  if (any((args.start, args.end, args.fetch_timeout)) and
+      not all((args.start, args.end, args.fetch_timeout))):
+    print ('Either all or none of `start`, `end` and `fetch-timeout` should '
+           'be present.')
+    sys.exit(1)
+
   return args
 
 
 if __name__ == '__main__':
   args = process_args()
-
-  if (any((args.start, args.end, args.fetch_timeout)) and
-      not all((args.start, args.end, args.fetch_timeout))):
-    print ('Either all of none of `start`, `end` and `fetch-timeout` should '
-           'be present.')
-    sys.exit(1)
 
   # TODO(usmanm): Greenlets spit out exception raised within them to stderr,
   # which pollutes the output in a shell. Redirect stderr to dev/null.
