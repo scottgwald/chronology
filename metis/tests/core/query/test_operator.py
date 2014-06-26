@@ -77,7 +77,7 @@ class OperatorTestCase(MetisServerTestCase):
       self.assertEqual(event['i+1'], event['i'] + 1)
       self.assertTrue(event[constants.TIMESTAMP_FIELD] >= 0)
       self.assertTrue(event[constants.TIMESTAMP_FIELD] < 1000)
-    
+
   def test_filter(self):
     for i in xrange(2000):
       event = {constants.TIMESTAMP_FIELD: random.randint(0, 999),

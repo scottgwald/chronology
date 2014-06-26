@@ -10,8 +10,7 @@ class MetisServerTestCase(unittest.TestCase):
   Unit tests for all available `Operator` types.
   '''
   def setUp(self):
-    self.kronos_client = KronosClient(app.config['KRONOS_SERVER'],
-                                      namespace='metis')
+    self.kronos_client = KronosClient(app.config['KRONOS_SERVER'])
     self.index_path = '1.0/index'
     self.query_path = '1.0/query'
     self.server_url = 'http://localhost:9192/%s'

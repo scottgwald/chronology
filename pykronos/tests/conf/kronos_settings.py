@@ -3,7 +3,7 @@ import re
 from kronos.conf.constants import ServingMode
 from uuid import getnode
 
-debug = False
+debug = True
 serving_mode = ServingMode.ALL
 
 # Node related settings. `id` should be a unique name that identifies this
@@ -23,17 +23,13 @@ node = {
 # stream name as part of the key that events are stored under for each backend.
 # Ensure that each backend that you use accepts patterns defined by `format`.
 stream = {
-  'fields': {
-    'id': '@id',
-    'timestamp': '@time'
-  },
   'format': re.compile(r'^[a-z0-9\_]+(\.[a-z0-9\_]+)*$', re.I)
 }
 
 storage = {
   'memory': {
     'backend': 'memory.InMemoryStorage',
-    'default_max_items': 50000
+    'max_items': 50000
   },
 }
 

@@ -7,8 +7,7 @@ from metis.conf import constants
 from metis.core.query.enums import (AggregateType,
                                     ConditionType,
                                     ConditionOpType,
-                                    OperatorType,
-                                    ValueType)
+                                    OperatorType)
 from metis.core.query.utils import (cast_to_number,
                                     Counter,
                                     get_property_names_from_getter,

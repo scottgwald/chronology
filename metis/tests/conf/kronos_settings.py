@@ -23,29 +23,27 @@ node = {
 # stream name as part of the key that events are stored under for each backend.
 # Ensure that each backend that you use accepts patterns defined by `format`.
 stream = {
-  'fields': {
-    'id': '@id',
-    'timestamp': '@time'
-  },
   'format': re.compile(r'^[a-z0-9\_]+(\.[a-z0-9\_]+)*$', re.I)
 }
 
 storage = {
   'memory': {
     'backend': 'memory.InMemoryStorage',
-    'default_max_items': 50000
+    'max_items': 50000
   },
 }
 
-default_namespace = 'metis'
+default_namespace = 'kronos'
+
+_default_stream_configuration = {
+  '': {
+    'backends': {
+      'memory': None
+      },
+    'read_backend': 'memory'
+    }
+  }
 
 namespace_to_streams_configuration = {
-  default_namespace: {
-    '': {
-      'backends': {
-        'memory': None
-        },
-      'read_backend': 'memory'
-      }
-    }
+  default_namespace: _default_stream_configuration,
   }

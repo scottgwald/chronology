@@ -19,7 +19,7 @@ def create_lib_for_spark_workers():
   
   zip_file = zipfile.ZipFile(archive_path, 'w')
   # TODO(usmanm): Zip only the minimum set of files needed.
-  for root, dirs, files in os.walk(app.config['PATH']):
+  for root, dirs, files in os.walk(app.config['PATH'], followlinks=True):
     for file_name in files:
       if IGNORE_FILES_RE.match(file_name):
         continue

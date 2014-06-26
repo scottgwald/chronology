@@ -2,7 +2,7 @@ import random
 import re
 import types
 
-from common.event_tools import get_property
+from metis.common.event_tools import get_property
 from metis.core.query.enums import (ConditionType,
                                     ConditionOpType,
                                     FunctionType,
