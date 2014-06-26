@@ -12,6 +12,8 @@ example usage:
 import argparse
 import logging
 import time
+from datetime import timedelta
+from dateutil.parser import parse
 from pykronos import KronosClient
 from pykronos import ID_FIELD
 
@@ -22,16 +24,28 @@ def main(args):
   write_client = KronosClient(args.write_url, namespace=args.write_namespace,
                               blocking=False)
   start_time = time.time()
+  time_step = timedelta(seconds=args.copy_period_seconds)
   for stream in args.stream_file:
     stream = stream.rstrip()
     print 'Starting stream', stream, time.time() - start_time
-    read_stream = read_client.get(stream, args.start, args.end)
-    for idx, event in enumerate(read_stream):
-      del event[ID_FIELD]
-      write_client.put({stream: [event]})
-      if (idx % args.chunk_size) == 0:
-        print '...', idx, 'events inserted', time.time() - start_time
-    write_client.flush()
+    start = args.start
+    # Keep track of the last ID we read, so we re-run queries from
+    # there.
+    last_read_id = None
+    while start <= args.end:
+      print '...start is', start, time.time() - start_time
+      end = min(args.end, start + time_step)
+      if last_read_id is None:
+        read_stream = read_client.get(stream, start, end)
+      else:
+        read_stream = read_client.get(stream, None, end, start_id=last_read_id)
+      for event in read_stream:
+        if event[ID_FIELD] != last_read_id:
+          last_read_id = event[ID_FIELD]
+          del event[ID_FIELD]
+          write_client.put({stream: [event]})
+      start += time_step
+      write_client.flush()
     print 'Completed stream', stream, time.time() - start_time    
 
 
@@ -66,12 +80,15 @@ def process_args():
     required=True,
     help='When to end retreiving? (format: 2003-09-25T10:49:41.5-03:00)')
   parser.add_argument(
-    '--chunk-size',
+    '--copy-period-seconds',
     type=int,
-    default=10000,
-    help='Flush after writing this many events')
+    default=60 * 60,
+    help='How many seconds worth of data to copy at a time')
+
   args = parser.parse_args()
   args.stream_file = open(args.stream_file, 'r')
+  args.start = parse(args.start)
+  args.end = parse(args.end)
   return args
 
 
