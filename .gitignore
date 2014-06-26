@@ -10,3 +10,4 @@
 coverage_html
 settings.cfg
 incubator-spark
+.sass-cache
