@@ -11,3 +11,4 @@ coverage_html
 settings.cfg
 incubator-spark
 stream_names
+.sass-cache

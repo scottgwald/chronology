@@ -21,10 +21,15 @@ a {
   margin: 10px 0px 10px 0px;
 }
 
+.board .panel {
+  overflow: hidden;
+}
+
 .board-title {
   font-size: 20px;
   border: 0px solid;
   border-bottom: 1px solid #ccc;
+  height: 40px;
 }
 
 .required {
@@ -33,7 +38,7 @@ a {
 }
 
 .panel-title {
-  font-size: 14 px;
+  font-size: 16px;
   border: 0px solid;
 }
 
@@ -42,22 +47,9 @@ a {
 }
 
 .code-box .code-controls {
-  margin: 10px;
-}
-
-.code-box .code-controls .display-type-btn {
-  float: left;
-  margin-right: 10px;
-}
-
-.code-box .code-controls .refresh-ctl {
-  float: left;
-  width: 100px;
-}
-
-.code-box .code-controls .msg {
-  float: right;
-  line-height: 34px;
+  margin-top: 10px;
+  padding: 0 10px;
+  background: #E6E9ED;
 }
 
 .code-box .error-alert {
@@ -84,7 +76,6 @@ rickshaw {
 
 .code-box .CodeMirror {
   height: 250px;
-  margin-top: 10px;
   font-size: 12px;
 }
 
