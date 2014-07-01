@@ -1,6 +1,7 @@
 # Introduction
-The contents of this file can also be found in `demo.py` if you prefer
-to read python directly.
+The contents of this file can be found in `demo.py` and are compiled
+into `README.md`, so you can consume the readme while running the
+Python script to understand how it works.
 # Importing pykronos and some useful utilities
 Check out `pykronos.client` and `pykronos.utils.time` for some useful
 utility functions.  PyKronos has a bunch of utilities to deal with
@@ -16,13 +17,6 @@ from datetime import timedelta
 from dateutil.tz import tzutc
 ```
 # Creating a client
-Create a Kronos client with the URL of a running server.  Optionally
-provide a `namespace` to explicitly work with events in a particular
-namespace.
-```python
-kc = KronosClient('http://localhost:8151', namespace='demo')
-start = datetime.now(tz=tzutc())
-```
 Create a Kronos client with the URL of a running server.  Optionally
 provide a `namespace` to explicitly work with events in a particular
 namespace.
@@ -109,15 +103,9 @@ for event in events:
 ```
 # Getting a list of streams
 To see all streams available in this namespace, use `get_streams`.
-This will return stream names along with a list of the properties of a
-recent event.  The list of properties is a standin for the fact that
-Kronos doesn't enforce event schemas, [which we'll eventually
-regret](http://vldb.org/pvldb/vol5/p1771_georgelee_vldb2012.pdf).  For
-now, let's live in blissful ignorance!
 ```python
-for stream, properties in kc.get_streams():
+for stream in kc.get_streams():
   print 'Found stream', stream
-  print '...with properties', properties
 ```
 # Deleting data
 Sometimes, we make an oopsie and need to delete some events.  The
