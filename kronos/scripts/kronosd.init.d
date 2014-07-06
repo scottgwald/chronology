@@ -27,7 +27,7 @@ case "$1" in
   fi
 
 	echo -n "Starting kronosd: "
-	if uwsgi --ini /etc/kronos/uwsgi.ini --pidfile $PIDFILE --daemonize $LOGFILE
+	if (cd /usr/lib/kronos/uwsgi && ./uwsgi --ini /etc/kronos/uwsgi.ini --pidfile $PIDFILE --daemonize $LOGFILE)
 	then
 		echo "ok"
 	else
@@ -42,7 +42,7 @@ case "$1" in
     exit 1
   fi
 	echo -n "Stopping kronosd: "
-	if uwsgi --stop $PIDFILE
+	if (cd /usr/lib/kronos/uwsgi && ./uwsgi --stop $PIDFILE)
 	then
 		echo "ok"
 	else
