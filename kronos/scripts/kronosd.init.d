@@ -10,6 +10,7 @@ LOGDIR=/var/log/kronos
 LOGFILE=$LOGDIR/uwsgi.log
 RUNDIR=/var/run/kronos
 PIDFILE=$RUNDIR/kronosd.pid
+LIBDIR=/usr/lib/kronos
 
 . /lib/lsb/init-functions
 
@@ -27,7 +28,7 @@ case "$1" in
   fi
 
 	echo -n "Starting kronosd: "
-	if (cd /usr/lib/kronos/uwsgi && ./uwsgi --ini /etc/kronos/uwsgi.ini --pidfile $PIDFILE --daemonize $LOGFILE)
+	if (cd $LIBDIR/uwsgi && ./uwsgi --ini /etc/kronos/uwsgi.ini --pidfile $PIDFILE --daemonize $LOGFILE)
 	then
 		echo "ok"
 	else
@@ -42,7 +43,7 @@ case "$1" in
     exit 1
   fi
 	echo -n "Stopping kronosd: "
-	if (cd /usr/lib/kronos/uwsgi && ./uwsgi --stop $PIDFILE)
+	if (cd $LIBDIR/uwsgi && ./uwsgi --stop $PIDFILE)
 	then
 		echo "ok"
 	else
