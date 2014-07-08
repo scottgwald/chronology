@@ -1,6 +1,7 @@
 flask==0.10.1
-flask-sqlalchemy==1.0
 flask-googleauth==0.4.2
+flask-sqlalchemy==1.0
+flask-sslify==0.1.4
 greenlet==0.4.2
 gevent==1.0
 # pykronos---for now, a symlink to the parent dir

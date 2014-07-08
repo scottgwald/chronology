@@ -6,6 +6,7 @@ APPROOT = os.path.dirname(os.path.realpath(__file__))
 DEBUG = True
 PORT = 8152
 SECRET_KEY = 'a secret key---you should absolutely set this to something unique and strong'
+FORCE_SSL = False
 
 # Kronos and metis pointers
 KRONOS_URL = 'http://localhost:8150'

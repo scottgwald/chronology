@@ -13,6 +13,15 @@ from jia.models import Board
 from pykronos import KronosClient
 
 
+@app.route('/status', methods=['GET'])
+def status():
+  """ A successful request endpoint without authentication.
+
+  Useful for pointing load balancers/health checks at.
+  """
+
+  return "OK"
+
 @app.route('/', methods=['GET'])
 @require_auth
 def index():

@@ -20,6 +20,12 @@ User {} is not allowed.
 Revoke access on this account before trying again</a>.
 """
 
+def http_scheme():
+  if app.config['FORCE_SSL']:
+    return 'https'
+  else:
+    return 'http'
+
 def require_auth(fn):
   @functools.wraps(fn)
   def decorated(*args, **kwargs):
@@ -31,14 +37,15 @@ def require_auth(fn):
             authenticated = True
             break
         if not authenticated:
-          session.pop('email', '')
-          return ERROR_MESSAGE.format(g.user['email'])
+          email = session.pop('email', '')
+          return ERROR_MESSAGE.format(email)
       else:
         params = dict(response_type='code',
                       scope=' '.join(scope),
                       client_id=app.config['GOOGLE_CLIENT_ID'],
                       approval_prompt='auto',
-                      redirect_uri=url_for('google_callback', _external=True))
+                      redirect_uri=url_for('google_callback', _external=True,
+                                           _scheme=http_scheme()))
         url = auth_uri + '?' + urllib.urlencode(params)
         session['next'] = request.path
         return redirect(url)
@@ -53,13 +60,15 @@ def google_callback():
     data = dict(code=code,
                 client_id=app.config['GOOGLE_CLIENT_ID'],
                 client_secret=app.config['GOOGLE_CLIENT_SECRET'],
-                redirect_uri=url_for('google_callback', _external=True),
+                redirect_uri=url_for('google_callback', _external=True,
+                                     _scheme=http_scheme()),
                 grant_type='authorization_code')
     r = requests.post(token_uri, data=data)
     access_token = r.json()['access_token']
     r = requests.get(profile_uri, params={'access_token': access_token})
     session['email'] = r.json()['email']
-    redirect_to = session.pop('next', url_for('index'))
+    redirect_to = session.pop('next', url_for('index', _external=True,
+                                              _scheme=http_scheme()))
     return redirect(redirect_to)
   else:
     return 'ERROR'
