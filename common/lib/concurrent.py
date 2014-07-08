@@ -1,5 +1,4 @@
 import atexit
-import cloudpickle
 import functools
 import gipc
 import itertools
@@ -7,6 +6,7 @@ import multiprocessing
 import pickle
 import signal
 
+from . import cloudpickle
 from gevent import Greenlet
 from gevent import wait
 from gevent.event import AsyncResult
@@ -148,6 +148,7 @@ class GreenletExecutor(AbstractExecutor):
     super(GreenletExecutor, self).__init__()
     self.pool = Pool(size=num_greenlets)
     self.task_queue = Queue()
+    self.num_ready = 0
 
   def _shutdown(self):
     for _ in xrange(len(self.pool)):
@@ -156,19 +157,20 @@ class GreenletExecutor(AbstractExecutor):
 
   def _worker_loop(self):
     try:
+      self.num_ready += 1
       while True:
+        self.num_ready -= 1
         task = self.task_queue.get()
         if task is None:
           return
         task.execute()
+        self.num_ready += 1
     except:
       pass
 
   def _submit(self, task):
     self.task_queue.put(task)
-    # TODO(usmanm): Only spawn new greenlets when there are no free active
-    # greenlets.
-    if self.pool.free_count():
+    if not self.num_ready and self.pool.free_count():
       self.pool.spawn(self._worker_loop)
 
 
@@ -208,11 +210,12 @@ class GIPCExecutor(AbstractExecutor):
         result = pipe.get()
         if result is None:
           return
-        if result['success']:
-          results[result['id']].set(result['value'])
+        _id, successful, value = result
+        if successful:
+          results[_id].set(value)
         else:
-          results[result['id']].set_exception(result['value'])
-        del results[result['id']]
+          results[_id].set_exception(value)
+        del results[_id]
 
     for _ in xrange(len(self.procs)):
       pool.spawn(_read_loop, self.pipes.next())
@@ -220,7 +223,7 @@ class GIPCExecutor(AbstractExecutor):
     return pool
 
   def _proc_loop(self, pipe, num_greenlets):
-    results = {}
+    result_to_id = {}
     executor = GreenletExecutor(num_greenlets=num_greenlets)
     # Event to indicate that there are some tasks in flight and so write_loop
     # should start waiting on their results.
@@ -248,7 +251,7 @@ class GIPCExecutor(AbstractExecutor):
           signal_tasks_in_flight()
           return
         task = Task(*task_args)
-        results[task.result] = task.id
+        result_to_id[task.result] = task.id
         executor._submit(task)
         signal_tasks_in_flight()
         
@@ -260,7 +263,7 @@ class GIPCExecutor(AbstractExecutor):
       and pipes the result back to the parent (callee) process.
       """
       while True:
-        if not results:
+        if not result_to_id:
           # Wait for some result to be ready.
           tasks_in_flight.clear()
           try:
@@ -271,16 +274,14 @@ class GIPCExecutor(AbstractExecutor):
           except LoopExit, e:
             pipe.put(None)
             return
-        ready_results = wait(objects=results.keys(), count=1)
+        ready_results = wait(objects=result_to_id.keys(), count=1)
         for result in ready_results:
           try:
             value = result.get()
           except Exception, e:
             value = e
-          pipe.put({'id': results[result],
-                    'success': result.successful(),
-                    'value': value})
-          del results[result]
+          pipe.put((result_to_id[result], result.successful(), value))
+          del result_to_id[result]
 
     write_loop()
 
@@ -295,4 +296,4 @@ class GIPCExecutor(AbstractExecutor):
   def _submit(self, task):
     pipe = self.pipes.next()
     self.results[task.id] = task.result
-    pipe.put([task.id, task.func, task.args, task.kwargs])
+    pipe.put((task.id, task.func, task.args, task.kwargs))

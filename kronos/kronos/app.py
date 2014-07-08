@@ -16,17 +16,14 @@ import kronos
 from kronos.core.validators import validate_settings
 from kronos.conf import settings; validate_settings(settings)
 
-from kronos.common.concurrent import GreenletExecutor
 from kronos.conf.constants import MAX_LIMIT
 from kronos.conf.constants import ResultOrder
+from kronos.core.executor import greenlet_executor
 from kronos.core.validators import validate_event
 from kronos.core.validators import validate_stream
 from kronos.storage.router import router
 from kronos.utils.decorators import endpoint
 from kronos.utils.decorators import ENDPOINTS
-
-async_executor = GreenletExecutor(
-  num_greenlets=settings.node.greenlet_pool_size)
 
   
 @endpoint('/1.0/index')
@@ -90,13 +87,13 @@ def put_events(environment, start_response, headers):
   for stream, events in events_to_insert.iteritems():
     backends = router.backends_to_mutate(namespace, stream)
     for backend, configuration in backends.iteritems():
-      results[(stream, backend.name)] = async_executor.submit(
+      results[(stream, backend.name)] = greenlet_executor.submit(
         backend.insert,
         [namespace, stream, events, configuration])
 
   # TODO(usmanm): Add async option to API and bypass this wait in that case?
   # Wait for all backends to finish inserting.
-  async_executor.wait(results.values())
+  greenlet_executor.wait(results.values())
 
   # Did any insertion fail?
   response = defaultdict(dict)
@@ -199,7 +196,7 @@ def delete_events(environment, start_response, headers):
   backends = router.backends_to_mutate(namespace, request_json['stream'])
   statuses = {}
   for backend, conf in backends.iteritems():
-    statuses[backend.name] = async_executor.submit(
+    statuses[backend.name] = greenlet_executor.submit(
       backend.delete,
       [namespace,
        request_json['stream'],
@@ -208,7 +205,7 @@ def delete_events(environment, start_response, headers):
        request_json.get('start_id'),
        conf])
 
-  async_executor.wait(statuses.values())
+  greenlet_executor.wait(statuses.values())
 
   errors = []
   response = {}

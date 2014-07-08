@@ -1,5 +1,8 @@
+import multiprocessing
 import re
+
 from uuid import getnode
+
 from kronos.conf.constants import ServingMode
 
 # In debug mode, print every request to standard out.
@@ -51,7 +54,7 @@ default_namespace = 'demo'
 #     '': {
 #      'backends': {
 #        'cassandra': {
-#          'timewidth_seconds': 60*60*24*7 # 1 week.                                                                                                                    
+#          'timewidth_seconds': 60*60*24*7 # 1 week.
 #          },
 #        'memory': None
 #        },
@@ -60,7 +63,7 @@ default_namespace = 'demo'
 #    'product.web.views': {
 #      'backends': {
 #        'cassandra': {
-#          'timewidth_seconds': 60*60 # 1 hour.                                                                                                                         
+#          'timewidth_seconds': 60*60 # 1 hour.
 #          }
 #        },
 #      'read_backend': 'cassandra'
@@ -90,9 +93,10 @@ namespace_to_streams_configuration = {
 # Instance-related settings.
 node = {
   'id':  hex(getnode()), # Unique ID for this Kronos server.
-  'greenlet_pool_size': 20, # Greenlet poolsize per process.  Balance against
-                            # the parallelism of upstream processes, like
-                            # uWSGI.
+  'greenlet_pool_size': 500, # Greenlet poolsize per process.  Balance against
+                             # the parallelism of upstream processes, like
+                             # uWSGI.
+  'gipc_pool_size': multiprocessing.cpu_count(),
   'log_directory': 'logs',
   'cors_whitelist_domains' : map(re.compile, [
     # Domains that match any regex in this list will be allowed to

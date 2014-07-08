@@ -38,7 +38,8 @@ storage = {
 
 node = {
   'id':  hex(getnode()),
-  'greenlet_pool_size': 20,
+  'greenlet_pool_size': 50,
+  'gipc_pool_size': 2,
   'log_directory': 'logs',
   'cors_whitelist_domains': map(re.compile, ['localhost'])
 }
