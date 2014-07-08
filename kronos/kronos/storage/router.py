@@ -6,7 +6,6 @@ from kronos.common.lazy import LazyObjectMetaclass
 from kronos.common.settings import merge_dicts
 from kronos.conf import settings
 from kronos.core.exceptions import BackendMissing
-from kronos.core.exceptions import InvalidStreamName
 from kronos.core.exceptions import NamespaceMissing
 from kronos.core.validators import validate_stream
 
@@ -30,6 +29,9 @@ class StorageRouter(object):
     self.load_backends()
     self.load_prefix_configurations()
 
+  def reload(self):
+    self.__init__()
+
   def load_backends(self):
     """
     Loads all the backends setup in settings.py.
@@ -38,7 +40,6 @@ class StorageRouter(object):
       backend_path = 'kronos.storage.%s' % backend_settings['backend']
       backend_module, backend_cls = backend_path.rsplit('.', 1)
       backend_module = import_module(backend_module)
-
       # Create an instance of the configured backend.
       backend_constructor = getattr(backend_module, backend_cls)
       self.backends[name] = backend_constructor(name,
@@ -76,7 +77,7 @@ class StorageRouter(object):
   def get_configuration(self, namespace, stream, backend):
     return self.backends_to_mutate(namespace, stream)[backend]
 
-  @memoize(max_items=10000)
+  @memoize(max_items=2000)
   def get_matching_prefix(self, namespace, stream):
     """
     We look at the stream prefixs configured in stream.yaml and match stream

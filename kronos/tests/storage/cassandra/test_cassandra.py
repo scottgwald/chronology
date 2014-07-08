@@ -140,8 +140,8 @@ class TestCassandraBackend(KronosServerTestCase):
     # Change default width to be 4 seconds instead of 2.
     # NOTE: Since we can't change time widths on the fly, we'll have to
     # manually invalidate the stream cache.
-    self.backend.timewidth_seconds = time_to_kronos_time(4)
-    self.namespace.stream_cache.delete(stream_name)
+    settings.storage.cassandra.timewidth_seconds = 4
+    router.reload()
 
     # All of these events should now go into bucket with start time 0.
     for i in xrange(60):
@@ -167,4 +167,5 @@ class TestCassandraBackend(KronosServerTestCase):
     self.assertEqual(sum(shard_to_events.itervalues()), 120)
 
     # Revert default width settings.
-    self.backend.timewidth_seconds = time_to_kronos_time(2)
+    settings.storage.cassandra.timewidth_seconds = 2
+    router.reload()

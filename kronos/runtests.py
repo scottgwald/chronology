@@ -21,8 +21,8 @@ settings.update(default_settings)
 TESTS = {
   'cassandra': ('tests/storage/cassandra', ('cassandra', )),
   'common': ('tests/common', ('memory',
-                              'cassandra',
-                              'elasticsearch')),
+                              'cassandra',)),
+                              #'elasticsearch')),
   'conf': ('tests/conf', ('memory', ))
   }
 

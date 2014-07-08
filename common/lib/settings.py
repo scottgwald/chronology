@@ -19,9 +19,12 @@ def merge_dicts(dict1, dict2, make_copy=True):
 class AttributeProxyDict(dict):
   def __getattr__(self, attr):
     value = self[attr]
-    if isinstance(value, dict):
+    if isinstance(value, dict) and not isinstance(value, AttributeProxyDict):
       self[attr] = value = AttributeProxyDict(value)
     return value
+
+  def __setattr__(self, attr, value):
+    self[attr] = value
 
   def __getitem__(self, item):
     parts = item.split('.', 1)

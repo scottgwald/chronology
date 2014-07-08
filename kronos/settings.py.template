@@ -51,7 +51,7 @@ default_namespace = 'demo'
 #     '': {
 #      'backends': {
 #        'cassandra': {
-#          'timewidth_seconds': 60*60*24*7 # 1 week.                                                                                                                    
+#          'timewidth_seconds': 60*60*24*7 # 1 week.
 #          },
 #        'memory': None
 #        },
@@ -60,7 +60,7 @@ default_namespace = 'demo'
 #    'product.web.views': {
 #      'backends': {
 #        'cassandra': {
-#          'timewidth_seconds': 60*60 # 1 hour.                                                                                                                         
+#          'timewidth_seconds': 60*60 # 1 hour.
 #          }
 #        },
 #      'read_backend': 'cassandra'
