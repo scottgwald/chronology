@@ -38,6 +38,7 @@ storage = {
 
 node = {
   'id':  hex(getnode()),
+  'flush_size': 512,
   'greenlet_pool_size': 50,
   'gipc_pool_size': 2,
   'log_directory': 'logs',

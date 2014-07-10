@@ -9,6 +9,7 @@ import json
 import time
 
 from collections import defaultdict
+from cStringIO import StringIO
 
 import kronos
 
@@ -146,11 +147,11 @@ def get_events(environment, start_response, headers):
   namespace = request_json.get('namespace', settings.default_namespace)
   limit = int(request_json.get('limit', MAX_LIMIT))
   if limit <= 0:
-    events_from_backend = []
+    events = []
   else:
     backend, configuration = router.backend_to_retrieve(namespace,
                                                         request_json['stream'])
-    events_from_backend = backend.retrieve(
+    events = backend.retrieve(
         namespace,
         request_json['stream'],
         long(request_json.get('start_time', 0)),
@@ -161,12 +162,22 @@ def get_events(environment, start_response, headers):
         limit=limit)
   
   start_response('200 OK', headers)
-  for event in events_from_backend:
+
+  string_buffer = StringIO()
+  for event in events:
     # TODO(usmanm): Once all backends start respecting limit, remove this check.
     if limit <= 0:
       break
-    yield '{0}\r\n'.format(json.dumps(event))
+    if string_buffer.tell() >= settings.node.flush_size:
+      yield string_buffer.getvalue()
+      string_buffer.close()
+      string_buffer = StringIO()
+    string_buffer.write(json.dumps(event))
+    string_buffer.write('\r\n')
     limit -= 1
+  if string_buffer.tell():
+    yield string_buffer.getvalue()
+  string_buffer.close()
   yield ''
 
 

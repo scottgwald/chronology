@@ -92,7 +92,8 @@ namespace_to_streams_configuration = {
 
 # Instance-related settings.
 node = {
-  'id':  hex(getnode()), # Unique ID for this Kronos server.
+  'id': hex(getnode()), # Unique ID for this Kronos server.
+  'flush_size': 5120, # Number of bytes to flush at a time for /get endpoint.
   'greenlet_pool_size': 500, # Greenlet poolsize per process.  Balance against
                              # the parallelism of upstream processes, like
                              # uWSGI.
