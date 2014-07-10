@@ -16,6 +16,9 @@ class InvalidEventTime(Exception):
 class InvalidStreamName(Exception):
   pass
 
+class InvalidTimeUUIDComparison(Exception):
+  pass
+
 class ImproperlyConfigured(Exception):
   pass
 

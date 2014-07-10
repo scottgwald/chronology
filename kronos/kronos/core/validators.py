@@ -11,8 +11,8 @@ from kronos.core.exceptions import InvalidEventId
 from kronos.core.exceptions import InvalidEventTime
 from kronos.core.exceptions import InvalidStreamName
 from kronos.utils.math import time_to_kronos_time
-from kronos.utils.math import uuid_to_kronos_time
-from kronos.utils.math import uuid_from_kronos_time
+from kronos.utils.uuid import uuid_to_kronos_time
+from kronos.utils.uuid import uuid_from_kronos_time
 
 MAX_STREAM_LENGTH = 2048
 STREAM_REGEX = re.compile(r'^[a-z0-9\_]+(\.[a-z0-9\_]+)*$', re.I)

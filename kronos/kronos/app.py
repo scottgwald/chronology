@@ -160,7 +160,7 @@ def get_events(environment, start_response, headers):
         configuration,
         order=request_json.get('order', ResultOrder.ASCENDING),
         limit=limit)
-  
+
   start_response('200 OK', headers)
 
   string_buffer = StringIO()
@@ -172,7 +172,7 @@ def get_events(environment, start_response, headers):
       yield string_buffer.getvalue()
       string_buffer.close()
       string_buffer = StringIO()
-    string_buffer.write(json.dumps(event))
+    string_buffer.write(event)
     string_buffer.write('\r\n')
     limit -= 1
   if string_buffer.tell():

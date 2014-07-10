@@ -4,13 +4,12 @@ import logging
 from cassandra.cluster import Cluster
 from datetime import timedelta
 
-from kronos.conf.constants import ID_FIELD
 from kronos.storage.base import BaseStorage
 from kronos.storage.cassandra.internals import Namespace
 from kronos.storage.cassandra.internals import Stream
 from kronos.utils.math import time_to_kronos_time
-from kronos.utils.math import uuid_from_kronos_time
-from kronos.utils.math import UUIDType
+from kronos.utils.uuid import uuid_from_kronos_time
+from kronos.utils.uuid import UUIDType
 from kronos.utils.validate import is_non_empty_str, is_pos_int, is_list
 
 log = logging.getLogger(__name__) 
@@ -121,14 +120,14 @@ class CassandraStorage(BaseStorage):
     events = stream.iterator(start_id,
                              uuid_from_kronos_time(end_time,
                                                    _type=UUIDType.HIGHEST),
-                               order, limit)
+                             order, limit)
     events = events.__iter__()
     event = events.next()
     # If first event's ID is equal to `start_id`, skip it.
-    if event[ID_FIELD] != str(start_id):
-      yield event
+    if event.id != start_id:
+      yield event.json
     while True:
-      yield events.next()
+      yield events.next().json
 
   def _streams(self, namespace):
     for stream_name in self.namespaces[namespace].list_streams():

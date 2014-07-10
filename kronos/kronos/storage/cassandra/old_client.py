@@ -24,9 +24,9 @@ from kronos.storage.cassandra.datastructures import SortedShardedEventStream
 from kronos.common.cache import InMemoryLRUCache
 from kronos.utils.math import round_down
 from kronos.utils.math import time_to_kronos_time
-from kronos.utils.math import uuid_from_kronos_time
-from kronos.utils.math import uuid_to_kronos_time
-from kronos.utils.math import UUIDType
+from kronos.utils.uuid import uuid_from_kronos_time
+from kronos.utils.uuid import uuid_to_kronos_time
+from kronos.utils.uuid import UUIDType
 
 log = logging.getLogger(__name__) 
 

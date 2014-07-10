@@ -7,7 +7,7 @@ from uuid import UUID
 
 from kronos.conf.constants import ResultOrder
 from kronos.conf.constants import ID_FIELD
-from kronos.utils.math import uuid_to_kronos_time
+from kronos.utils.uuid import uuid_to_kronos_time
 
 
 class CassandraUUID(UUID):

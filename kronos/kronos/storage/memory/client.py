@@ -1,4 +1,5 @@
 import bisect
+import json
 
 from collections import defaultdict
 from uuid import UUID
@@ -6,8 +7,8 @@ from uuid import UUID
 from kronos.conf.constants import ID_FIELD
 from kronos.conf.constants import ResultOrder
 from kronos.storage.base import BaseStorage
-from kronos.utils.math import uuid_from_kronos_time
-from kronos.utils.math import UUIDType
+from kronos.utils.uuid import uuid_from_kronos_time
+from kronos.utils.uuid import UUIDType
 from kronos.utils.validate import is_pos_int
 
 
@@ -118,7 +119,7 @@ class InMemoryStorage(BaseStorage):
       if limit <= 0:
         break
       limit -= 1
-      yield stream_events[i]
+      yield json.dumps(stream_events[i])
 
   def _streams(self, namespace):
     return self.db[namespace].iterkeys()

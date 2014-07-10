@@ -3,6 +3,3 @@ class CassandraStorageError(Exception):
 
 class InvalidStreamComparison(Exception):
   pass
-
-class InvalidTimeUUIDComparison(Exception):
-  pass

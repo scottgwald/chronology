@@ -1,3 +1,5 @@
+import json
+
 from collections import defaultdict
 
 from kronos.conf import settings
@@ -9,8 +11,8 @@ from kronos.storage.router import router
 from kronos.utils.math import kronos_time_to_time
 from kronos.utils.math import round_down
 from kronos.utils.math import time_to_kronos_time
-from kronos.utils.math import UUIDType
-from kronos.utils.math import uuid_from_kronos_time
+from kronos.utils.uuid import UUIDType
+from kronos.utils.uuid import uuid_from_kronos_time
 from tests.server import KronosServerTestCase
 
 
@@ -82,7 +84,8 @@ class TestCassandraBackend(KronosServerTestCase):
         events = stream_shard.iterator(
           uuid_from_time(start_time, UUIDType.LOWEST),
           uuid_from_time(start_time + self.width_seconds))
-        bucket_to_events[start_time].extend(event.dict for event in events)
+        bucket_to_events[start_time].extend(json.loads(event.json)
+                                            for event in events)
 
     num_events = 0
     for start_time, events in bucket_to_events.iteritems():

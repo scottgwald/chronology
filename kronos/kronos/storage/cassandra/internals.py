@@ -10,19 +10,17 @@ from cassandra.query import BatchStatement
 from cassandra.query import SimpleStatement
 from collections import defaultdict
 from datetime import timedelta
-from types import StringTypes
-from uuid import UUID
 
 from kronos.common.cache import InMemoryLRUCache
 from kronos.conf.constants import ID_FIELD
 from kronos.conf.constants import MAX_LIMIT
 from kronos.conf.constants import ResultOrder
 from kronos.conf.constants import TIMESTAMP_FIELD
+from kronos.core.exceptions import InvalidTimeUUIDComparison
 from kronos.storage.cassandra.errors import CassandraStorageError
 from kronos.storage.cassandra.errors import InvalidStreamComparison
-from kronos.storage.cassandra.errors import InvalidTimeUUIDComparison
 from kronos.utils.math import round_down
-from kronos.utils.math import uuid_to_kronos_time
+from kronos.utils.uuid import TimeUUID
 
 # Since the Datastax driver doesn't let us pass kwargs to session.prepare
 # we'll just go ahead and monkey patch it to work for us.
@@ -35,58 +33,13 @@ def patched_prepare(self, query, **kwargs):
 Session.prepare = patched_prepare
 
 
-class TimeUUID(UUID):
-  """
-  Override Python's UUID comparator so that time is the first parameter used
-  for sorting. This is the comparator behavior for `timeuuid` types in
-  Cassandra.
-  """
-  def __init__(self, *args, **kwargs):
-    """
-    `order`[kwarg]: Whether to return the results in
-             ResultOrder.ASCENDING or ResultOrder.DESCENDING
-             time-order.
-    """
-    # TODO(marcua): Couldn't get `order` to be a named arg (because of
-    # subclassing?).  I don't like the next line.
-    order = kwargs.pop('order', ResultOrder.ASCENDING)
-    super(TimeUUID, self).__init__(*args, **kwargs)
-
-    self._kronos_time = uuid_to_kronos_time(self)
-    self._cached_bytes = self.bytes
-    self._cmp_multiplier = ResultOrder.get_multiplier(order)
-    
-  def __setattr__(self, name, value):
-    # Override UUID's __setattr__ method to make it mutable.
-    super(UUID, self).__setattr__(name, value)
-
-  def __cmp__(self, other):
-    if other is None:
-      return 1
-    if isinstance(other, StreamEvent):
-      other = other.id
-    if isinstance(other, TimeUUID):
-      # Compare against self._kronos_time and self._cached_bytes because
-      # both self.time and self.bytes are expensive properties:
-      # http://svn.python.org/projects/python/branches/py3k/Lib/uuid.py
-      return self._cmp_multiplier * cmp((self._kronos_time,
-                                         self._cached_bytes),
-                                        (other._kronos_time,
-                                         other._cached_bytes))
-    raise InvalidTimeUUIDComparison('Compared TimeUUID to type {0}'
-                                    .format(type(other)))
-
-
 class StreamEvent(object):
-  def __init__(self, event, stream_shard):
-    if isinstance(event, StringTypes):
-      event = json.loads(event)
-    self.dict = event
+  def __init__(self, _id, event_json, stream_shard):
     self.stream_shard = stream_shard
-    self.id = TimeUUID(event[ID_FIELD], order=stream_shard.order)
-
+    self.json = event_json
+    self.id = TimeUUID(_id, order=stream_shard.order)
     self._cmp_value = (ResultOrder.get_multiplier(stream_shard.order) *
-                       event[TIMESTAMP_FIELD])
+                       self.id._kronos_time)
 
   def __cmp__(self, other):
     if not other:
@@ -101,7 +54,7 @@ class StreamEvent(object):
 
 class StreamShard(object):
   # CQL commands.
-  SELECT_CQL = """SELECT blob FROM stream WHERE
+  SELECT_CQL = """SELECT id, blob FROM stream WHERE
     key = ? AND
     id >= ? AND
     id <= ?
@@ -156,7 +109,7 @@ class StreamShard(object):
                                   (self.key, start_id, end_id, self.limit))
     for event in events:
       try:
-        yield StreamEvent(event[0], self)
+        yield StreamEvent(event[0], event[1], self)
       except GeneratorExit:
         break
       except ValueError: # Malformed blob?
@@ -262,8 +215,8 @@ class Stream(object):
       shard_idx[shard_time] = (shard + 1) % self.shards # Round robin.
 
   def iterator(self, start_id, end_id, order, limit):
-    start_id = TimeUUID(str(start_id), order=order)
-    end_id = TimeUUID(str(end_id), order=order)
+    start_id = TimeUUID(start_id, order=order)
+    end_id = TimeUUID(end_id, order=order)
     
     shards = self.get_overlapping_shards(start_id._kronos_time,
                                          end_id._kronos_time)
@@ -343,18 +296,18 @@ class Stream(object):
           event = heapq.heappop(event_heap)
           # Note: in ResultOrder.DESCENDING conditions below, we flip `<` for
           # `>` and `>=` for `<=` UUID comparator logic is flipped.
-          if ((order == ResultOrder.ASCENDING and end_id < event) or
-              (order == ResultOrder.DESCENDING and start_id < event)):
+          if ((order == ResultOrder.ASCENDING and event > end_id) or
+              (order == ResultOrder.DESCENDING and event > start_id)):
             raise StopIteration
-          elif ((order == ResultOrder.ASCENDING and start_id <= event) or
-                (order == ResultOrder.DESCENDING and end_id <= event)):
+          elif ((order == ResultOrder.ASCENDING and event >= start_id) or
+                (order == ResultOrder.DESCENDING and event >= end_id)):
             limit -= 1
             yield event
 
         load_overlapping_shards()
 
     for event in _iterator(limit):
-      yield event.dict
+      yield event
     
   def delete(self, start_id, end_id):
     batch_stmt = BatchStatement(batch_type=BatchType.UNLOGGED,
@@ -368,8 +321,8 @@ class Stream(object):
       self.delete_cql = self.session.prepare(Stream.DELETE_CQL,
                                              _routing_key='key')
     
-    start_id = TimeUUID(str(start_id))
-    end_id = TimeUUID(str(end_id))
+    start_id = TimeUUID(start_id)
+    end_id = TimeUUID(end_id)
     shards = self.get_overlapping_shards(start_id._kronos_time,
                                          end_id._kronos_time)
     num_deleted = 0
@@ -382,8 +335,7 @@ class Stream(object):
         if event.id == start_id:
           continue
         num_deleted += 1
-        batch_stmt.add(self.delete_cql, (shard.key,
-                                         TimeUUID(event.dict[ID_FIELD])))
+        batch_stmt.add(self.delete_cql, (shard.key, TimeUUID(event.id)))
     return num_deleted
 
 

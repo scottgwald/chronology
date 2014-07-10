@@ -1,10 +1,10 @@
 import sys
-import uuid
 
 from kronos.conf.constants import ResultOrder
-from kronos.utils.math import uuid_from_kronos_time
-from kronos.utils.math import uuid_to_kronos_time
-from kronos.utils.math import UUIDType
+from kronos.utils.uuid import TimeUUID
+from kronos.utils.uuid import uuid_from_kronos_time
+from kronos.utils.uuid import uuid_to_kronos_time
+from kronos.utils.uuid import UUIDType
 
 
 class BaseStorage(object):
@@ -42,7 +42,7 @@ class BaseStorage(object):
     if not start_id:
       start_id = uuid_from_kronos_time(start_time, _type=UUIDType.LOWEST)
     else:
-      start_id = uuid.UUID(start_id)
+      start_id = TimeUUID(start_id)
     if uuid_to_kronos_time(start_id) > end_time:
       return 0      
     return self._delete(namespace, stream, start_id, end_time, configuration)
@@ -61,11 +61,13 @@ class BaseStorage(object):
     got disconnected from the server before all the events in the requested
     time window had been returned. `order` can be one of ResultOrder.ASCENDING
     or ResultOrder.DESCENDING.
+
+    Returns an iterator over all JSON serialized (strings) events.
     """
     if not start_id:
       start_id = uuid_from_kronos_time(start_time, _type=UUIDType.LOWEST)
     else:
-      start_id = uuid.UUID(start_id)
+      start_id = TimeUUID(start_id)
     if uuid_to_kronos_time(start_id) > end_time:
       return []
     return self._retrieve(namespace, stream, start_id, end_time, order, limit, 

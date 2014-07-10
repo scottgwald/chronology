@@ -6,7 +6,7 @@ from elasticsearch import helpers as es_helpers
 from kronos.conf.constants import ID_FIELD, TIMESTAMP_FIELD
 from kronos.conf.constants import ResultOrder
 from kronos.storage.base import BaseStorage
-from kronos.utils.math import uuid_to_kronos_time
+from kronos.utils.uuid import uuid_to_kronos_time
 from kronos.utils.validate import is_bool
 from kronos.utils.validate import is_list
 from kronos.utils.validate import is_non_empty_str
