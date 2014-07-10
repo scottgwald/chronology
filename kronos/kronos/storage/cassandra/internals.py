@@ -53,6 +53,7 @@ class TimeUUID(UUID):
     super(TimeUUID, self).__init__(*args, **kwargs)
 
     self._kronos_time = uuid_to_kronos_time(self)
+    self._cached_bytes = self.bytes
     self._cmp_multiplier = ResultOrder.get_multiplier(order)
     
   def __setattr__(self, name, value):
@@ -62,16 +63,16 @@ class TimeUUID(UUID):
   def __cmp__(self, other):
     if other is None:
       return 1
-    if isinstance(other, StringTypes):
-      try:
-        other = UUID(other)
-      except (ValueError, AttributeError):
-        return 1
     if isinstance(other, StreamEvent):
       other = other.id
-    if isinstance(other, UUID):
-      return self._cmp_multiplier * cmp((self.time, self.bytes),
-                                        (other.time, other.bytes))
+    if isinstance(other, TimeUUID):
+      # Compare against self._kronos_time and self._cached_bytes because
+      # both self.time and self.bytes are expensive properties:
+      # http://svn.python.org/projects/python/branches/py3k/Lib/uuid.py
+      return self._cmp_multiplier * cmp((self._kronos_time,
+                                         self._cached_bytes),
+                                        (other._kronos_time,
+                                         other._cached_bytes))
     raise InvalidTimeUUIDComparison('Compared TimeUUID to type {0}'
                                     .format(type(other)))
 
@@ -94,8 +95,6 @@ class StreamEvent(object):
       return cmp(self.id, other)
     if isinstance(other, StreamEvent):
       return cmp(self.id, other.id)
-    if isinstance(other, UUID) or isinstance(other, StringTypes):
-      return cmp(self.id, TimeUUID(str(other)))
     raise InvalidTimeUUIDComparison('Compared TimeUUID to type {0}'
                                     .format(type(other)))
 
