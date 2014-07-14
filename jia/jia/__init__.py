@@ -3,6 +3,7 @@ from flask.ext.sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 app.config.from_pyfile('../settings.cfg')
+app.secret_key = app.config['SECRET_KEY']
 db = SQLAlchemy(app)
 
 import jia.models
