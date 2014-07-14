@@ -4,6 +4,7 @@ from flask_sslify import SSLify
 
 app = Flask(__name__)
 app.config.from_pyfile('../settings.cfg')
+app.secret_key = app.config['SECRET_KEY']
 db = SQLAlchemy(app)
 
 if app.config['FORCE_SSL']:

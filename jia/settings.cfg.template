@@ -8,6 +8,12 @@ PORT = 8152
 SECRET_KEY = 'a secret key---you should absolutely set this to something unique and strong'
 FORCE_SSL = False
 
+# Precompute settings
+PRECOMPUTE = True
+SCHEDULER_HOST = '127.0.0.1' # It is not recommended to expose the scheduler outside the LAN
+SCHEDULER_PORT = 8157
+SCHEDULER_DATABASE_URI = 'sqlite:///%s/scheduler.db' % APPROOT
+
 # Kronos and metis pointers
 KRONOS_URL = 'http://localhost:8150'
 KRONOS_NAMESPACE = 'default'

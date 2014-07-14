@@ -64,4 +64,3 @@ class Board(db.Model):
     del board_dict['id']
     self.board_data = json.dumps(dict(board_dict.items() +
                                       [('__version__', 1)]))
-
