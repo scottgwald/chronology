@@ -6,7 +6,6 @@ gevent==1.0.1
 geventhttpclient==1.1.0
 git+git://github.com/chronology/python-timeuuid.git@v0.2.0
 gipc==0.4.0
-pycassa==1.11.0
 python-dateutil==2.2
 requests==2.3.0
 werkzeug==0.9.6
