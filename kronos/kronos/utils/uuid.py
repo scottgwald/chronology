@@ -2,9 +2,7 @@ from __future__ import absolute_import
 
 from uuid import UUID
 from uuid import uuid4
-
-from kronos.conf.constants import ResultOrder
-from kronos.core.exceptions import InvalidTimeUUIDComparison
+from timeuuid import TimeUUID
 
 UUID_TIME_OFFSET = 0x01b21dd213814000L
 
@@ -14,55 +12,13 @@ class UUIDType(object):
   HIGHEST = 'highest'
   RANDOM = 'random'
 
-
-class TimeUUID(UUID):
-  """
-  Override Python's UUID comparator so that time is the first parameter used
-  for sorting. This is the comparator behavior for `timeuuid` types in
-  Cassandra.
-  """
-  def __init__(self, *args, **kwargs):
-    """
-    `order`[kwarg]: Whether to return the results in
-             ResultOrder.ASCENDING or ResultOrder.DESCENDING
-             time-order.
-    """
-    # TODO(marcua): Couldn't get `order` to be a named arg (because of
-    # subclassing?).  I don't like the next line.
-    if args and isinstance(args[0], UUID):
-      args = list(args)
-      args[0] = str(args[0])
-    order = kwargs.pop('order', ResultOrder.ASCENDING)
-    kwargs['version'] = 1
-    super(TimeUUID, self).__init__(*args, **kwargs)
-
-    self._kronos_time = uuid_to_kronos_time(self)
-    self._cached_bytes = self.bytes
-    self._cmp_multiplier = ResultOrder.get_multiplier(order)
-    
-  def __setattr__(self, name, value):
-    # Override UUID's __setattr__ method to make it mutable.
-    super(UUID, self).__setattr__(name, value)
-
-  def __cmp__(self, other):
-    if other is None:
-      return 1
-    if isinstance(other, TimeUUID):
-      return self._cmp_multiplier * cmp((self._kronos_time,
-                                         self._cached_bytes),
-                                        (other._kronos_time,
-                                         other._cached_bytes))
-    raise InvalidTimeUUIDComparison('Compared TimeUUID to type {0}'
-                                    .format(type(other)))
-
-
 def uuid_to_kronos_time(uuid):
   """
   UUIDs contain a time field. Convert it to kronos time and return.
   """
 
-  if not isinstance(uuid, UUID):
-    raise Exception('Expected type UUID')
+  if not isinstance(uuid, (TimeUUID, UUID)):
+    raise Exception('Expected type TimeUUID/UUID')
   return uuid.time - 0x01b21dd213814000L
 
 
@@ -94,14 +50,14 @@ def uuid_from_kronos_time(time, _type=UUIDType.RANDOM):
     clock_seq_low = randomuuid.clock_seq_low
     clock_seq_hi_variant = randomuuid.clock_seq_hi_variant
     node = randomuuid.node
-  uuid = TimeUUID(fields=(time_low,
-                          time_mid,
-                          time_hi_version,
-                          clock_seq_hi_variant,
-                          clock_seq_low,
-                          node),
-                  version=1)
-  return uuid
+  uuid = UUID(fields=(time_low,
+                      time_mid,
+                      time_hi_version,
+                      clock_seq_hi_variant,
+                      clock_seq_low,
+                      node),
+              version=1)
+  return TimeUUID(str(uuid))
 
 
 LOWEST_UUID = uuid_from_kronos_time(0 - UUID_TIME_OFFSET, UUIDType.LOWEST)

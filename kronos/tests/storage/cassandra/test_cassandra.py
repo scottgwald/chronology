@@ -3,7 +3,6 @@ import json
 from collections import defaultdict
 
 from kronos.conf import settings
-from kronos.conf.constants import ResultOrder
 from kronos.conf.constants import MAX_LIMIT
 from kronos.conf.constants import TIMESTAMP_FIELD
 from kronos.storage.cassandra.internals import StreamShard
@@ -48,7 +47,7 @@ class TestCassandraBackend(KronosServerTestCase):
     
     for shard in xrange(self.shards):
       stream_shard = StreamShard(stream.session, stream_name, 0, self.width,
-                                 shard, ResultOrder.ASCENDING, MAX_LIMIT, 100)
+                                 shard, False, MAX_LIMIT, 100)
       events = list(stream_shard.iterator(uuid_from_time(0),
                                           uuid_from_time(2)))
       self.assertTrue(len(events) > 0)
@@ -79,7 +78,7 @@ class TestCassandraBackend(KronosServerTestCase):
       for shard in xrange(self.shards):
         stream_shard = StreamShard(stream.session, stream_name,
                                    time_to_kronos_time(start_time),
-                                   self.width, shard, ResultOrder.ASCENDING,
+                                   self.width, shard, False,
                                    MAX_LIMIT, 100)
         events = stream_shard.iterator(
           uuid_from_time(start_time, UUIDType.LOWEST),
@@ -158,7 +157,7 @@ class TestCassandraBackend(KronosServerTestCase):
       for shard in xrange(self.shards):
         stream_shard = StreamShard(stream.session, stream_name,
                                    time_to_kronos_time(start_time),
-                                   self.width, shard, ResultOrder.ASCENDING,
+                                   self.width, shard, False,
                                    MAX_LIMIT, 100)
         events = stream_shard.iterator(uuid_from_time(start_time,
                                                       UUIDType.LOWEST),

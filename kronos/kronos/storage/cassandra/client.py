@@ -4,6 +4,7 @@ import logging
 from cassandra.cluster import Cluster
 from datetime import timedelta
 
+from kronos.conf.constants import ResultOrder
 from kronos.storage.base import BaseStorage
 from kronos.storage.cassandra.internals import Namespace
 from kronos.storage.cassandra.internals import Stream
@@ -120,7 +121,7 @@ class CassandraStorage(BaseStorage):
     events = stream.iterator(start_id,
                              uuid_from_kronos_time(end_time,
                                                    _type=UUIDType.HIGHEST),
-                             order, limit)
+                             order == ResultOrder.DESCENDING, limit)
     events = events.__iter__()
     event = events.next()
     # If first event's ID is equal to `start_id`, skip it.

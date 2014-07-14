@@ -10,17 +10,19 @@ from cassandra.query import BatchStatement
 from cassandra.query import SimpleStatement
 from collections import defaultdict
 from datetime import timedelta
+from timeuuid import TimeUUID
+from uuid import UUID
 
 from kronos.common.cache import InMemoryLRUCache
 from kronos.conf.constants import ID_FIELD
 from kronos.conf.constants import MAX_LIMIT
-from kronos.conf.constants import ResultOrder
 from kronos.conf.constants import TIMESTAMP_FIELD
 from kronos.core.exceptions import InvalidTimeUUIDComparison
 from kronos.storage.cassandra.errors import CassandraStorageError
 from kronos.storage.cassandra.errors import InvalidStreamComparison
 from kronos.utils.math import round_down
-from kronos.utils.uuid import TimeUUID
+from kronos.utils.uuid import uuid_to_kronos_time
+
 
 # Since the Datastax driver doesn't let us pass kwargs to session.prepare
 # we'll just go ahead and monkey patch it to work for us.
@@ -37,9 +39,9 @@ class StreamEvent(object):
   def __init__(self, _id, event_json, stream_shard):
     self.stream_shard = stream_shard
     self.json = event_json
-    self.id = TimeUUID(_id, order=stream_shard.order)
-    self._cmp_value = (ResultOrder.get_multiplier(stream_shard.order) *
-                       self.id._kronos_time)
+    self.id = TimeUUID(_id, descending=stream_shard.descending)
+    multiplier = -1 if stream_shard.descending else 1
+    self._cmp_value = multiplier * uuid_to_kronos_time(self.id)
 
   def __cmp__(self, other):
     if not other:
@@ -62,18 +64,18 @@ class StreamShard(object):
     LIMIT ?
     """
   
-  def __init__(self, session, stream, start_time, width, shard, order, limit,
-               read_size):
+  def __init__(self, session, stream, start_time, width, shard, descending,
+               limit, read_size):
     self.session = session
-    self.order = order
+    self.descending = descending
     self.read_size = read_size
     self.limit = limit
     self.key = StreamShard.get_key(stream, start_time, shard)
 
     # If we want to sort in descending order, compare the end of the
     # interval.
-    self._cmp_value = ResultOrder.get_multiplier(order) * start_time
-    if order == ResultOrder.DESCENDING:
+    self._cmp_value = (-1 if descending else 1) * start_time
+    if descending:
       self._cmp_value -= width
 
     self.select_cql = None
@@ -94,7 +96,7 @@ class StreamShard(object):
                                     .format(type(other)))
 
   def iterator(self, start_id, end_id):
-    if self.order == ResultOrder.DESCENDING:
+    if self.descending:
       order = 'DESC'
     else:
       order = 'ASC'
@@ -109,7 +111,7 @@ class StreamShard(object):
                                   (self.key, start_id, end_id, self.limit))
     for event in events:
       try:
-        yield StreamEvent(event[0], event[1], self)
+        yield StreamEvent(str(event[0]), event[1], self)
       except GeneratorExit:
         break
       except ValueError: # Malformed blob?
@@ -210,22 +212,22 @@ class Stream(object):
       # Insert to stream.
       batch_stmt.add(self.insert_cql,
                      (StreamShard.get_key(self.stream, shard_time, shard),
-                      TimeUUID(event[ID_FIELD]),
+                      UUID(event[ID_FIELD]),
                       json.dumps(event)))
       shard_idx[shard_time] = (shard + 1) % self.shards # Round robin.
 
-  def iterator(self, start_id, end_id, order, limit):
-    start_id = TimeUUID(start_id, order=order)
-    end_id = TimeUUID(end_id, order=order)
+  def iterator(self, start_id, end_id, descending, limit):
+    start_id.descending = descending
+    end_id.descending = descending
     
-    shards = self.get_overlapping_shards(start_id._kronos_time,
-                                         end_id._kronos_time)
+    shards = self.get_overlapping_shards(uuid_to_kronos_time(start_id),
+                                         uuid_to_kronos_time(end_id))
     shards = sorted(map(lambda shard: StreamShard(self.session,
                                                   self.stream,
                                                   shard['start_time'],
                                                   shard['width'],
                                                   shard['shard'],
-                                                  order,
+                                                  descending,
                                                   limit,
                                                   self.read_size),
                         shards))
@@ -294,13 +296,13 @@ class Stream(object):
         if event_heap:
           # Get the next event to return.
           event = heapq.heappop(event_heap)
-          # Note: in ResultOrder.DESCENDING conditions below, we flip `<` for
+          # Note: in descending conditions below, we flip `<` for
           # `>` and `>=` for `<=` UUID comparator logic is flipped.
-          if ((order == ResultOrder.ASCENDING and event > end_id) or
-              (order == ResultOrder.DESCENDING and event > start_id)):
+          if ((not descending and event.id > end_id) or
+              (descending and event.id > start_id)):
             raise StopIteration
-          elif ((order == ResultOrder.ASCENDING and event >= start_id) or
-                (order == ResultOrder.DESCENDING and event >= end_id)):
+          elif ((not descending and event.id >= start_id) or
+                (descending and event.id >= end_id)):
             limit -= 1
             yield event
 
@@ -321,21 +323,19 @@ class Stream(object):
       self.delete_cql = self.session.prepare(Stream.DELETE_CQL,
                                              _routing_key='key')
     
-    start_id = TimeUUID(start_id)
-    end_id = TimeUUID(end_id)
-    shards = self.get_overlapping_shards(start_id._kronos_time,
-                                         end_id._kronos_time)
+    shards = self.get_overlapping_shards(uuid_to_kronos_time(start_id),
+                                         uuid_to_kronos_time(end_id))
     num_deleted = 0
     for shard in shards:
       shard = StreamShard(self.session, self.stream,
                           shard['start_time'], shard['width'],
-                          shard['shard'], ResultOrder.ASCENDING,
+                          shard['shard'], False,
                           MAX_LIMIT, read_size=self.read_size)
       for event in shard.iterator(start_id, end_id):
         if event.id == start_id:
           continue
         num_deleted += 1
-        batch_stmt.add(self.delete_cql, (shard.key, TimeUUID(event.id)))
+        batch_stmt.add(self.delete_cql, (shard.key, UUID(str(event.id))))
     return num_deleted
 
 

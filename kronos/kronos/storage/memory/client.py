@@ -2,7 +2,7 @@ import bisect
 import json
 
 from collections import defaultdict
-from uuid import UUID
+from timeuuid import TimeUUID
 
 from kronos.conf.constants import ID_FIELD
 from kronos.conf.constants import ResultOrder
@@ -19,22 +19,7 @@ class Event(dict):
   UUIDs
   """
   def __cmp__(self, other):
-    self_uuid = UUID(self[ID_FIELD])
-    other_uuid = UUID(other[ID_FIELD])
-
-    # If my time is != other's time, return that comparison
-    if self_uuid.time < other_uuid.time:
-      return -1
-    elif self_uuid.time > other_uuid.time:
-      return 1
-
-    # If our times are equal, compare our raw bytes
-    if self_uuid.bytes < other_uuid.bytes:
-      return -1
-    elif self_uuid.bytes > other_uuid.bytes:
-      return 1
-
-    return 0
+    return cmp(TimeUUID(self[ID_FIELD]), TimeUUID(other[ID_FIELD]))
 
 
 class InMemoryStorage(BaseStorage):

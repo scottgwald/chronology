@@ -19,7 +19,7 @@ from kronos.conf import settings; validate_settings(settings)
 
 from kronos.conf.constants import MAX_LIMIT
 from kronos.conf.constants import ResultOrder
-from kronos.core.executor import execute_async
+from kronos.core.executor import execute_greenlet_async
 from kronos.core.executor import wait
 from kronos.core.validators import validate_event
 from kronos.core.validators import validate_stream
@@ -89,7 +89,7 @@ def put_events(environment, start_response, headers):
   for stream, events in events_to_insert.iteritems():
     backends = router.backends_to_mutate(namespace, stream)
     for backend, configuration in backends.iteritems():
-      results[(stream, backend.name)] = execute_async(
+      results[(stream, backend.name)] = execute_greenlet_async(
         backend.insert, namespace, stream, events, configuration)
 
   # TODO(usmanm): Add async option to API and bypass this wait in that case?
@@ -207,7 +207,7 @@ def delete_events(environment, start_response, headers):
   backends = router.backends_to_mutate(namespace, request_json['stream'])
   statuses = {}
   for backend, conf in backends.iteritems():
-    statuses[backend.name] = execute_async(
+    statuses[backend.name] = execute_greenlet_async(
       backend.delete,
       namespace,
       request_json['stream'],

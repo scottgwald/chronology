@@ -2,3 +2,4 @@ libevent-dev
 libpcre3-dev
 python-all-dev
 python-pip
+uuid-dev

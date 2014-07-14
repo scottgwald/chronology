@@ -136,8 +136,10 @@ class ElasticSearchStorage(BaseStorage):
           }
         }
       }
-    sort_query = ['%s:%s' % (TIMESTAMP_FIELD,
-                             ResultOrder.get_short_name(order)), ID_FIELD]
+    sort_query = [
+      '%s:%s' % (TIMESTAMP_FIELD,
+                 'desc' if order == ResultOrder.DESENDING else 'asc'),
+      ID_FIELD]
 
     fetched_count = 0
     while True:
