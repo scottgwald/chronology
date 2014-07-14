@@ -19,7 +19,8 @@ from kronos.conf import settings; validate_settings(settings)
 
 from kronos.conf.constants import MAX_LIMIT
 from kronos.conf.constants import ResultOrder
-from kronos.core.executor import greenlet_executor
+from kronos.core.executor import execute_async
+from kronos.core.executor import wait
 from kronos.core.validators import validate_event
 from kronos.core.validators import validate_stream
 from kronos.storage.router import router
@@ -88,13 +89,12 @@ def put_events(environment, start_response, headers):
   for stream, events in events_to_insert.iteritems():
     backends = router.backends_to_mutate(namespace, stream)
     for backend, configuration in backends.iteritems():
-      results[(stream, backend.name)] = greenlet_executor.submit(
-        backend.insert,
-        [namespace, stream, events, configuration])
+      results[(stream, backend.name)] = execute_async(
+        backend.insert, namespace, stream, events, configuration)
 
   # TODO(usmanm): Add async option to API and bypass this wait in that case?
   # Wait for all backends to finish inserting.
-  greenlet_executor.wait(results.values())
+  wait(results.values())
 
   # Did any insertion fail?
   response = defaultdict(dict)
@@ -207,16 +207,16 @@ def delete_events(environment, start_response, headers):
   backends = router.backends_to_mutate(namespace, request_json['stream'])
   statuses = {}
   for backend, conf in backends.iteritems():
-    statuses[backend.name] = greenlet_executor.submit(
+    statuses[backend.name] = execute_async(
       backend.delete,
-      [namespace,
-       request_json['stream'],
-       long(request_json.get('start_time', 0)),
-       long(request_json['end_time']),
-       request_json.get('start_id'),
-       conf])
+      namespace,
+      request_json['stream'],
+      long(request_json.get('start_time', 0)),
+      long(request_json['end_time']),
+      request_json.get('start_id'),
+      conf)
 
-  greenlet_executor.wait(statuses.values())
+  wait(statuses.values())
 
   errors = []
   response = {}

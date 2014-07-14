@@ -88,10 +88,10 @@ class AbstractExecutor(object):
     """
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-      return self.submit(func, args, kwargs)
+      return self.submit(func, *args, **kwargs)
     return wrapper
 
-  def submit(self, func, args=None, kwargs=None):
+  def submit(self, func, *args, **kwargs):
     """
     Schedules the callable, func, to be executed asynchronously as
     func(*args **kwargs) and returns an gevent.event.AsyncResult object
@@ -99,10 +99,6 @@ class AbstractExecutor(object):
     """
     if not self.is_running():
       raise RuntimeError('Executor instance has been shutdown.')
-    if args is None:
-      args = []
-    if kwargs is None:
-      kwargs = {}
     task = self._create_task(func, args, kwargs)
     self._submit(task)
     return task.result

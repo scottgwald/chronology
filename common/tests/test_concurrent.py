@@ -32,7 +32,7 @@ class ExecutorTest(unittest.TestCase):
     for func in [lambda s: hashlib.md5(s).hexdigest(),
                  lambda s: s + 'world',
                  lambda s: len(s)]:
-      result = self.executor.submit(func, ['hello']).get()
+      result = self.executor.submit(func, 'hello').get()
       self.assertEqual(result, func('hello'))
 
   @executor_test
@@ -59,7 +59,7 @@ class ExecutorTest(unittest.TestCase):
       wait_num = random.choice(range(1, 10))
       # Fire off 9 tasks (so all can happen concurrently) where each
       # task takes (i * 0.1) seconds where i in [1, ..., 9].
-      results = map(lambda i: self.executor.submit(func, [i]), range(1, 10))
+      results = map(lambda i: self.executor.submit(func, i), range(1, 10))
       # Wait for a random N tasks, so we should take at most N * 0.1s
       # to unblock where N in [1, ..., 9].
       ready_results = self.executor.wait(results, num=wait_num)
@@ -77,12 +77,12 @@ class ExecutorTest(unittest.TestCase):
   @executor_test
   def test_async_decorator(self):
     @self.executor.async
-    def func():
-      gevent.sleep(0.2)
+    def func(t):
+      gevent.sleep(t)
       return 'lolcat'
     
     start_time = time.time()
-    result = func()
+    result = func(0.2)
     call_duration = time.time() - start_time
     self.assertTrue(isinstance(result, gevent.event.AsyncResult))
     result = result.get()
