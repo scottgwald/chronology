@@ -2,6 +2,7 @@ var app = angular.module('jia.boards', ['ngSanitize',
                                         'ui.codemirror',
                                         'ui.bootstrap',
                                         'ui.bootstrap.datetimepicker',
+                                        'ui.select',
                                         'jia.timeseries',
                                         'jia.table',
                                         'jia.gauge',
@@ -40,6 +41,10 @@ app.factory('BoardTransport', function () {
       data = emptyBoard;
     }
   };
+});
+
+app.config(function(uiSelectConfig) {
+  uiSelectConfig.theme = 'bootstrap';
 });
 
 app.controller('BoardController',
@@ -352,6 +357,7 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
         source_type: 'pycode',
         refresh_seconds: null,
         code: '',
+        stream: '',
         timeframe: {
           mode: 'recent',
           value: 2,
@@ -383,7 +389,7 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
     $scope.initPanel($scope.boardData.panels[0]);
   };
   
-  $scope.dateTimeFormat = 'ddd MMM DD YYYY HH:mm:ss';
+  $scope.dateTimeFormat = 'MMM DD YYYY HH:mm:ss';
 
   $scope.formatDateTime = function (datetime) {
     if (typeof datetime == 'string') {
@@ -401,6 +407,7 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
 
   $scope.getBoards();
 
+  $scope.streams = [''];
   $scope.getStreams = function () {
     $http.get('/streams')
       .success(function(data, status, headers, config) {
@@ -539,8 +546,10 @@ app.directive('selecter', function ($http, $compile) {
       // Update the selecter when the value changes in scope
       // Selecter doesn't provide an update method, so destroy and recreate
       $(element).selecter('destroy');
-      $(element).find('option[value="' + newVal + '"]')
-                .attr('selected', 'selected');
+      if (typeof newVal != 'undefined') {
+        $(element).find('option[value="' + newVal + '"]')
+                  .attr('selected', 'selected');
+      }
       createSelecter();
     };
  
@@ -550,6 +559,11 @@ app.directive('selecter', function ($http, $compile) {
       setTimeout(function () { updateSelector(newVal); });
     });
 
+    scope.$watch('watch', function (newVal, oldVal) {
+      console.log('change watch');
+      setTimeout(function () { updateSelector(); });
+    }, true);
+
   }
 
   return {
@@ -557,7 +571,8 @@ app.directive('selecter', function ($http, $compile) {
     replace: false,
     link: linker,
     scope: {
-      model: '=selecter'
+      model: '=selecter',
+      watch: '=watch',
     }
   };
 

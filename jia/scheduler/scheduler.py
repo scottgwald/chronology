@@ -95,6 +95,7 @@ class Scheduler(object):
     results = set()
 
     while True:
+      print "loop"
       now = datetime.datetime.now()
       if self._task_queue and self._task_queue[0][0] <= now:
         task = heappop(self._task_queue)[1]
@@ -126,6 +127,7 @@ class Scheduler(object):
               self._schedule(task, next_run=run_at)
           else:
             print "ERROR:", result.exception
+
 
 def _execute(task):
   """A wrapper around exec

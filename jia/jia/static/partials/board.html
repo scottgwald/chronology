@@ -2,126 +2,210 @@
   <div class="container-fluid">
     <!-- Brand and toggle get grouped for better mobile display -->
     <div class="navbar-header">
-      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+      <button type="button" class="navbar-toggle" data-toggle="collapse"
+              data-target="#bs-example-navbar-collapse-1">
         <span class="sr-only">Toggle navigation</span>
         <span class="icon-bar"></span>
         <span class="icon-bar"></span>
         <span class="icon-bar"></span>
       </button>
-      <span class="navbar-brand"><span class="glyphicon glyphicon-stats"></span> Jia</span>
+      <span class="navbar-brand">
+        <span class="glyphicon glyphicon-stats"></span> Jia
+      </span>
     </div>
 
     <!-- Collect the nav links, forms, and other content for toggling -->
     <div class="collapse navbar-collapse">
       <ul class="nav navbar-nav">
-        <li><a href="#"><span class="glyphicon glyphicon-plus"></span> New Board</a></li>
+        <li>
+          <a href="#">
+            <span class="glyphicon glyphicon-plus"></span> New Board
+          </a>
+        </li>
         <li class="dropdown" ng-if="boards">
-          <a class="dropdown-toggle"><span class="glyphicon glyphicon-list"></span> Saved Boards <b class="caret"></b></a>
+          <a class="dropdown-toggle">
+            <span class="glyphicon glyphicon-list"></span>
+            Saved Boards
+            <b class="caret"></b>
+          </a>
           <ul class="dropdown-menu">
-            <li ng-repeat="board in boards"><a href="#/boards/{[ board.id ]}">{[ board.title ]}</a></li>
+            <li ng-repeat="board in boards">
+              <a href="#/boards/{[ board.id ]}">{[ board.title ]}</a>
+            </li>
           </ul>
         </li>
         <li class="dropdown" ng-if="streams">
-          <a ng-if="boards" ng-click="showStreams()"><span class="glyphicon glyphicon-flash"></span> Available Streams</a>
+          <a ng-if="boards" ng-click="showStreams()">
+            <span class="glyphicon glyphicon-flash"></span> Available Streams
+          </a>
         </li>
       </ul>
       <form class="navbar-form navbar-right">
-        <button class="btn btn-default" ng-if="boardHasChanges" ng-click="saveBoard()"><span class="glyphicon glyphicon-floppy-disk"></span> Save</button>
-        <button class="btn btn-default" ng-if="boardId != 'new'" ng-click="forkModal()"><i class="fa fa-code-fork"></i> Fork</button>
-        <button class="btn btn-danger" ng-if="boardId != 'new'" ng-click="deleteBoard()"><span class="glyphicon glyphicon-remove"></span> Delete</button>
+        <button class="btn btn-default"
+                ng-if="boardHasChanges"
+                ng-click="saveBoard()">
+          <span class="glyphicon glyphicon-floppy-disk"></span> Save
+        </button>
+        <button class="btn btn-default"
+                ng-if="boardHasChanges"
+                ng-click="forkModal()">
+          <i class="fa fa-code-fork"></i> Fork
+        </button>
+        <button class="btn btn-danger"
+                ng-if="boardId != 'new'"
+                ng-click="deleteBoard()">
+          <span class="glyphicon glyphicon-remove"></span> Delete
+        </button>
       </div>
     </div><!-- /.navbar-collapse -->
   </div><!-- /.container-fluid -->
 </nav>
 <header>
-  <input type="text" class="form-control board-title" placeholder="New board" ng-model="boardData.title" ng-class="{ required: missingTitle }"/>
+  <input type="text" class="form-control board-title" placeholder="New board"
+         ng-model="boardData.title"
+         ng-class="{ required: missingTitle }"/>
 </header>
 <div class="board">
   <div class="panel-navigation">
     <button type="button" class="btn btn-success" ng-click="callAllSources()">
       <span class="glyphicon glyphicon-play"></span> Run all
     </button>
-    <button type="button" class="btn dropdown-toggle" ng-click="addPanel()" data-toggle="dropdown">
+    <button type="button" class="btn dropdown-toggle"
+            ng-click="addPanel()" data-toggle="dropdown">
       Add Panel
     </button>
   </div>
   <div style="clear: both;"></div>
-  <div class="panel panel-default" ng-repeat="panel in boardData.panels" ng-cloak>
-    <input type="text" class="form-control panel-title" placeholder="New panel" ng-model="panel.title"/>
-    <visualization ng-repeat="visualization in panel.cache.visualizations" module="visualization" ng-if="visualization.meta.title == panel.display.display_type"></visualization>
+  <div class="panel panel-default"
+       ng-repeat="panel in boardData.panels"
+       ng-cloak>
+    <input type="text" class="form-control panel-title" placeholder="New panel"
+           ng-model="panel.title"/>
+    <visualization ng-repeat="visualization in panel.cache.visualizations"
+                   module="visualization"
+                   ng-if="visualization.meta.title == panel.display.display_type">
+    </visualization>
     <div class="code-box">
-      <div class="error log alert alert-danger" ng-if="panel.cache.log.errors.length">
-        <div class="alert-icon"><span class="glyphicon glyphicon-remove-sign"></span></div>
+      <div class="error log alert alert-danger"
+           ng-if="panel.cache.log.errors.length">
+        <div class="alert-icon">
+          <span class="glyphicon glyphicon-remove-sign"></span>
+        </div>
         <ul>
-          <li ng-repeat="message in panel.cache.log.errors" ng-bind-html="message"></li>
+          <li ng-repeat="message in panel.cache.log.errors"
+              ng-bind-html="message"></li>
         </ul>
       </div>
-      <div class="warn log alert alert-warning" ng-if="panel.cache.log.warns.length">
-        <div class="alert-icon"><span class="glyphicon glyphicon-exclamation-sign"></span></div>
+      <div class="warn log alert alert-warning"
+           ng-if="panel.cache.log.warns.length">
+        <div class="alert-icon">
+          <span class="glyphicon glyphicon-exclamation-sign"></span>
+        </div>
         <ul>
-          <li ng-repeat="message in panel.cache.log.warns" ng-bind-html="message"></li>
+          <li ng-repeat="message in panel.cache.log.warns"
+              ng-bind-html="message"></li>
         </ul>
       </div>
-      <div class="info log alert alert-info" ng-if="panel.cache.log.infos.length">
-        <div class="alert-icon"><span class="glyphicon glyphicon-info-sign"></span></div>
+      <div class="info log alert alert-info"
+           ng-if="panel.cache.log.infos.length">
+        <div class="alert-icon">
+          <span class="glyphicon glyphicon-info-sign"></span>
+        </div>
         <ul>
-          <li ng-repeat="message in panel.cache.log.infos" ng-bind-html="message"></li>
+          <li ng-repeat="message in panel.cache.log.infos"
+              ng-bind-html="message"></li>
         </ul>
       </div>
       <div class="code-controls">
-        <button type="button" class="btn btn-success run-btn navbar-btn" ng-click="callSource(panel)">
-          <span class="fa fa-circle-o-notch fa-spin" ng-show="panel.cache.loading"></span>
-          <span class="glyphicon glyphicon-play" ng-hide="panel.cache.loading"></span> Run
+        <button type="button" class="btn btn-success run-btn navbar-btn"
+                ng-click="callSource(panel)">
+          <span class="fa fa-circle-o-notch fa-spin"
+                ng-show="panel.cache.loading"></span>
+          <span class="glyphicon glyphicon-play"
+                ng-hide="panel.cache.loading"></span> Run
         </button>
-        <div class="btn-group" dropdown is-open="panel.cache.visualizationDropdownOpen">
-          <button type="button" class="btn btn-primary dropdown-toggle display-type-btn navbar-btn" ng-disabled="disabled">
-            {[ panel.cache.visualization.meta.readableTitle ]} <span class="caret"></span>
+        <div class="btn-group"
+             dropdown is-open="panel.cache.visualizationDropdownOpen">
+          <button type="button"
+                  class="btn btn-primary dropdown-toggle display-type-btn navbar-btn"
+                  ng-disabled="disabled">
+            {[ panel.cache.visualization.meta.readableTitle ]}
+            <span class="caret"></span>
           </button>
           <ul class="dropdown-menu" role="menu">
-            <li ng-repeat="visualization in visualizations" ng-click="changeVisualization(panel, visualization)"><a>{[ visualization.meta.readableTitle ]}</a></li>
+            <li ng-repeat="visualization in visualizations"
+                ng-click="changeVisualization(panel, visualization)">
+              <a>{[ visualization.meta.readableTitle ]}</a>
+            </li>
           </ul>
         </div>
-        <button type="button" class="btn btn-default navbar-btn" ng-click="panel.data_source.display = !panel.data_source.display">
-          <span ng-show="!panel.data_source.display"><span class="glyphicon glyphicon-eye-open"></span> Show</span>
-          <span ng-show="panel.data_source.display"><span class="glyphicon glyphicon-eye-close"></span> Hide</span>
+        <button type="button" class="btn btn-default navbar-btn"
+                ng-click="panel.data_source.display = !panel.data_source.display">
+          <span ng-show="!panel.data_source.display">
+            <span class="glyphicon glyphicon-eye-open"></span> Show
+          </span>
+          <span ng-show="panel.data_source.display">
+            <span class="glyphicon glyphicon-eye-close"></span> Hide
+          </span>
           Code
         </button>
-        <a class="btn btn-default" target="_blank" download="{[ panel.title + '.csv']}" ng-click="downloadCSV(panel, $event)" ng-if="panel.cache.data.events.length > 1">
+        <a class="btn btn-default" target="_blank"
+           download="{[ panel.title + '.csv']}"
+           ng-click="downloadCSV(panel, $event)"
+           ng-if="panel.cache.data.events.length > 1">
           <span class="glyphicon glyphicon-download"></span> Download CSV
         </a>
       </div>
 
-      <div class="code-controls query-builder" ng-show="panel.data_source.display">
+      <div class="code-controls query-builder"
+           ng-show="panel.data_source.display">
+        <div class="stream">
+          <ui-select ng-model="person.selected" theme="bootstrap">
+            <ui-select-match placeholder="Stream">
+              {[ $select.selected ]}
+              <span class="input-fade"></span> 
+            </ui-select-match>
+            <ui-select-choices repeat="stream in streams | filter: $select.search">
+              <div ng-bind-html="stream | highlight: $select.search"></div>
+            </ui-select-choices>
+          </ui-select>
+        </div>
         <div class="timeframe">
-          <label>Timeframe</label>
           <select selecter="panel.data_source.timeframe.mode">
             <option value="recent">Most recent</option>
             <option value="range">Date range</option>
           </select>
-          <div class="timeframe" ng-if="panel.data_source.timeframe.mode == 'recent'">
-            <input type="number" class="form-control" ng-model="panel.data_source.timeframe.value">
+          <div class="recent"
+               ng-if="panel.data_source.timeframe.mode == 'recent'">
+            <input type="number" class="form-control"
+                   ng-model="panel.data_source.timeframe.value">
             <select selecter="panel.data_source.timeframe.scale">
-              <option ng-repeat="scale in timeScales" value="{[ scale ]}">{[ scale ]}</option>
+              <option ng-repeat="scale in timeScales" value="{[ scale ]}">
+                {[ scale ]}
+              </option>
             </select>
           </div>
-          <div class="daterange" ng-if="panel.data_source.timeframe.mode == 'range'">
+          <div class="daterange"
+               ng-if="panel.data_source.timeframe.mode == 'range'">
             <div class="dropdown dtp-container">
               <a class="dropdown-toggle" id="dt_from" role="button">
-                <div class="input-group"><input type="text" class="form-control" data-ng-model="panel.data_source.timeframe.from"><span class="input-group-addon"><i class="glyphicon glyphicon-calendar"></i></span>
-                </div>
+                <input type="text" class="form-control"
+                       ng-model="panel.data_source.timeframe.from">
               </a>
               <ul class="dropdown-menu" role="menu" aria-labelledby="dLabel">
-                <datetimepicker data-ng-model="panel.data_source.timeframe.from" data-datetimepicker-config="{ dropdownSelector: '#dt_from' }"/>
+                <datetimepicker ng-model="panel.data_source.timeframe.from"
+                                datetimepicker-config="{ dropdownSelector: '#dt_from' }"/>
               </ul>
             </div>
             to
             <div class="dropdown dtp-container">
               <a class="dropdown-toggle" id="dt_to" role="button"> 
-                <div class="input-group"><input type="text" class="form-control" data-ng-model="panel.data_source.timeframe.to"><span class="input-group-addon"><i class="glyphicon glyphicon-calendar"></i></span>
-                </div>
+                <input type="text" class="form-control"
+                       ng-model="panel.data_source.timeframe.to">
               </a>
               <ul class="dropdown-menu" role="menu" aria-labelledby="dLabel">
-                <datetimepicker data-ng-model="panel.data_source.timeframe.to" data-datetimepicker-config="{ dropdownSelector: '#dt_to' }"/>
+                <datetimepicker ng-model="panel.data_source.timeframe.to"
+                                datetimepicker-config="{ dropdownSelector: '#dt_to' }"/>
               </ul>
             </div>
           </div>
@@ -130,21 +214,37 @@
           <div class="enable">
             <label>Precompute</label>
             <label class="toggle">
-              <input type="checkbox" ng-model="panel.data_source.precompute.enabled">
+              <input type="checkbox"
+                     ng-model="panel.data_source.precompute.enabled">
               <span class="handle"></span>
             </label>
           </div>
-          <div class="options animate-show" ng-show="panel.data_source.precompute.enabled">
-            Bucket width <button class="btn btn-primary btn-sm btn-help" popover="{[ bucketWidthHelpText ]}"><span class="fa fa-question"></span></button>
-            <input type="number" class="form-control" ng-model="panel.data_source.precompute.bucket_width.value">
+          <div class="options animate-show"
+               ng-show="panel.data_source.precompute.enabled">
+            <button class="btn btn-sm btn-default">
+              <span class="glyphicon glyphicon-cog"></span>
+            </button>
+            <!--
+            Bucket width
+            <button class="btn btn-primary btn-sm btn-help"
+                    popover="{[ bucketWidthHelpText ]}">
+              <span class="fa fa-question"></span>
+            </button>
+            <input type="number"
+                   class="form-control"
+                   ng-model="panel.data_source.precompute.bucket_width.value">
             <select selecter="panel.data_source.precompute.bucket_width.scale">
-              <option ng-repeat="scale in timeScales" value="{[ scale ]}">{[ scale ]}</option>
+              <option ng-repeat="scale in timeScales"
+                      value="{[ scale ]}">
+                {[ scale ]}
+              </option>
             </select>
-            <span ng-if="panel.data_source.timeframe.mode == 'recent'">Trust data older than
+            <span ng-if="panel.data_source.timeframe.mode == 'recent'">
+              Trust data older than
               <input type="number" class="form-control" ng-model="panel.data_source.precompute.untrusted_time.value">
               <select selecter="panel.data_source.precompute.untrusted_time.scale">
                 <option ng-repeat="scale in timeScales" value="{[ scale ]}">{[ scale ]}</option>
-              </select>
+              </select>-->
             </span>
           </div>
         </div>
