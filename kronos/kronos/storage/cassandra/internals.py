@@ -5,13 +5,14 @@ import random
 
 from cassandra import ConsistencyLevel
 from cassandra.cluster import Session
+from cassandra import cqltypes
+from cassandra.protocol import ResultMessage
 from cassandra.query import BatchType
 from cassandra.query import BatchStatement
 from cassandra.query import SimpleStatement
 from collections import defaultdict
 from datetime import timedelta
 from timeuuid import TimeUUID
-from uuid import UUID
 
 from kronos.common.cache import InMemoryLRUCache
 from kronos.conf.constants import ID_FIELD
@@ -35,11 +36,21 @@ def patched_prepare(self, query, **kwargs):
 Session.prepare = patched_prepare
 
 
+# Patch Datastax driver to return TimeUUID objects rather than plain UUID
+# objects if the CQL type is timeuuid.
+class TimeUUIDType(cqltypes.TimeUUIDType):
+  @staticmethod
+  def deserialize(byts):
+    return TimeUUID(bytes=byts)
+ResultMessage._type_codes[0x000F] = TimeUUIDType
+
+
 class StreamEvent(object):
   def __init__(self, _id, event_json, stream_shard):
     self.stream_shard = stream_shard
     self.json = event_json
-    self.id = TimeUUID(_id, descending=stream_shard.descending)
+    _id.descending = stream_shard.descending
+    self.id = _id
     multiplier = -1 if stream_shard.descending else 1
     self._cmp_value = multiplier * uuid_to_kronos_time(self.id)
 
@@ -111,7 +122,7 @@ class StreamShard(object):
                                   (self.key, start_id, end_id, self.limit))
     for event in events:
       try:
-        yield StreamEvent(str(event[0]), event[1], self)
+        yield StreamEvent(event[0], event[1], self)
       except GeneratorExit:
         break
       except ValueError: # Malformed blob?
@@ -212,7 +223,7 @@ class Stream(object):
       # Insert to stream.
       batch_stmt.add(self.insert_cql,
                      (StreamShard.get_key(self.stream, shard_time, shard),
-                      UUID(event[ID_FIELD]),
+                      TimeUUID(event[ID_FIELD]),
                       json.dumps(event)))
       shard_idx[shard_time] = (shard + 1) % self.shards # Round robin.
 
@@ -335,7 +346,7 @@ class Stream(object):
         if event.id == start_id:
           continue
         num_deleted += 1
-        batch_stmt.add(self.delete_cql, (shard.key, UUID(str(event.id))))
+        batch_stmt.add(self.delete_cql, (shard.key, event.id))
     return num_deleted
 
 
