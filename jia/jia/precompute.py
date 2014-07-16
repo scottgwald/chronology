@@ -134,14 +134,13 @@ def precompute_cache(query, timeframe, bucket_width, untrusted_time):
     end = kronos_time_to_datetime(end_time)
     
     now = datetime.datetime.now()
-    untrusted = now - datetime.timedelta(seconds=untrusted_time)
-    
-    bucket_width_seconds = kronos_time_to_epoch_time(bucket_width)
-    bucket_width_timedelta = datetime.timedelta(seconds=bucket_width_seconds)
+    untrusted = now - datetime.timedelta(seconds=untrusted_time) 
   elif timeframe['mode'] == 'range':
     start = datetime.datetime.strptime(timeframe['from'], DT_FORMAT)
     end = datetime.datetime.strptime(timeframe['to'], DT_FORMAT)
-    bucket_width_timedelta = datetime.timedelta(seconds=1)
+  
+  bucket_width_seconds = kronos_time_to_epoch_time(bucket_width)
+  bucket_width_timedelta = datetime.timedelta(seconds=bucket_width_seconds)
   
   cache = QueryCache(cache_client, run_query,
                      bucket_width_timedelta,
@@ -169,7 +168,8 @@ def schedule(panel):
                                                    untrusted_time_seconds)
     result = scheduler_client.schedule(task_code, bucket_width_seconds)
   elif timeframe['mode'] == 'range':
-    task_code += PRECOMPUTE_INITIALIZATION_CODE % (query, timeframe, 0, 0)
+    task_code += PRECOMPUTE_INITIALIZATION_CODE % (query, timeframe,
+                                                   bucket_width_seconds, 0)
     result = scheduler_client.schedule(task_code, 0)
 
   if result['status'] != 'success':
