@@ -8,6 +8,9 @@ from kronos.conf.constants import ServingMode
 # In debug mode, print every request to standard out.
 debug = False
 
+# Profile each request?
+profile = False
+
 # If `serving_mode = ServingMode.ALL`, you can access any of the
 # endpoints (e.g., `put`, `get`, `delete`, etc.) from this Kronos
 # instance.  In production, you will likely want a web-facing Kronos

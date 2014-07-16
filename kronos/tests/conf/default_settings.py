@@ -4,6 +4,7 @@ from kronos.conf.constants import ServingMode
 from uuid import getnode
 
 debug = True
+profile = False
 serving_mode = ServingMode.ALL
 
 storage = {

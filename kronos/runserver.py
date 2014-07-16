@@ -26,6 +26,8 @@ if __name__ == '__main__':
                       help='which serving mode to run in')
   parser.add_argument('--config', action='store',
                       help='path of config file to use')
+  parser.add_argument('--profile', action='store_true',
+                      help='Profile each request using cProfile?')
   args = parser.parse_args()
 
   settings.clear()
@@ -42,9 +44,8 @@ if __name__ == '__main__':
   # Override the `debug` in the settings module and `debug` for
   # `args`.
   settings.debug = args.debug or settings.debug
-  args.debug = settings.debug
   settings.serving_mode = args.serving_mode or settings.serving_mode
-  args.serving_mode = settings.serving_mode
+  settings.profile = args.profile or settings.profile
 
   # Only load the application after we've overwritten settings.serving_mode, or
   # else the endpoint access control logic will kick in too early.

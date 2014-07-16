@@ -3,6 +3,7 @@ import traceback
 
 from functools import wraps
 
+from kronos.common.decorators import profile
 from kronos.conf import settings
 from kronos.conf.constants import ServingMode
 
@@ -95,10 +96,12 @@ def endpoint(url, methods=['GET']):
         return function(environment, start_response, headers)
       except Exception, e:
         if settings.debug:
-          print e
-          print traceback.format_exc()
+          traceback.print_exc()
         start_response('400 Bad Request', headers)
         return json.dumps({'@errors' : [repr(e)]})
+
+    if settings.profile:
+      wrapper = profile(wrapper)
 
     # Map the URL to serve to this function. Only map certain
     # endpoints if serving_mode is restrictive.
