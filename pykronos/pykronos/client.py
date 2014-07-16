@@ -22,6 +22,8 @@ from pykronos.utils.time import kronos_time_now
 ID_FIELD = '@id'
 TIMESTAMP_FIELD = '@time'
 
+_DEFAULT_CHUNK_SIZE = 131072 # 128k
+
 
 class ResultOrder(object):
   ASCENDING = 'ascending'
@@ -35,9 +37,14 @@ class KronosClient(object):
   Put requests are non-blocking if `blocking`=False.
   If non-blocking, `sleep_block` specifies the frequency of
     a background thread that flushes events to the server.
+
+  `chunk_size` is the number of bytes read at once into memory when fetching
+  events. For best performance it should be set equal to the `node.flush_size`
+  setting of the Kronos server.  
   """
 
-  def __init__(self, http_url, blocking=True, sleep_block=0.1, namespace=None):
+  def __init__(self, http_url, blocking=True, sleep_block=0.1, namespace=None,
+               chunk_size=_DEFAULT_CHUNK_SIZE):
     http_url = http_url.rstrip('/')
     self._put_url = '%s/1.0/events/put' % http_url
     self._get_url = '%s/1.0/events/get' % http_url
@@ -46,6 +53,7 @@ class KronosClient(object):
     self._streams_url = '%s/1.0/streams' % http_url
 
     self.namespace = namespace
+    self.chunk_size = chunk_size
 
     self._blocking = blocking
     if not blocking:
@@ -205,7 +213,7 @@ class KronosClient(object):
         if response.status_code != requests.codes.ok:
           raise KronosClientError('Bad server response code %d' %
                                   response.status_code)
-        for line in response.iter_lines():
+        for line in response.iter_lines(chunk_size=self.chunk_size):
           if line:
             event = json.loads(line)
             last_id = event[ID_FIELD]
