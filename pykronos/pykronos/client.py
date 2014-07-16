@@ -2,10 +2,11 @@ import copy
 import functools
 import json
 import requests
+import sys
 import time
 import traceback
 import types
-import sys
+import ujson
 
 from collections import defaultdict
 from contextlib import contextmanager
@@ -215,7 +216,10 @@ class KronosClient(object):
                                   response.status_code)
         for line in response.iter_lines(chunk_size=self.chunk_size):
           if line:
-            event = json.loads(line)
+            # Python's json adds a lot of overhead when decoding a large
+            # number of events; ujson fares better. However ujson won't work
+            # on PyPy since it's a C extension.
+            event = ujson.loads(line, precise_float=True)
             last_id = event[ID_FIELD]
             yield event
         break
