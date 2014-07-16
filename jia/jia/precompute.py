@@ -7,7 +7,25 @@ from jia.utils import get_seconds
 from pykronos import KronosClient
 from jia.errors import PyCodeError
 
-code = """
+"""
+Jia panels can enable precomputation. For queries that require aggregation or
+significant amounts of computation, the wait time for results can be greatly
+reduced by automatically computing and caching the results on a regular
+interval.
+
+This module provides `schedule` and `cancel` methods to handle the activation
+and deactivation of precomptue tasks. When precompute is scheduled for a panel,
+the user provided python blob is injected into `PRECOMPUTE_INITIALIZATION_CODE`
+combined with `precompute_cache` (for cacluating start and end times) and sent
+over the network to the Jia scheduler.
+
+Time range queries (with a specified start and end date) are sent to the
+scheduler with an interval of 0, meaning they will only be cached once. Queries
+with a timeframe mode of 'recent' will be cached repeatedly on a regular
+interval.
+"""
+
+PRECOMPUTE_INITIALIZATION_CODE = """
 from pykronos.utils.time import epoch_time_to_kronos_time
 query = u'''%s'''
 timeframe = %s
@@ -20,6 +38,16 @@ precompute_cache(query, timeframe, bucket_width, untrusted_time)
 DT_FORMAT = '%a %b %d %Y %H:%M:%S'
 
 def run_query(start_time, end_time, query):
+  """Executes a Python query string and returns events
+
+  This function exists so that QueryCache has something to call to get events.
+  It is basically a wrapper around exec that injects necessary local variables
+  into the scope of the user provided query blob.
+
+  :param start_time: Python datetime to be injected into query
+  :param end_time: Python datetime to be injected into query
+  :param query: String of Python to be executed 
+  """
   client = KronosClient(app.config['KRONOS_URL'],
                         namespace=app.config['KRONOS_NAMESPACE'],
                         blocking=False,
@@ -46,6 +74,9 @@ def run_query(start_time, end_time, query):
 
 def precompute_cache(query, timeframe, bucket_width, untrusted_time):
   """Call a user defined query and cache the results
+
+  This function is stringified and sent across the network to be executed by
+  the scheduler.
   
   :param query: A string of python code to execute. Included in the scope are
   start_time, end_time (both in Kronos time), kronos_client, and events list.
@@ -74,10 +105,12 @@ def precompute_cache(query, timeframe, bucket_width, untrusted_time):
   from jia.errors import PyCodeError
   from jia.precompute import run_query
   from jia.precompute import DT_FORMAT
+  from jia.utils import get_seconds
   from pykronos import KronosClient
   from pykronos.utils.time import datetime_to_kronos_time
   from pykronos.utils.time import kronos_time_to_epoch_time
   from pykronos.utils.time import kronos_time_to_datetime
+  from pykronos.utils.time import epoch_time_to_kronos_time
   from pykronos.utils.cache import QueryCache
 
   cache_client = KronosClient(app.config['CACHE_KRONOS_URL'],
@@ -86,44 +119,57 @@ def precompute_cache(query, timeframe, bucket_width, untrusted_time):
                               sleep_block=0.2)
 
   if timeframe['mode'] == 'recent':
+    # Set end_time equal to now and align to bucket width
     end_time = datetime_to_kronos_time(datetime.datetime.now())
-    end_time -= (end_time % bucket_width)
-    start_time = end_time - math.ceil(timeframe / bucket_width) * bucket_width
+    end_time += bucket_width - (end_time % bucket_width)
+    
+    # Align the duration to bucket width
+    duration = get_seconds(timeframe['value'], timeframe['scale'])
+    duration = epoch_time_to_kronos_time(duration)
+    duration = (math.ceil(duration / float(bucket_width)) + 1) * bucket_width
+    
+    start_time = end_time - duration
+
     start = kronos_time_to_datetime(start_time)
     end = kronos_time_to_datetime(end_time)
+    
     now = datetime.datetime.now()
     untrusted = now - datetime.timedelta(seconds=untrusted_time)
+    
     bucket_width_seconds = kronos_time_to_epoch_time(bucket_width)
     bucket_width_timedelta = datetime.timedelta(seconds=bucket_width_seconds)
-
   elif timeframe['mode'] == 'range':
     start = datetime.datetime.strptime(timeframe['from'], DT_FORMAT)
     end = datetime.datetime.strptime(timeframe['to'], DT_FORMAT)
     bucket_width_timedelta = datetime.timedelta(seconds=1)
-    untrusted = datetime.datetime.now()
-   
+  
   cache = QueryCache(cache_client, run_query,
-                     bucket_width_timedelta, 'locu_computed',
+                     bucket_width_timedelta,
+                     app.config['CACHE_KRONOS_NAMESPACE'],
                      query_function_args=[query])
 
   
-  c = list(cache.compute_and_cache(start, end, untrusted))
+  list(cache.retrieve_interval(start, end, untrusted))
 
 
 def schedule(panel):
   query = panel['data_source']['code']
   precompute = panel['data_source']['precompute']
   timeframe = panel['data_source']['timeframe']
-  bucket_width_seconds = get_seconds(precompute['bucket_width'])
-  untrusted_time_seconds = get_seconds(precompute['untrusted_time'])
+  bucket_width_seconds = get_seconds(precompute['bucket_width']['value'],
+                                     precompute['bucket_width']['scale'])
+  untrusted_time_seconds = get_seconds(precompute['untrusted_time']['value'],
+                                       precompute['untrusted_time']['scale'])
 
   task_code = inspect.getsource(precompute_cache)
   
   if timeframe['mode'] == 'recent':
-    task_code += code % (query, timeframe, bucket_width, untrusted_time)
-    result = scheduler_client.schedule(task_code, bucket_width)
+    task_code += PRECOMPUTE_INITIALIZATION_CODE % (query, timeframe,
+                                                   bucket_width_seconds,
+                                                   untrusted_time_seconds)
+    result = scheduler_client.schedule(task_code, bucket_width_seconds)
   elif timeframe['mode'] == 'range':
-    task_code += code % (query, timeframe, 0, 0)
+    task_code += PRECOMPUTE_INITIALIZATION_CODE % (query, timeframe, 0, 0)
     result = scheduler_client.schedule(task_code, 0)
 
   if result['status'] != 'success':

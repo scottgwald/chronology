@@ -12,7 +12,9 @@ from jia.compute import QueryCompute, enable_precompute, disable_precompute
 from jia.utils import get_seconds
 from pykronos import KronosClient
 from pykronos.utils.cache import QueryCache
-from pykronos.utils.time import datetime_to_epoch_time, kronos_time_to_datetime, epoch_time_to_kronos_time
+from pykronos.utils.time import datetime_to_epoch_time
+from pykronos.utils.time import kronos_time_to_datetime
+from pykronos.utils.time import epoch_time_to_kronos_time
 
 
 @app.route('/status', methods=['GET'])
