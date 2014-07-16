@@ -138,6 +138,9 @@ def precompute_cache(query, timeframe, bucket_width, untrusted_time):
   elif timeframe['mode'] == 'range':
     start = datetime.datetime.strptime(timeframe['from'], DT_FORMAT)
     end = datetime.datetime.strptime(timeframe['to'], DT_FORMAT)
+    untrusted = datetime.datetime.now()
+  else:
+    raise ValueError("Timeframe mode must be 'recent' or 'range'")
   
   bucket_width_seconds = kronos_time_to_epoch_time(bucket_width)
   bucket_width_timedelta = datetime.timedelta(seconds=bucket_width_seconds)
