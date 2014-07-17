@@ -32,7 +32,7 @@ timeframe = %s
 bucket_width = epoch_time_to_kronos_time(%s)
 untrusted_time = %s
 
-precompute_cache(query, timeframe, bucket_width, untrusted_time)
+precompute_cache(query, timeframe, bucket_width, untrusted_time=untrusted_time)
 """
 
 DT_FORMAT = '%a %b %d %Y %H:%M:%S'
@@ -72,9 +72,8 @@ def run_query(start_time, end_time, query):
   return events
 
 
-def precompute_cache(query, timeframe, bucket_width, untrusted_time,
+def precompute_cache(query, timeframe, bucket_width, untrusted_time=None,
                      cache=True):
-  print cache
   """Call a user defined query and return the events, optionally caching them
 
   This function is capable of being stringified and sent across the network to
@@ -139,8 +138,11 @@ def precompute_cache(query, timeframe, bucket_width, untrusted_time,
     start = kronos_time_to_datetime(start_time)
     end = kronos_time_to_datetime(end_time)
     
-    now = datetime.datetime.now()
-    untrusted = now - datetime.timedelta(seconds=untrusted_time) 
+    if untrusted_time:
+      now = datetime.datetime.now()
+      untrusted = now - datetime.timedelta(seconds=untrusted_time) 
+    else:
+      untrusted = None
   elif timeframe['mode'] == 'range':
     bucket_width_seconds = kronos_time_to_epoch_time(bucket_width)
     end = datetime.datetime.strptime(timeframe['to'], DT_FORMAT)
@@ -152,8 +154,7 @@ def precompute_cache(query, timeframe, bucket_width, untrusted_time,
     start_seconds = datetime_to_epoch_time(start)
     start_bump = start_seconds % bucket_width_seconds
     start -= datetime.timedelta(seconds=start_bump)
-    print "foo", start, end
-    untrusted = datetime.datetime.now()
+    untrusted = None
   else:
     raise ValueError("Timeframe mode must be 'recent' or 'range'")
   
@@ -166,7 +167,9 @@ def precompute_cache(query, timeframe, bucket_width, untrusted_time,
                            query_function_args=[query])
 
   
-  return list(query_cache.retrieve_interval(start, end, untrusted, cache=cache))
+  return list(query_cache.retrieve_interval(start, end,
+                                            untrusted_time=untrusted,
+                                            cache=cache))
 
 
 def schedule(panel):
