@@ -39,7 +39,7 @@ def use_backend(backend_name):
         'read_backend': backend_name
         }
       }
-  router.__init__()
+  router.reload()
 
 
 def clear_backend(backend_name):

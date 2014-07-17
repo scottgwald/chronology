@@ -118,5 +118,5 @@ class StorageRouter(object):
     return (read_backend,
             self.prefix_confs[namespace][stream_prefix][read_backend])
 
-      
+
 router = StorageRouter()

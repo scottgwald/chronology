@@ -4,11 +4,11 @@ import json
 import random
 
 from cassandra import ConsistencyLevel
-from cassandra.cluster import Session
 from cassandra import cqltypes
 from cassandra.protocol import ResultMessage
 from cassandra.query import BatchType
 from cassandra.query import BatchStatement
+from cassandra.query import BoundStatement
 from cassandra.query import SimpleStatement
 from collections import defaultdict
 from datetime import timedelta
@@ -25,23 +25,13 @@ from kronos.utils.math import round_down
 from kronos.utils.uuid import uuid_to_kronos_time
 
 
-# Since the Datastax driver doesn't let us pass kwargs to session.prepare
-# we'll just go ahead and monkey patch it to work for us.
-_prepare = Session.prepare
-def patched_prepare(self, query, **kwargs):
-  stmt = _prepare(self, query)
-  for key, value in kwargs.iteritems():
-    setattr(stmt, key, value)
-  return stmt
-Session.prepare = patched_prepare
-
-
 # Patch Datastax driver to return TimeUUID objects rather than plain UUID
 # objects if the CQL type is timeuuid.
 class TimeUUIDType(cqltypes.TimeUUIDType):
   @staticmethod
   def deserialize(byts):
     return TimeUUID(bytes=byts)
+
 ResultMessage._type_codes[0x000F] = TimeUUIDType
 
 
@@ -66,30 +56,20 @@ class StreamEvent(object):
 
 
 class StreamShard(object):
-  # CQL commands.
-  SELECT_CQL = """SELECT id, blob FROM stream WHERE
-    key = ? AND
-    id >= ? AND
-    id <= ?
-    ORDER BY id %s
-    LIMIT ?
-    """
-  
-  def __init__(self, session, stream, start_time, width, shard, descending,
+  def __init__(self, namespace, stream, start_time, width, shard, descending,
                limit, read_size):
-    self.session = session
+    self.session = namespace.session
     self.descending = descending
     self.read_size = read_size
     self.limit = limit
     self.key = StreamShard.get_key(stream, start_time, shard)
+    self.namespace = namespace
 
     # If we want to sort in descending order, compare the end of the
     # interval.
     self._cmp_value = (-1 if descending else 1) * start_time
     if descending:
       self._cmp_value -= width
-
-    self.select_cql = None
 
   @staticmethod
   def get_key(stream, start_time, shard):
@@ -108,72 +88,49 @@ class StreamShard(object):
 
   def iterator(self, start_id, end_id):
     if self.descending:
-      order = 'DESC'
+      select_stmt = self.namespace.SELECT_DESC_STMT
     else:
-      order = 'ASC'
+      select_stmt = self.namespace.SELECT_ASC_STMT
 
-    if not self.select_cql:
-      self.select_cql = self.session.prepare(
-        StreamShard.SELECT_CQL % order,
-        _routing_key='key',
-        fetch_size=self.read_size or 2000,
-        consistency_level=ConsistencyLevel.ONE)
-    events = self.session.execute(self.select_cql,
-                                  (self.key, start_id, end_id, self.limit))
+    select_stmt = BoundStatement(select_stmt,
+                                 fetch_size=self.read_size or 5000,
+                                 routing_key=self.key,
+                                 consistency_level=ConsistencyLevel.ONE)
+    events = self.session.execute(select_stmt.bind((self.key,
+                                                    start_id,
+                                                    end_id,
+                                                    self.limit)))
     for event in events:
       try:
         yield StreamEvent(event[0], event[1], self)
       except GeneratorExit:
         break
-      except ValueError: # Malformed blob?
-        pass
-
-    raise StopIteration
 
 
 class Stream(object):
   # 6 months.
   MAX_WIDTH = int(timedelta(days=365.25).total_seconds() * 1e7) / 2
 
-  # CQL statements.
-  DELETE_CQL = """DELETE FROM stream WHERE
-    key = ? AND
-    id = ?"""
-  INSERT_CQL = """INSERT INTO stream (key, id, blob)
-    VALUES (?, ?, ?)"""
-  INDEX_INSERT_CQL = """INSERT INTO idx (stream, start_time, width, shard)
-    VALUES (?, ?, ?, ?)"""
-  INDEX_SCAN_CQL = """SELECT start_time, width, shard FROM idx WHERE
-    stream = ? AND
-    start_time >= ? AND
-    start_time < ?"""
-
-  def __init__(self, session, stream, width, shards, read_size):
-    self.session = session
+  def __init__(self, namespace, stream, width, shards, read_size):
+    self.session = namespace.session
     self.read_size = read_size
     self.stream = stream
     self.shards = shards
     self.width = width
+    self.namespace = namespace
 
     # Index cache is a write cache: it prevents us from writing to the
     # bucket index if we've already updated it in a previous
     # operation.
     self.index_cache = InMemoryLRUCache(max_items=1000)
 
-    # CQL statements (lazily prepared).
-    self.delete_cql = None
-    self.insert_cql = None
-    self.index_insert_cql = None
-    self.index_scan_cql = None
-
   def get_overlapping_shards(self, start_time, end_time):
-    if not self.index_scan_cql:
-      self.index_scan_cql = self.session.prepare(Stream.INDEX_SCAN_CQL,
-                                                 _routing_key='stream')
-
+    index_scan_stmt = BoundStatement(self.namespace.INDEX_SCAN_STMT)
     potential_shards = self.session.execute(
-      self.index_scan_cql,
-      (self.stream, max(start_time - Stream.MAX_WIDTH, 0), end_time))
+      index_scan_stmt.bind((self.stream,
+                            max(start_time - Stream.MAX_WIDTH, 0),
+                            end_time))
+      )
     shards = defaultdict(lambda: defaultdict(int))
     for (shard_time, width, shard) in potential_shards:
       if shard_time + width < start_time:
@@ -195,16 +152,6 @@ class Stream(object):
     self.session.execute(batch_stmt)
 
   def insert_to_batch(self, batch_stmt, events):
-    if not (self.insert_cql or self.index_insert_cql):
-      self.insert_cql = self.session.prepare(
-        Stream.INSERT_CQL,
-        _routing_key='key',
-        consistency_level=ConsistencyLevel.QUORUM)
-      self.index_insert_cql = self.session.prepare(
-        Stream.INDEX_INSERT_CQL,
-        _routing_key='stream',
-        consistency_level=ConsistencyLevel.QUORUM)
-
     shard_idx = {}
     for event in events:
       shard_time = round_down(event[TIMESTAMP_FIELD], self.width)
@@ -215,16 +162,20 @@ class Stream(object):
       try:
         self.index_cache.get((shard_time, shard))
       except KeyError:
-        bound_stmt = self.index_insert_cql.bind(
-          (self.stream, shard_time, self.width, shard))
-        batch_stmt.add(bound_stmt)
+        batch_stmt.add(BoundStatement(self.namespace.INDEX_INSERT_STMT,
+                                      routing_key=self.stream,
+                                      consistency_level=ConsistencyLevel.QUORUM)
+                       .bind((self.stream, shard_time, self.width, shard)))
         self.index_cache.set((shard_time, shard), None)
 
       # Insert to stream.
-      batch_stmt.add(self.insert_cql,
-                     (StreamShard.get_key(self.stream, shard_time, shard),
-                      TimeUUID(event[ID_FIELD]),
-                      json.dumps(event)))
+      shard_key = StreamShard.get_key(self.stream, shard_time, shard)
+      batch_stmt.add(BoundStatement(self.namespace.INSERT_STMT,
+                                    routing_key=shard_key,
+                                    consistency_level=ConsistencyLevel.QUORUM)
+                     .bind((shard_key,
+                            TimeUUID(event[ID_FIELD]),
+                            json.dumps(event))))
       shard_idx[shard_time] = (shard + 1) % self.shards # Round robin.
 
   def iterator(self, start_id, end_id, descending, limit):
@@ -233,7 +184,7 @@ class Stream(object):
     
     shards = self.get_overlapping_shards(uuid_to_kronos_time(start_id),
                                          uuid_to_kronos_time(end_id))
-    shards = sorted(map(lambda shard: StreamShard(self.session,
+    shards = sorted(map(lambda shard: StreamShard(self.namespace,
                                                   self.stream,
                                                   shard['start_time'],
                                                   shard['width'],
@@ -328,17 +279,13 @@ class Stream(object):
     num_deleted = self.delete_to_batch(batch_stmt, start_id, end_id)
     self.session.execute(batch_stmt)
     return num_deleted
-  
+
   def delete_to_batch(self, batch_stmt, start_id, end_id):
-    if not self.delete_cql:
-      self.delete_cql = self.session.prepare(Stream.DELETE_CQL,
-                                             _routing_key='key')
-    
     shards = self.get_overlapping_shards(uuid_to_kronos_time(start_id),
                                          uuid_to_kronos_time(end_id))
     num_deleted = 0
     for shard in shards:
-      shard = StreamShard(self.session, self.stream,
+      shard = StreamShard(self.namespace, self.stream,
                           shard['start_time'], shard['width'],
                           shard['shard'], False,
                           MAX_LIMIT, read_size=self.read_size)
@@ -346,16 +293,19 @@ class Stream(object):
         if event.id == start_id:
           continue
         num_deleted += 1
-        batch_stmt.add(self.delete_cql, (shard.key, event.id))
+        batch_stmt.add(BoundStatement(self.namespace.DELETE_STMT,
+                                      routing_key=shard.key,
+                                      consistency_level=ConsistencyLevel.QUORUM)
+                       .bind((shard.key, event.id)))
     return num_deleted
 
 
 class Namespace(object): 
-  # CQL commands.
-  CREATE_NAMESPACE_CQL = """CREATE KEYSPACE %s WITH
+  # Namespace-level CQL statements.
+  CREATE_KEYSPACE_CQL = """CREATE KEYSPACE %s WITH
     REPLICATION = {'class': 'SimpleStrategy',
                    'replication_factor': %d}"""
-  DROP_NAMESPACE_CQL = """DROP KEYSPACE %s"""
+  DROP_KEYSPACE_CQL = """DROP KEYSPACE %s"""
   # key is of the form: "<stream_name>:<start_time>:<time_width>"
   STREAM_CQL = """CREATE TABLE stream (
     key text,
@@ -371,6 +321,35 @@ class Namespace(object):
     PRIMARY KEY (stream, start_time, width, shard)
   )"""
   STREAM_LIST_CQL = """SELECT DISTINCT stream FROM idx"""
+
+  # Stream-level CQL statements.
+  DELETE_STMT = """DELETE FROM stream WHERE
+    key = ? AND
+    id = ?"""
+  INSERT_STMT = """INSERT INTO stream (key, id, blob)
+    VALUES (?, ?, ?)"""
+  INDEX_INSERT_STMT = """INSERT INTO idx (stream, start_time, width, shard)
+    VALUES (?, ?, ?, ?)"""
+  INDEX_SCAN_STMT = """SELECT start_time, width, shard FROM idx WHERE
+    stream = ? AND
+    start_time >= ? AND
+    start_time < ?"""
+
+  # StreamShard-level CQL statements.
+  SELECT_ASC_STMT = """SELECT id, blob FROM stream WHERE
+    key = ? AND
+    id >= ? AND
+    id <= ?
+    ORDER BY id ASC
+    LIMIT ?
+    """
+  SELECT_DESC_STMT = """SELECT id, blob FROM stream WHERE
+    key = ? AND
+    id >= ? AND
+    id <= ?
+    ORDER BY id DESC
+    LIMIT ?
+    """
 
   def __init__(self, cluster, name, replication_factor, read_size):
     self.cluster = cluster
@@ -391,7 +370,7 @@ class Namespace(object):
     try:
       return self.stream_cache.get(stream_name)
     except KeyError:
-      stream = Stream(self.session, stream_name, width, shards, self.read_size)
+      stream = Stream(self, stream_name, width, shards, self.read_size)
       self.stream_cache.set(stream_name, stream)
       return stream
 
@@ -413,7 +392,7 @@ class Namespace(object):
       session = self.cluster.connect()
 
       # Create keyspace for namespace.
-      session.execute(Namespace.CREATE_NAMESPACE_CQL %
+      session.execute(Namespace.CREATE_KEYSPACE_CQL %
                       (self.name, self.replication_factor))
       session.set_keyspace(self.name)
 
@@ -423,11 +402,17 @@ class Namespace(object):
 
     self.session = session
 
+    # Prepare statements for this session.
+    for attr, value in Namespace.__dict__.iteritems():
+      if not (attr.upper() == attr and attr.endswith('_STMT')):
+        continue
+      setattr(self, attr, self.session.prepare(value))
+
   def destroy_session(self):
     self.session.shutdown()
     self.session = None
 
   def drop(self):
-    self.session.execute(Namespace.DROP_NAMESPACE_CQL % self.name)
+    self.session.execute(Namespace.DROP_KEYSPACE_CQL % self.name)
     # Session should automatically expire if keyspace dropped.
     self.destroy_session()

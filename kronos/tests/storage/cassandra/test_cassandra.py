@@ -46,7 +46,7 @@ class TestCassandraBackend(KronosServerTestCase):
     num_events = 0
     
     for shard in xrange(self.shards):
-      stream_shard = StreamShard(stream.session, stream_name, 0, self.width,
+      stream_shard = StreamShard(stream.namespace, stream_name, 0, self.width,
                                  shard, False, MAX_LIMIT, 100)
       events = list(stream_shard.iterator(uuid_from_time(0),
                                           uuid_from_time(2)))
@@ -76,7 +76,7 @@ class TestCassandraBackend(KronosServerTestCase):
     for start_time in (0, 2, 4, 6, 8):
       # Fetch events directly from each bucket.
       for shard in xrange(self.shards):
-        stream_shard = StreamShard(stream.session, stream_name,
+        stream_shard = StreamShard(stream.namespace, stream_name,
                                    time_to_kronos_time(start_time),
                                    self.width, shard, False,
                                    MAX_LIMIT, 100)
@@ -155,7 +155,7 @@ class TestCassandraBackend(KronosServerTestCase):
     for start_time in (0, 2):
       # Fetch events directly from each shard.
       for shard in xrange(self.shards):
-        stream_shard = StreamShard(stream.session, stream_name,
+        stream_shard = StreamShard(stream.namespace, stream_name,
                                    time_to_kronos_time(start_time),
                                    self.width, shard, False,
                                    MAX_LIMIT, 100)
