@@ -72,11 +72,13 @@ def run_query(start_time, end_time, query):
   return events
 
 
-def precompute_cache(query, timeframe, bucket_width, untrusted_time):
-  """Call a user defined query and cache the results
+def precompute_cache(query, timeframe, bucket_width, untrusted_time,
+                     cache=True):
+  print cache
+  """Call a user defined query and return the events, optionally caching them
 
-  This function is stringified and sent across the network to be executed by
-  the scheduler.
+  This function is capable of being stringified and sent across the network to
+  be executed by the scheduler.
   
   :param query: A string of python code to execute. Included in the scope are
   start_time, end_time (both in Kronos time), kronos_client, and events list.
@@ -94,6 +96,7 @@ def precompute_cache(query, timeframe, bucket_width, untrusted_time):
   }
   :param bucket_width: Bucket width in Kronos time.
   :param untrusted_time: Untrusted time in seconds.
+  :param cache: If True, results will be cached.
   """
   
   # Imports are in here because this function is going to get stringified and
@@ -111,6 +114,7 @@ def precompute_cache(query, timeframe, bucket_width, untrusted_time):
   from pykronos.utils.time import kronos_time_to_epoch_time
   from pykronos.utils.time import kronos_time_to_datetime
   from pykronos.utils.time import epoch_time_to_kronos_time
+  from pykronos.utils.time import datetime_to_epoch_time
   from pykronos.utils.cache import QueryCache
 
   cache_client = KronosClient(app.config['CACHE_KRONOS_URL'],
@@ -124,6 +128,8 @@ def precompute_cache(query, timeframe, bucket_width, untrusted_time):
     end_time += bucket_width - (end_time % bucket_width)
     
     # Align the duration to bucket width
+    # TODO(derek): Warn the user that the timeframe has been altered to fit
+    # the bucket width
     duration = get_seconds(timeframe['value'], timeframe['scale'])
     duration = epoch_time_to_kronos_time(duration)
     duration = (math.ceil(duration / float(bucket_width)) + 1) * bucket_width
@@ -136,8 +142,17 @@ def precompute_cache(query, timeframe, bucket_width, untrusted_time):
     now = datetime.datetime.now()
     untrusted = now - datetime.timedelta(seconds=untrusted_time) 
   elif timeframe['mode'] == 'range':
-    start = datetime.datetime.strptime(timeframe['from'], DT_FORMAT)
+    bucket_width_seconds = kronos_time_to_epoch_time(bucket_width)
     end = datetime.datetime.strptime(timeframe['to'], DT_FORMAT)
+    end_seconds = datetime_to_epoch_time(end)
+    if (end_seconds % bucket_width_seconds) != 0:
+      end_bump = bucket_width_seconds - (end_seconds % bucket_width_seconds)
+      end += datetime.timedelta(seconds=end_bump)
+    start = datetime.datetime.strptime(timeframe['from'], DT_FORMAT)
+    start_seconds = datetime_to_epoch_time(start)
+    start_bump = start_seconds % bucket_width_seconds
+    start -= datetime.timedelta(seconds=start_bump)
+    print "foo", start, end
     untrusted = datetime.datetime.now()
   else:
     raise ValueError("Timeframe mode must be 'recent' or 'range'")
@@ -145,13 +160,13 @@ def precompute_cache(query, timeframe, bucket_width, untrusted_time):
   bucket_width_seconds = kronos_time_to_epoch_time(bucket_width)
   bucket_width_timedelta = datetime.timedelta(seconds=bucket_width_seconds)
   
-  cache = QueryCache(cache_client, run_query,
+  query_cache = QueryCache(cache_client, run_query,
                      bucket_width_timedelta,
                      app.config['CACHE_KRONOS_NAMESPACE'],
                      query_function_args=[query])
 
   
-  list(cache.retrieve_interval(start, end, untrusted))
+  return list(query_cache.retrieve_interval(start, end, untrusted, cache=cache))
 
 
 def schedule(panel):
