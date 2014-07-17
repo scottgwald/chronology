@@ -20,9 +20,9 @@ combined with `precompute_cache` (for cacluating start and end times) and sent
 over the network to the Jia scheduler.
 
 Time range queries (with a specified start and end date) are sent to the
-scheduler with an interval of 0, meaning they will only be cached once. Queries
-with a timeframe mode of 'recent' will be cached repeatedly on a regular
-interval.
+scheduler with an interval of 0, meaning they will only be computed once.
+Queries with a timeframe mode of 'recent' will be computed repeatedly on a
+regular interval.
 """
 
 PRECOMPUTE_INITIALIZATION_CODE = """
