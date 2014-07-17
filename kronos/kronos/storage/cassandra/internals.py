@@ -73,6 +73,8 @@ class StreamShard(object):
     else:
       self.cmp_id = uuid_from_kronos_time(start_time, UUIDType.LOWEST)
 
+    self._events_future = None
+
   @staticmethod
   def get_key(stream, start_time, shard):
     return '%s:%d:%d' % (stream, start_time, shard)
@@ -85,7 +87,7 @@ class StreamShard(object):
     raise InvalidStreamComparison('Compared StreamShard to type {0}'
                                   .format(type(other)))
 
-  def iterator(self, start_id, end_id):
+  def start_fetching_events_async(self, start_id, end_id):
     if self.descending:
       select_stmt = self.namespace.SELECT_DESC_STMT
     else:
@@ -95,11 +97,14 @@ class StreamShard(object):
                                  fetch_size=self.read_size or 5000,
                                  routing_key=self.key,
                                  consistency_level=ConsistencyLevel.ONE)
-    events = self.session.execute(select_stmt.bind((self.key,
-                                                    start_id,
-                                                    end_id,
-                                                    self.limit)))
-    for event in events:
+    self._events_future = self.session.execute_async(
+      select_stmt.bind((self.key, start_id, end_id, self.limit)))
+
+  def iterator(self, start_id=None, end_id=None):
+    if self._events_future is None:
+      assert start_id is not None and end_id is not None
+      self.start_fetching_events_async(start_id, end_id)
+    for event in self._events_future.result():
       try:
         yield StreamEvent(event[0], event[1], self)
       except GeneratorExit:
@@ -194,22 +199,26 @@ class Stream(object):
                         shards))
     iterators = {}
     event_heap = []
+    shards_to_load = []
 
-    def load_next_shard():
+    def load_next_shards(cmp_id):
       """
       Pulls the earliest event from the next earliest shard and puts it into the
       event heap.
       """
-      if not shards:
-        return
-      shard = shards.pop(0)
-      it = shard.iterator(start_id, end_id)
-      try:
-        event = it.next()
-        heapq.heappush(event_heap, event)
-        iterators[shard] = it
-      except StopIteration:
-        pass
+      while shards and shards[0].cmp_id <= cmp_id:
+        shard = shards.pop(0)
+        shard.start_fetching_events_async(start_id, end_id)
+        shards_to_load.append(shard)
+      while shards_to_load:
+        shard = shards_to_load.pop(0)
+        it = shard.iterator(start_id, end_id)
+        try:
+          event = it.next()
+          heapq.heappush(event_heap, event)
+          iterators[shard] = it
+        except StopIteration:
+          pass
 
     def load_overlapping_shards():
       """
@@ -219,16 +228,12 @@ class Stream(object):
       """
       while not event_heap and shards:
         # Try to pull events from unread shards.
-        load_next_shard()
+        load_next_shards(shards[0].cmp_id)
 
-      if event_heap:
+      if event_heap and shards:
         # Pull events from all shards that overlap with the next event to be
         # yielded.
-        top_event = event_heap[0]
-        while shards:
-          if top_event.id < shards[0].cmp_id:
-            break
-          load_next_shard()
+        load_next_shards(event_heap[0].id)
       elif not iterators:
         # No events in the heap and no active iterators? We're done!
         return

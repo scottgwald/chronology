@@ -63,7 +63,8 @@ class TestCassandraBackend(KronosServerTestCase):
     
     stream_name = 'TestCassandraBackend_test_stream_splitting'
     stream = self.namespace.get_stream(stream_name, self.width, self.shards)
-    self.assertEqual(self.width_seconds, 2)
+    settings.storage.cassandra.timewidth_seconds = 2
+    router.reload()
     
     # Each bucket interval has width of 2 seconds, so this should distribute
     # events in 5 buckets: [0, 2), [2, 4), [4, 6), [6, 8), [8, 10).
