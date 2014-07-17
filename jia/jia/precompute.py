@@ -161,9 +161,9 @@ def precompute_cache(query, timeframe, bucket_width, untrusted_time,
   bucket_width_timedelta = datetime.timedelta(seconds=bucket_width_seconds)
   
   query_cache = QueryCache(cache_client, run_query,
-                     bucket_width_timedelta,
-                     app.config['CACHE_KRONOS_NAMESPACE'],
-                     query_function_args=[query])
+                           bucket_width_timedelta,
+                           app.config['CACHE_KRONOS_NAMESPACE'],
+                           query_function_args=[query])
 
   
   return list(query_cache.retrieve_interval(start, end, untrusted, cache=cache))
