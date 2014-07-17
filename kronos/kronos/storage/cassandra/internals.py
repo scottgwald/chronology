@@ -22,6 +22,8 @@ from kronos.core.exceptions import InvalidTimeUUIDComparison
 from kronos.storage.cassandra.errors import CassandraStorageError
 from kronos.storage.cassandra.errors import InvalidStreamComparison
 from kronos.utils.math import round_down
+from kronos.utils.uuid import UUIDType
+from kronos.utils.uuid import uuid_from_kronos_time
 from kronos.utils.uuid import uuid_to_kronos_time
 
 
@@ -41,8 +43,6 @@ class StreamEvent(object):
     self.json = event_json
     _id.descending = stream_shard.descending
     self.id = _id
-    multiplier = -1 if stream_shard.descending else 1
-    self._cmp_value = multiplier * uuid_to_kronos_time(self.id)
 
   def __cmp__(self, other):
     if not other:
@@ -67,9 +67,11 @@ class StreamShard(object):
 
     # If we want to sort in descending order, compare the end of the
     # interval.
-    self._cmp_value = (-1 if descending else 1) * start_time
     if descending:
-      self._cmp_value -= width
+      self.cmp_id = uuid_from_kronos_time(start_time + width, UUIDType.HIGHEST)
+      self.cmp_id.descending = True
+    else:
+      self.cmp_id = uuid_from_kronos_time(start_time, UUIDType.LOWEST)
 
   @staticmethod
   def get_key(stream, start_time, shard):
@@ -79,12 +81,9 @@ class StreamShard(object):
     if other is None:
       return 1
     elif isinstance(other, StreamShard):
-      return cmp((self._cmp_value, self.key), (other._cmp_value, other.key))
-    try:
-      return cmp(self._cmp_value, float(other))
-    except ValueError:
-      raise InvalidStreamComparison('Compared StreamShard to type {0}'
-                                    .format(type(other)))
+      return cmp((self.cmp_id, self.key), (other.cmp_id, other.key))
+    raise InvalidStreamComparison('Compared StreamShard to type {0}'
+                                  .format(type(other)))
 
   def iterator(self, start_id, end_id):
     if self.descending:
@@ -227,7 +226,7 @@ class Stream(object):
         # yielded.
         top_event = event_heap[0]
         while shards:
-          if top_event._cmp_value < shards[0]._cmp_value:
+          if top_event.id < shards[0].cmp_id:
             break
           load_next_shard()
       elif not iterators:
