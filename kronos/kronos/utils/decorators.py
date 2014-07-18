@@ -1,11 +1,16 @@
 import json
+import time
 import traceback
+import types
 
 from functools import wraps
 
 from kronos.common.decorators import profile
 from kronos.conf import settings
+from kronos.conf.constants import ERRORS_FIELD
 from kronos.conf.constants import ServingMode
+from kronos.conf.constants import SUCCESS_FIELD
+from kronos.conf.constants import TOOK_FIELD
 
 
 # Map paths to the functions that serve them
@@ -48,12 +53,18 @@ def endpoint(url, methods=['GET']):
     @wraps(function)
     def wrapper(environment, start_response):
       try:
+        start_time = time.time()
+
         if function.func_name not in (_serving_mode_endpoints
                                       [settings.serving_mode]):
           start_response('403 Forbidden',
                          [('Content-Type', 'application/json')])
-          return json.dumps({'@errors': ['kronosd is configured to block '
-                                         'access to this endpoint.']})
+          return json.dumps({
+            ERRORS_FIELD: ['kronosd is configured to block access to this '
+                           'endpoint.'],
+            SUCCESS_FIELD: False,
+            TOOK_FIELD: '%fms' % (1000 * (time.time() - start_time))
+            })
         req_method = environment['REQUEST_METHOD']
 
         # If the request method is not allowed, return 405.
@@ -61,8 +72,11 @@ def endpoint(url, methods=['GET']):
           start_response('405 Method Not Allowed',
                          [('Allow', ', '.join(methods)),
                           ('Content-Type', 'application/json')])
-          error = '{0} method not allowed'.format(req_method)
-          return json.dumps({'@errors' : [error]})
+          return json.dumps({
+            ERRORS_FIELD: ['%s method not allowed' % req_method],
+            SUCCESS_FIELD: False,
+            TOOK_FIELD: '%fms' % (1000 * (time.time() - start_time))
+            })
 
         headers = []
         remote_origin = environment.get('HTTP_ORIGIN')
@@ -85,20 +99,39 @@ def endpoint(url, methods=['GET']):
 
         # All POST bodies must be json, so decode it here.
         if req_method == 'POST':
-          environment['json'] = json.loads(environment['wsgi.input'].read())
-
+          try:
+            environment['json'] = json.loads(environment['wsgi.input'].read())
+          except ValueError:
+            start_response('400 Bad Request',
+                           [('Content-Type', 'application/json')])
+            return json.dumps({
+              ERRORS_FIELD: ['Request body must be valid JSON.'],
+              SUCCESS_FIELD: False,
+              TOOK_FIELD: '%fms' % (1000 * (time.time() - start_time))
+              })
+        
         # All responses are JSON.
         headers.append(('Content-Type', 'application/json'))
 
         if remote_origin:
           headers.append(('Access-Control-Allow-Origin', remote_origin))
 
-        return function(environment, start_response, headers)
+        response = function(environment, start_response, headers)
+        if not isinstance(response, types.GeneratorType):
+          response[TOOK_FIELD] = '%fms' % (1000 * (time.time() - start_time))
+          response = json.dumps(response)
+        return response
       except Exception, e:
         if settings.debug:
           traceback.print_exc()
-        start_response('400 Bad Request', headers)
-        return json.dumps({'@errors' : [repr(e)]})
+        
+        start_response('400 Bad Request',
+                       [('Content-Type', 'application/json')])
+        return json.dumps({
+          ERRORS_FIELD: [repr(e)],
+          SUCCESS_FIELD: False,
+          TOOK_FIELD: '%fms' % (1000 * (time.time() - start_time))
+          })
 
     if settings.profile:
       wrapper = profile(wrapper)

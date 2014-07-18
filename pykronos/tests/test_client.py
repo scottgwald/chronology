@@ -82,7 +82,7 @@ class KronosClientTest(unittest.TestCase):
     response = self.client.delete(self.stream,
                                   mid_time,
                                   kronos_time_now())
-    self.assertEqual(response[self.stream], {'memory': 2})
+    self.assertEqual(response[self.stream]['memory']['num_deleted'], 2)
 
     events = list(self.client.get(self.stream,
                                   self.start_time,

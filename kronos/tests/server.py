@@ -5,6 +5,7 @@ from werkzeug.test import Client
 from werkzeug.wrappers import BaseResponse
 
 from kronos.app import application
+from kronos.conf.constants import SUCCESS_FIELD
 
 VERSION = 1.0
 BASE_PATH = '/%s' % VERSION
@@ -42,7 +43,9 @@ class KronosServerTestCase(unittest.TestCase):
                                      data=json.dumps(data),
                                      buffered=True)
     self.assertEqual(response.status_code, 200)
-    return json.loads(response.data)
+    response = json.loads(response.data)
+    self.assertTrue(response[SUCCESS_FIELD])
+    return response
 
   def get(self, stream, start_time, end_time, start_id=None, limit=None,
           order=None, namespace=None):
@@ -76,7 +79,9 @@ class KronosServerTestCase(unittest.TestCase):
                                      data=json.dumps(data),
                                      buffered=True)
     self.assertEqual(response.status_code, 200)
-    return json.loads(response.data)
+    response = json.loads(response.data)
+    self.assertTrue(response[SUCCESS_FIELD])
+    return response
     
   def get_streams(self, namespace=None):
     data = {}

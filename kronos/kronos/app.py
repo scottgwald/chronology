@@ -6,7 +6,6 @@ if 'gevent.monkey' not in sys.modules:
   import kronos.core.monkey; kronos.core.monkey.patch_all()
 
 import json
-import time
 
 from collections import defaultdict
 from cStringIO import StringIO
@@ -17,8 +16,10 @@ import kronos
 from kronos.core.validators import validate_settings
 from kronos.conf import settings; validate_settings(settings)
 
+from kronos.conf.constants import ERRORS_FIELD
 from kronos.conf.constants import MAX_LIMIT
 from kronos.conf.constants import ResultOrder
+from kronos.conf.constants import SUCCESS_FIELD
 from kronos.core.executor import execute_greenlet_async
 from kronos.core.executor import wait
 from kronos.core.validators import validate_event
@@ -34,21 +35,19 @@ def index(environment, start_response, headers):
   Return the status of this Kronos instance + its backends>
   Doesn't expect any URL parameters.
   """
-
-  start_time = time.time()
   response = {'service': 'kronosd',
               'version': kronos.__version__,
               'id': settings.node['id'],
-              'storage': {}}
+              'storage': {},
+              SUCCESS_FIELD: True}
 
   # Check if each backend is alive
   for name, backend in router.get_backends():
     response['storage'][name] = {'alive': backend.is_alive(),
                                  'backend': settings.storage[name]['backend']}
-  response['@took'] = '{0}ms'.format(1000 * (time.time() - start_time))
   
   start_response('200 OK', headers)
-  return json.dumps(response)
+  return response
 
 
 @endpoint('/1.0/events/put', methods=['POST'])
@@ -63,8 +62,6 @@ def put_events(environment, start_response, headers):
     }
   Where each event is a dictionary of keys and values.
   """
-
-  start_time = time.time()
   errors = []
   events_to_insert = defaultdict(list)
   request_json = environment['json']
@@ -91,28 +88,28 @@ def put_events(environment, start_response, headers):
     for backend, configuration in backends.iteritems():
       results[(stream, backend.name)] = execute_greenlet_async(
         backend.insert, namespace, stream, events, configuration)
-
-  # TODO(usmanm): Add async option to API and bypass this wait in that case?
-  # Wait for all backends to finish inserting.
   wait(results.values())
 
   # Did any insertion fail?
+  success = True
   response = defaultdict(dict)
   for (stream, backend), result in results.iteritems():
     try:
       result.get()
-      response[stream][backend] = len(events_to_insert[stream])
+      response[stream][backend] = {
+        'num_inserted': len(events_to_insert[stream])
+        }
     except Exception, e:
-      response[stream][backend] = -1
-      errors.append(repr(e))
+      success = False
+      response[stream][backend] = {'num_inserted': -1,
+                                   ERRORS_FIELD: [e]}
 
-  # Return count of valid events per stream.
-  response['@took'] = '{0}ms'.format(1000 * (time.time() - start_time))
+  response[SUCCESS_FIELD] = success and not errors
   if errors:
-    response['@errors'] = errors
+    response[ERRORS_FIELD] = errors
 
   start_response('200 OK', headers)
-  return json.dumps(response)
+  return response
 
 
 # TODO(usmanm): gzip compress response stream?
@@ -135,13 +132,13 @@ def get_events(environment, start_response, headers):
   start_id as the last id that you saw. Kronos will only return events that
   occurred after the event with that id.
   """
-
   request_json = environment['json']
   try:
     validate_stream(request_json['stream'])
   except Exception, e:
     start_response('400 Bad Request', headers)
-    yield json.dumps({'@errors' : [repr(e)]})
+    yield json.dumps({ERRORS_FIELD : [repr(e)],
+                      SUCCESS_FIELD: False})
     return
 
   namespace = request_json.get('namespace', settings.default_namespace)
@@ -194,14 +191,12 @@ def delete_events(environment, start_response, headers):
     }
   Either start_time or start_id should be specified. 
   """
-
-  start_time = time.time()
   request_json = environment['json']
   try:
     validate_stream(request_json['stream'])
   except Exception, e:
     start_response('400 Bad Request', headers)
-    return json.dumps({'@errors' : [repr(e)]})
+    return {ERRORS_FIELD : [repr(e)]}
 
   namespace = request_json.get('namespace', settings.default_namespace)
   backends = router.backends_to_mutate(namespace, request_json['stream'])
@@ -215,25 +210,26 @@ def delete_events(environment, start_response, headers):
       long(request_json['end_time']),
       request_json.get('start_id'),
       conf)
-
   wait(statuses.values())
 
-  errors = []
+  success = True
   response = {}
   for backend, status in statuses.iteritems():
     try:
-      response[backend] = status.get()
+      num_deleted, errors = status.get()
+      response[backend] = {'num_deleted': num_deleted}
+      if errors:
+        success = False
+        response[ERRORS_FIELD] = errors
     except Exception, e:
-      errors.append(repr(e))
-      response[backend] = -1
+      response[backend] = {'num_deleted': -1,
+                           ERRORS_FIELD: [repr(e)]}
 
-  response = {request_json['stream']: response}
-  response['@took'] = '{0}ms'.format(1000 * (time.time() - start_time))
-  if errors:
-    statuses['@errors'] = errors
+  response = {request_json['stream']: response,
+              SUCCESS_FIELD: success}
   
   start_response('200 OK', headers)
-  return json.dumps(response)
+  return response
 
 
 @endpoint('/1.0/streams', methods=['POST'])
@@ -244,7 +240,6 @@ def list_streams(environment, start_response, headers):
     { namespace: namespace_name (optional)
     }
   """
-
   start_response('200 OK', headers)
   streams_seen_so_far = set()
   namespace = environment['json'].get('namespace', settings.default_namespace)

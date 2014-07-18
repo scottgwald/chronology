@@ -19,6 +19,8 @@ from kronos.conf.constants import ID_FIELD
 from kronos.conf.constants import MAX_LIMIT
 from kronos.conf.constants import TIMESTAMP_FIELD
 from kronos.core.exceptions import InvalidTimeUUIDComparison
+from kronos.core.executor import execute_greenlet_async
+from kronos.core.executor import wait
 from kronos.storage.cassandra.errors import CassandraStorageError
 from kronos.storage.cassandra.errors import InvalidStreamComparison
 from kronos.utils.math import round_down
@@ -152,10 +154,7 @@ class Stream(object):
       return
     batch_stmt = BatchStatement(batch_type=BatchType.UNLOGGED,
                                 consistency_level=ConsistencyLevel.QUORUM)
-    self.insert_to_batch(batch_stmt, events)
-    self.session.execute(batch_stmt)
 
-  def insert_to_batch(self, batch_stmt, events):
     shard_idx = {}
     for event in events:
       shard_time = round_down(event[TIMESTAMP_FIELD], self.width)
@@ -181,6 +180,8 @@ class Stream(object):
                             TimeUUID(event[ID_FIELD]),
                             json.dumps(event))))
       shard_idx[shard_time] = (shard + 1) % self.shards # Round robin.
+
+    self.session.execute(batch_stmt)
 
   def iterator(self, start_id, end_id, descending, limit):
     start_id.descending = descending
@@ -278,17 +279,12 @@ class Stream(object):
       yield event
     
   def delete(self, start_id, end_id):
-    batch_stmt = BatchStatement(batch_type=BatchType.UNLOGGED,
-                                consistency_level=ConsistencyLevel.QUORUM)
-    num_deleted = self.delete_to_batch(batch_stmt, start_id, end_id)
-    self.session.execute(batch_stmt)
-    return num_deleted
-
-  def delete_to_batch(self, batch_stmt, start_id, end_id):
-    shards = self.get_overlapping_shards(uuid_to_kronos_time(start_id),
-                                         uuid_to_kronos_time(end_id))
-    num_deleted = 0
-    for shard in shards:
+    shards = list(self.get_overlapping_shards(uuid_to_kronos_time(start_id),
+                                              uuid_to_kronos_time(end_id)))
+    def delete_from_shard(shard):
+      batch_stmt = BatchStatement(batch_type=BatchType.UNLOGGED,
+                                  consistency_level=ConsistencyLevel.QUORUM)
+      num_deleted = 0
       shard = StreamShard(self.namespace, self.stream,
                           shard['start_time'], shard['width'],
                           shard['shard'], False,
@@ -301,7 +297,22 @@ class Stream(object):
                                       routing_key=shard.key,
                                       consistency_level=ConsistencyLevel.QUORUM)
                        .bind((shard.key, event.id)))
-    return num_deleted
+      self.session.execute(batch_stmt)
+      return num_deleted
+    
+    for i, shard in enumerate(shards):
+      shards[i] = execute_greenlet_async(delete_from_shard, shard)
+    wait(shards)
+
+    errors = []
+    num_deleted = 0
+    for shard in shards:
+      try:
+        num_deleted += shard.get()
+      except Exception, e:
+        errors.append(repr(e))
+
+    return num_deleted, errors
 
 
 class Namespace(object): 

@@ -87,9 +87,8 @@ var KronosClient = function(kronosURL, namespace, jQuery, debug) {
       if (!debug) return;
       if (!typeof data === 'string') data = JSON.parse(data);
       // Check if there was a server side error?
-      if (data['@errors'] || data[stream] != 1) {
-        console.log('KronosClient.put encountered a server error: ' +
-                    data['@errors'] || 'unknown' + '.');
+      if (!data['@success']) {
+        console.log('KronosClient.put encountered a server error: ' + data);
       }
     };
 

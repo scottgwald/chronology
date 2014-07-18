@@ -20,7 +20,9 @@ from pykronos.utils.time import datetime_to_kronos_time
 from pykronos.utils.time import kronos_time_now
 
 # These are constants, do not modify them.
+ERRORS_FIELD = '@errors'
 ID_FIELD = '@id'
+SUCCESS_FIELD = '@success'
 TIMESTAMP_FIELD = '@time'
 
 _DEFAULT_CHUNK_SIZE = 131072 # 128k
@@ -29,6 +31,16 @@ _DEFAULT_CHUNK_SIZE = 131072 # 128k
 class ResultOrder(object):
   ASCENDING = 'ascending'
   DESCENDING = 'descending'
+
+
+def _get_errors(json_dict):
+  errors = []
+  for key, value in json_dict.iteritems:
+    if key == ERRORS_FIELD:
+      errors.extend(value)
+    if isinstance(value, dict):
+      errors.extend(_get_errors(json_dict, errors))
+  return errors
 
 
 class KronosClient(object):
@@ -106,7 +118,11 @@ class KronosClient(object):
       exception_dict['stack_trace'] = traceback.extract_tb(tb)
 
   def index(self):
-    return requests.get(self._index_url).json()
+    response_dict = requests.get(self._index_url).json()
+    if not response_dict[SUCCESS_FIELD]:
+      raise KronosClientError('Encountered errors %s' %
+                              _get_errors(response_dict))
+    return response_dict
 
   def put(self, event_dict, namespace=None):
     """
@@ -162,9 +178,9 @@ class KronosClient(object):
                               (response.status_code,
                                response.json().get('@errors', '')))
     response_dict = response.json()
-    errors = response_dict.get('@errors')
-    if errors:
-      raise KronosClientError('Encountered errors %s' % errors)
+    if not response_dict[SUCCESS_FIELD]:
+      raise KronosClientError('Encountered errors %s' %
+                              _get_errors(response_dict))
     return response_dict
 
   def get(self, stream, start_time, end_time, start_id=None, limit=None,
@@ -268,9 +284,9 @@ class KronosClient(object):
       raise KronosClientError('Bad server response code %d' %
                               response.status_code)
     response_dict = response.json()
-    errors = response_dict.get('@errors')
-    if errors:
-      raise KronosClientError('Encountered errors %s' % errors)
+    if not response_dict[SUCCESS_FIELD]:
+      raise KronosClientError('Encountered errors %s' %
+                              _get_errors(response_dict))
     return response_dict
 
   def get_streams(self, namespace=None):

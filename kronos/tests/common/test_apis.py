@@ -15,39 +15,54 @@ class TestKronosAPIs(KronosServerTestCase):
     # Test put with increasing timestamps.
     stream = 'TestKronosAPIs_test_put_ascending'
     for t in xrange(1, 11):
-      self.put(stream, [{'@time': t}])
+      response = self.put(stream, [{TIMESTAMP_FIELD: t}])
+      for num in response[stream].itervalues():
+        self.assertEqual(num, {'num_inserted': 1})
+
     events = self.get(stream, 0, 10)
     self.assertEqual(len(events), 10)
 
     # Test put with random timestamps.
     stream = 'TestKronosAPIs_test_put_random'
     for t in xrange(1, 11):
-      self.put(stream, [{'@time': random.randint(1, 10)}])
+      response = self.put(stream, [{TIMESTAMP_FIELD: random.randint(1, 10)}])
+      for num in response[stream].itervalues():
+        self.assertEqual(num, {'num_inserted': 1})
+
     events = self.get(stream, 0, 10)
     self.assertEqual(len(events), 10)
 
     # Test put with decreasing timestamps.
     stream = 'TestKronosAPIs_test_put_decreasing'
     for t in xrange(10, 0, -1):
-      self.put(stream, [{'@time': t}])
+      response = self.put(stream, [{TIMESTAMP_FIELD: t}])
+      for num in response[stream].itervalues():
+        self.assertEqual(num, {'num_inserted': 1})
+
     events = self.get(stream, 0, 10)
     self.assertEqual(len(events), 10)
 
     # Test put with multiple events.
     stream = 'TestKronosAPIs_test_put_multiple_events'
-    self.put(stream, [{TIMESTAMP_FIELD: random.randint(1, 10)}
-                      for i in xrange(10)])
+    response = self.put(stream, [{TIMESTAMP_FIELD: random.randint(1, 10)}
+                                 for i in xrange(10)])
+    for num in response[stream].itervalues():
+      self.assertEqual(num, {'num_inserted': 10})
     events = self.get(stream, 0, 10)
     self.assertEqual(len(events), 10)
 
     # Test put with mapping.    
     mapping = defaultdict(list)
-    for stream in ('TestKronosAPIs_test_put_mapping_1',
-                   'TestKronosAPIs_test_put_mapping_2',
-                   'TestKronosAPIs_test_put_mapping_3'):
+    streams = ('TestKronosAPIs_test_put_mapping_1',
+               'TestKronosAPIs_test_put_mapping_2',
+               'TestKronosAPIs_test_put_mapping_3')
+    for stream in streams:
       mapping[stream] = [{TIMESTAMP_FIELD: random.randint(1, 10)}
                          for i in xrange(10)]
-    self.put(mapping)
+    response = self.put(mapping)
+    for stream in streams:
+      for num in response[stream].itervalues():
+        self.assertEqual(num, {'num_inserted': 10})
     for stream in ('TestKronosAPIs_test_put_mapping_1',
                    'TestKronosAPIs_test_put_mapping_2',
                    'TestKronosAPIs_test_put_mapping_3'):
@@ -155,36 +170,36 @@ class TestKronosAPIs(KronosServerTestCase):
     event3 = [{'a': 4, TIMESTAMP_FIELD: 2}]
 
     # Test delete from non-existent streams.
-    num_deleted = self.delete(stream, 0, 4)
-    for num in num_deleted[stream].itervalues():
-      self.assertEqual(num, 0)
+    response = self.delete(stream, 0, 4)
+    for num in response[stream].itervalues():
+      self.assertEqual(num, {'num_deleted': 0})
 
     # Test delete with intervals that have and don't have events.
     self.put(stream, event1)
-    num_deleted = self.delete(stream, 2, 4)
-    for num in num_deleted[stream].itervalues():
-      self.assertEqual(num, 0)
+    response = self.delete(stream, 2, 4)
+    for num in response[stream].itervalues():
+      self.assertEqual(num, {'num_deleted': 0})
     self.assertEqual(len(self.get(stream, 0, 4)), 1)
-    num_deleted = self.delete(stream, 0, 1)
-    for num in num_deleted[stream].itervalues():
-      self.assertEqual(num, 1)
+    response = self.delete(stream, 0, 1)
+    for num in response[stream].itervalues():
+      self.assertEqual(num, {'num_deleted': 1})
     self.assertEqual(len(self.get(stream, 0, 4)), 0)
 
     # Test delete overlapping time events.
     self.put(stream, event2 + event3)
     self.assertEqual(len(self.get(stream, 0, 4)), 2)
-    num_deleted = self.delete(stream, 2, 2)
-    for num in num_deleted[stream].itervalues():
-      self.assertEqual(num, 2)
+    response = self.delete(stream, 2, 2)
+    for num in response[stream].itervalues():
+      self.assertEqual(num, {'num_deleted': 2})
     self.assertEqual(len(self.get(stream, 0, 4)), 0)
 
     # Test delete with `start_id`.
     self.put(stream, event2 + event3)
     start_id = self.get(stream, 0, 4, limit=1)[0][ID_FIELD]
     self.assertEqual(len(self.get(stream, 0, 4)), 2)
-    num_deleted = self.delete(stream, None, 2, start_id=start_id)
-    for num in num_deleted[stream].itervalues():
-      self.assertEqual(num, 1)
+    response = self.delete(stream, None, 2, start_id=start_id)
+    for num in response[stream].itervalues():
+      self.assertEqual(num, {'num_deleted': 1})
     events = self.get(stream, 0, 4)
     self.assertEqual(len(events), 1)
     self.assertEqual(events[0][ID_FIELD], start_id)
@@ -194,7 +209,7 @@ class TestKronosAPIs(KronosServerTestCase):
     for i in range(10):
       n = random.randint(1, 1000)
       stream = 'TestKronosAPIs_test_streams_{}'.format(n)
-      self.put(stream, [{'@time': n, n: None, 'lol': 'cat'}])
+      self.put(stream, [{TIMESTAMP_FIELD: n, n: None, 'lol': 'cat'}])
       streams[stream] = n
     retrieved_streams = {stream for stream in self.get_streams()
                          if stream.startswith('TestKronosAPIs_test_streams_')}

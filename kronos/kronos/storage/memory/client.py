@@ -66,13 +66,13 @@ class InMemoryStorage(BaseStorage):
     # Find the interval our events belong to.
     lo = bisect.bisect_left(stream_events, start_id_event)
     if lo + 1 > len(stream_events):
-      return 0
+      return 0, []
     if stream_events[lo][ID_FIELD] == start_id:
       lo += 1
     hi = bisect.bisect_right(stream_events, end_id_event)
 
     del stream_events[lo:hi]
-    return max(0, hi - lo)
+    return max(0, hi - lo), []
 
   def _retrieve(self, namespace, stream, start_id, end_time, order, limit,
                 configuration):
