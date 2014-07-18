@@ -1,7 +1,8 @@
 import sys
 
+from timeuuid import TimeUUID
+
 from kronos.conf.constants import ResultOrder
-from kronos.utils.uuid import TimeUUID
 from kronos.utils.uuid import uuid_from_kronos_time
 from kronos.utils.uuid import uuid_to_kronos_time
 from kronos.utils.uuid import UUIDType
