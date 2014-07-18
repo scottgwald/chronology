@@ -250,8 +250,16 @@ class QueryCache(object):
     :param untrusted_time: A datetime after which to not trust that
     computed data is stable.  Any buckets that overlap with or follow
     this untrusted_time will not be cached.
+<<<<<<< HEAD
     :param force_recompute: A boolean that, if True, will force
     recompute and recaching of even previously cached data.
+=======
+    :param compute: A boolean that, if True, will compute any non-cached
+    results.
+    :param force_compute: A boolean that, if True, will force
+    recompute and recaching of even previously cached data.
+    :param cache: A boolean that, if True, will cache any computed results.
+>>>>>>> Refactor of precompute/compute and other things
     """
     if untrusted_time and not untrusted_time.tzinfo:
       untrusted_time = untrusted_time.replace(tzinfo=tzutc())
@@ -274,11 +282,20 @@ class QueryCache(object):
     aligned with `bucket_width`.
     :param end_time: A datetime for the end of the range, aligned with
     `bucket_width`.
+<<<<<<< HEAD
     :param compute_missing: A boolean that, if True, will compute any
     non-cached results.
+=======
+    :param compute: A boolean that, if True, will compute any non-cached
+    results.
+>>>>>>> Refactor of precompute/compute and other things
     """
     events = self._compute_buckets(start_time, end_time,
                                    compute_missing=compute_missing)
 
     for event in events:
+<<<<<<< HEAD
       yield event
+=======
+      yield event
+>>>>>>> Refactor of precompute/compute and other things

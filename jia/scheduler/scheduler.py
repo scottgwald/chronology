@@ -132,6 +132,13 @@ def _execute(task):
 
   This exists outside the Scheduler class because it is pickled after it is
   sent to the executor.
+<<<<<<< HEAD
+=======
+
+  TODO(derek): add better exception handling
+  TODO(derek): if the code being `exec`ed modifies the variable `task` (or
+  presumably other things in scope) everything gets messed up
+>>>>>>> Refactor of precompute/compute and other things
   """
   print "[%s] -- %s -- START" % (datetime.datetime.now(), task['id'])
   try:

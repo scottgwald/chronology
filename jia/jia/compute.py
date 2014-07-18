@@ -70,7 +70,7 @@ class QueryCompute(object):
     the purposes of storing default/previous values. If the mode is recent,
     only 'value' and 'scale' are used. If the mode is 'range', only 'from' and
     'to' are used.
-
+    
     Example timeframe:
     timeframe = {
       'mode': 'recent',
@@ -105,7 +105,6 @@ class QueryCompute(object):
                                    bucket_width_timedelta,
                                    app.config['CACHE_KRONOS_NAMESPACE'],
                                    query_function_kwargs=unique)
-
 
 
   def _get_timeframe_bounds(self, timeframe, bucket_width):
@@ -250,7 +249,7 @@ def enable_precompute(panel):
 
   if result['status'] != 'success':
     raise RuntimeError(result.get('reason'))
-
+  
   return result['id']
 
 

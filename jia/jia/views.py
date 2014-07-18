@@ -11,11 +11,14 @@ from jia.models import Board
 from jia.compute import QueryCompute, enable_precompute, disable_precompute
 from jia.utils import get_seconds
 from pykronos import KronosClient
+<<<<<<< HEAD
 from pykronos.utils.cache import QueryCache
 from pykronos.utils.time import datetime_to_epoch_time
 from pykronos.utils.time import kronos_time_to_datetime
 from pykronos.utils.time import epoch_time_to_kronos_time
 
+=======
+>>>>>>> Refactor of precompute/compute and other things
 
 @app.route('/status', methods=['GET'])
 def status():
@@ -178,6 +181,10 @@ def callsource(id=None):
 
   task = QueryCompute(code, timeframe, bucket_width=bucket_width)
   events = task.compute(use_cache=precompute['enabled'])
+<<<<<<< HEAD
+=======
+
+>>>>>>> Refactor of precompute/compute and other things
   response = {}
   response['events'] = events
   return response
