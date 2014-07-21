@@ -2,6 +2,7 @@ import random
 import time
 
 from collections import defaultdict
+from timeuuid import TimeUUID
 
 from kronos.conf.constants import ID_FIELD
 from kronos.conf.constants import ResultOrder
@@ -42,6 +43,16 @@ class TestKronosAPIs(KronosServerTestCase):
     events = self.get(stream, 0, 10)
     self.assertEqual(len(events), 10)
 
+    # Test put with same timestamp.
+    stream = 'TestKronosAPIs_test_put_equal'
+    for _ in xrange(10):
+      response = self.put(stream, [{TIMESTAMP_FIELD: 5}])
+      for num in response[stream].itervalues():
+        self.assertEqual(num, {'num_inserted': 1})
+
+    events = self.get(stream, 0, 10)
+    self.assertEqual(len(events), 10)
+
     # Test put with multiple events.
     stream = 'TestKronosAPIs_test_put_multiple_events'
     response = self.put(stream, [{TIMESTAMP_FIELD: random.randint(1, 10)}
@@ -63,9 +74,7 @@ class TestKronosAPIs(KronosServerTestCase):
     for stream in streams:
       for num in response[stream].itervalues():
         self.assertEqual(num, {'num_inserted': 10})
-    for stream in ('TestKronosAPIs_test_put_mapping_1',
-                   'TestKronosAPIs_test_put_mapping_2',
-                   'TestKronosAPIs_test_put_mapping_3'):
+    for stream in streams:
       events = self.get(stream, 0, 10)
       self.assertEqual(len(events), 10)    
 
@@ -91,6 +100,8 @@ class TestKronosAPIs(KronosServerTestCase):
     self.put(stream, event2)
     events = self.get(stream, 0, 4)
     self.assertEqual(len(events), 2)
+    self.assertEqual(events, sorted(events,
+                                    key=lambda e: TimeUUID(e[ID_FIELD])))
     events = self.get(stream, 2, 4)
     self.assertEqual(len(events), 1)
     event2_id = events[0][ID_FIELD]
@@ -98,35 +109,53 @@ class TestKronosAPIs(KronosServerTestCase):
     self.put(stream, event3)
     events = self.get(stream, 0, 4)
     self.assertEqual(len(events), 3)
+    self.assertEqual(events, sorted(events,
+                                    key=lambda e: TimeUUID(e[ID_FIELD])))
     events = self.get(stream, 2, 4)
     self.assertEqual(len(events), 2)
+    self.assertEqual(events, sorted(events,
+                                    key=lambda e: TimeUUID(e[ID_FIELD])))
 
     # Test get for overlapping time events.
     self.put(stream, event4)
     events = self.get(stream, 0, 4)
     self.assertEqual(len(events), 4)
+    self.assertEqual(events, sorted(events,
+                                    key=lambda e: TimeUUID(e[ID_FIELD])))
     events = self.get(stream, 2, 4)
     self.assertEqual(len(events), 3)
+    self.assertEqual(events, sorted(events,
+                                    key=lambda e: TimeUUID(e[ID_FIELD])))
     events = self.get(stream, 3, 4)
     self.assertEqual(len(events), 2)
+    self.assertEqual(events, sorted(events,
+                                    key=lambda e: TimeUUID(e[ID_FIELD])))
 
     # Test get for `start_time` and `end_time` inclusivity.
     events = self.get(stream, 1, 3)
     self.assertEqual(len(events), 4)
+    self.assertEqual(events, sorted(events,
+                                    key=lambda e: TimeUUID(e[ID_FIELD])))
 
     # Test get with `start_id`.
     events = self.get(stream, None, 4, start_id=event2_id)
     self.assertEqual(len(events), 2)
+    self.assertEqual(events, sorted(events,
+                                    key=lambda e: TimeUUID(e[ID_FIELD])))
     for event in events:
       self.assertEqual(event[TIMESTAMP_FIELD], 3)
 
     # Test get with `limit`.
     events = self.get(stream, 0, 4, limit=2)
     self.assertEqual(len(events), 2)    
+    self.assertEqual(events, sorted(events,
+                                    key=lambda e: TimeUUID(e[ID_FIELD])))
     self.assertEqual(events[0][TIMESTAMP_FIELD], 1)
     self.assertEqual(events[1][TIMESTAMP_FIELD], 2)
     events = self.get(stream, 0, 4, limit=3)
     self.assertEqual(len(events), 3)
+    self.assertEqual(events, sorted(events,
+                                    key=lambda e: TimeUUID(e[ID_FIELD])))
     self.assertEqual(events[0][TIMESTAMP_FIELD], 1)
     self.assertEqual(events[1][TIMESTAMP_FIELD], 2)
     self.assertEqual(events[2][TIMESTAMP_FIELD], 3)
@@ -136,16 +165,13 @@ class TestKronosAPIs(KronosServerTestCase):
     # Test get with `order`.
     events = self.get(stream, 0, 4, order=ResultOrder.ASCENDING)
     self.assertEqual(len(events), 4)
-    max_time = float('-inf')
-    for event in events:
-      self.assertTrue(event[TIMESTAMP_FIELD] >= max_time)
-      max_time = event[TIMESTAMP_FIELD]
+    self.assertEqual(events, sorted(events,
+                                    key=lambda e: TimeUUID(e[ID_FIELD])))
     events = self.get(stream, 0, 4, order=ResultOrder.DESCENDING)
     self.assertEqual(len(events), 4)
-    min_time = float('inf')
-    for event in events:
-      self.assertTrue(event[TIMESTAMP_FIELD] <= min_time)
-      min_time = event[TIMESTAMP_FIELD]
+    self.assertEqual(events, sorted(events,
+                                    key=lambda e: TimeUUID(e[ID_FIELD],
+                                                           descending=True)))
 
     # Test get with weird time ranges.
     # `start_time` == `end_time`
