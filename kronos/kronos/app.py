@@ -222,6 +222,7 @@ def delete_events(environment, start_response, headers):
         success = False
         response[ERRORS_FIELD] = errors
     except Exception, e:
+      success = False
       response[backend] = {'num_deleted': -1,
                            ERRORS_FIELD: [repr(e)]}
 

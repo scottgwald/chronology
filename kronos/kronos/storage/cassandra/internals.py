@@ -112,6 +112,19 @@ class StreamShard(object):
       except GeneratorExit:
         break
 
+  def ids_iterator(self, start_id, end_id):
+    select_ids_stmt = BoundStatement(self.namespace.SELECT_ID_STMT,
+                                     fetch_size=100000, # 100k ids at a time.
+                                     routing_key=self.key,
+                                     consistency_level=ConsistencyLevel.ONE)
+    ids = self.session.execute(
+      select_ids_stmt.bind((self.key, start_id, end_id, self.limit)))
+    for _id in ids:
+      try:
+        yield _id[0]
+      except GeneratorExit:
+        break
+
 
 class Stream(object):
   # 6 months.
@@ -289,14 +302,14 @@ class Stream(object):
                           shard['start_time'], shard['width'],
                           shard['shard'], False,
                           MAX_LIMIT, read_size=self.read_size)
-      for event in shard.iterator(start_id, end_id):
-        if event.id == start_id:
+      for _id in shard.ids_iterator(start_id, end_id):
+        if _id == start_id:
           continue
         num_deleted += 1
         batch_stmt.add(BoundStatement(self.namespace.DELETE_STMT,
                                       routing_key=shard.key,
                                       consistency_level=ConsistencyLevel.QUORUM)
-                       .bind((shard.key, event.id)))
+                       .bind((shard.key, _id)))
       self.session.execute(batch_stmt)
       return num_deleted
     
@@ -363,6 +376,12 @@ class Namespace(object):
     id >= ? AND
     id <= ?
     ORDER BY id DESC
+    LIMIT ?
+    """
+  SELECT_ID_STMT = """SELECT id FROM stream WHERE
+    key = ? AND
+    id >= ? AND
+    id <= ?
     LIMIT ?
     """
 
