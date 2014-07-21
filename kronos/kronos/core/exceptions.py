@@ -7,9 +7,6 @@ class ConnectionFailure(Exception):
 class InvalidRequest(Exception):
   pass
 
-class InvalidEventId(Exception):
-  pass
-
 class InvalidEventTime(Exception):
   pass
 

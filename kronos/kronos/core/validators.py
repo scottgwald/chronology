@@ -1,17 +1,14 @@
 import re
 import time
 
-from uuid import UUID
 from importlib import import_module
 
 from kronos.conf.constants import ID_FIELD
 from kronos.conf.constants import TIMESTAMP_FIELD
 from kronos.core.exceptions import ImproperlyConfigured
-from kronos.core.exceptions import InvalidEventId
 from kronos.core.exceptions import InvalidEventTime
 from kronos.core.exceptions import InvalidStreamName
 from kronos.utils.math import time_to_kronos_time
-from kronos.utils.uuid import uuid_to_kronos_time
 from kronos.utils.uuid import uuid_from_kronos_time
 
 MAX_STREAM_LENGTH = 2048
@@ -50,41 +47,16 @@ def validate_event(event):
   """
   Ensure that the event has a valid time and id.
   """
-
   event_time = event.get(TIMESTAMP_FIELD)
-  event_id = event.get(ID_FIELD)
 
-  # If no event time is specified, extract it from the event id if the id
-  # exists, otherwise set the time to now.
   if event_time is None:
-    if event_id is None:
-      event_time = time_to_kronos_time(time.time())
-    else:
-      try:
-        uuid = UUID(event_id)
-      except ValueError:
-        raise InvalidEventId(event_id)
-      event_time = uuid_to_kronos_time(uuid)
+    event[TIMESTAMP_FIELD] = event_time = time_to_kronos_time(time.time())
   elif type(event_time) not in (int, long):
     raise InvalidEventTime(event_time)
 
-  if event_id is None:
-    # If no ID is provided, generate a uuid1-like sequence from the event
-    # time. This isn't totally kosher: the UUID1 node comes from the MAC address
-    # of this machine rather than that of the client, but we're using uuids as
-    # a proxy for unique pseudotime-ordered strings anyway, so the damage has
-    # already been done :).
-    uuid = uuid_from_kronos_time(event_time)
-
-    # Make sure that the time in our uuid is the event's actual time
-    if uuid_to_kronos_time(uuid) != event_time:
-      raise InvalidEventTime('{0}: mismatch with event id [{1}].'
-                              .format(event[TIMESTAMP_FIELD], uuid))
-
-    event_id = str(uuid)
-
-  event[TIMESTAMP_FIELD] = int(event_time)
-  event[ID_FIELD] = event_id
+  # Generate a uuid1-like sequence from the event time with the non-time bytes
+  # set to random values.
+  event[ID_FIELD] = str(uuid_from_kronos_time(event_time))
 
 
 def validate_stream(stream):
