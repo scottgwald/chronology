@@ -3,11 +3,13 @@
 import grp
 import os
 import pwd
+import re
 import shutil
 import tempfile
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                         os.path.pardir))
+LOG_DIR_RE = re.compile(r"'log_directory': '[^\']+'", re.I)
 LIB_DIR = '/usr/lib/kronos'
 LOG_DIR = '/var/log/kronos'
 RUN_DIR = '/var/run/kronos'
@@ -50,10 +52,15 @@ def copy_files():
   print 'Copying configuration and init.d script files...'
   shutil.copy(os.path.join(BASE_DIR, 'scripts/uwsgi.ini'),
               '/etc/kronos/uwsgi.ini')
-  shutil.copy(os.path.join(BASE_DIR, 'settings.py.template'),
-              '/etc/kronos/settings.py')
   shutil.copy(os.path.join(BASE_DIR, 'scripts/kronosd.init.d'),
               '/etc/init.d/kronos')
+  with open(os.path.join(BASE_DIR, 'settings.py.template')) as f:
+    settings = f.read()
+  if not LOG_DIR_RE.search(settings):
+    raise Exception('Failed to find log directory in settings.py.template.')
+  settings = re.sub(LOG_DIR_RE, "'log_directory': '%s'" % LOG_DIR, settings)
+  with open('/etc/kronos/settings.py', 'w') as f:
+    f.write(settings)
   print 'done.'
 
 def install_uwsgi():
