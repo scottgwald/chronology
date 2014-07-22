@@ -3,7 +3,6 @@
 import os
 import shutil
 
-from setuptools import find_packages
 from setuptools import setup
 from setuptools.command.install import install
 
@@ -37,7 +36,7 @@ class KronosInstall(install):
 
 setup(name='kronos',
       version=kronos.__version__,
-      packages=find_packages(exclude=['tests*']),
+      packages=['kronos'],
       include_package_data=True,
       license='MIT License',
       description='The Kronos time series storage engine',

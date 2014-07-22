@@ -15,7 +15,7 @@ import kronos
 # Validate settings before importing anything else.
 from kronos.core.validator import validate_settings
 from kronos.conf import settings; validate_settings(settings)
-from kronos.conf import logger; logger.configure()
+from kronos.conf import logging as klogging; klogging.configure()
 
 from kronos.conf.constants import ERRORS_FIELD
 from kronos.conf.constants import MAX_LIMIT
@@ -75,8 +75,7 @@ def put_events(environment, start_response, headers):
     try:
       validate_stream(stream)
     except Exception, e:
-      log.error('put_events: stream validation failed.',
-                extra={'stream': stream})
+      log.exception('put_events: stream validation failed for `%s`', stream)
       errors.append(repr(e))
       continue
 
@@ -84,6 +83,7 @@ def put_events(environment, start_response, headers):
       try:
         events_to_insert[stream].append(validate_event_and_assign_id(event))
       except Exception, e:
+        log.exception('put_events: event validation failed for `%s`', event)
         errors.append(repr(e))
 
   results = {}
@@ -104,8 +104,7 @@ def put_events(environment, start_response, headers):
         'num_inserted': len(events_to_insert[stream])
         }
     except Exception, e:
-      log.error('put_events: insertion to backend failed.',
-                extra={'stream': stream, 'backend': backend})
+      log.exception('put_events: insertion to backend `%s` failed.', backend)
       success = False
       response[stream][backend] = {'num_inserted': -1,
                                    ERRORS_FIELD: [repr(e)]}
@@ -140,8 +139,11 @@ def get_events(environment, start_response, headers):
   """
   request_json = environment['json']
   try:
-    validate_stream(request_json['stream'])
+    stream = request_json['stream']
+    validate_stream(stream)
   except Exception, e:
+    log.exception('get_events: stream validation failed for `%s`',
+                  request_json.get('stream'))
     start_response('400 Bad Request', headers)
     yield json.dumps({ERRORS_FIELD : [repr(e)],
                       SUCCESS_FIELD: False})
@@ -152,17 +154,16 @@ def get_events(environment, start_response, headers):
   if limit <= 0:
     events = []
   else:
-    backend, configuration = router.backend_to_retrieve(namespace,
-                                                        request_json['stream'])
+    backend, configuration = router.backend_to_retrieve(namespace, stream)
     events = backend.retrieve(
-        namespace,
-        request_json['stream'],
-        long(request_json.get('start_time', 0)),
-        long(request_json['end_time']),
-        request_json.get('start_id'),
-        configuration,
-        order=request_json.get('order', ResultOrder.ASCENDING),
-        limit=limit)
+      namespace,
+      stream,
+      long(request_json.get('start_time', 0)),
+      long(request_json['end_time']),
+      request_json.get('start_id'),
+      configuration,
+      order=request_json.get('order', ResultOrder.ASCENDING),
+      limit=limit)
 
   start_response('200 OK', headers)
 
@@ -199,21 +200,22 @@ def delete_events(environment, start_response, headers):
   """
   request_json = environment['json']
   try:
-    validate_stream(request_json['stream'])
+    stream = request_json['stream']
+    validate_stream(stream)
   except Exception, e:
-    log.error('delete_events: stream validation failed.',
-              extra={'stream': request_json.get('stream')})
+    log.exception('delete_events: stream validation failed for `%s`.',
+              request_json.get('stream'))
     start_response('400 Bad Request', headers)
     return {ERRORS_FIELD : [repr(e)]}
 
   namespace = request_json.get('namespace', settings.default_namespace)
-  backends = router.backends_to_mutate(namespace, request_json['stream'])
+  backends = router.backends_to_mutate(namespace, stream)
   statuses = {}
   for backend, conf in backends.iteritems():
     statuses[backend.name] = execute_greenlet_async(
       backend.delete,
       namespace,
-      request_json['stream'],
+      stream,
       long(request_json.get('start_time', 0)),
       long(request_json['end_time']),
       request_json.get('start_id'),
@@ -230,8 +232,7 @@ def delete_events(environment, start_response, headers):
         success = False
         response[ERRORS_FIELD] = errors
     except Exception, e:
-      log.error('delete_events: delete from backend failed.',
-                extra={'backend': backend})
+      log.exception('delete_events: delete from backend `%s` failed.', backend)
       success = False
       response[backend] = {'num_deleted': -1,
                            ERRORS_FIELD: [repr(e)]}

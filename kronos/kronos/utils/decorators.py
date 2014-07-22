@@ -1,6 +1,6 @@
 import json
+import logging
 import time
-import traceback
 import types
 
 from functools import wraps
@@ -12,6 +12,7 @@ from kronos.conf.constants import ServingMode
 from kronos.conf.constants import SUCCESS_FIELD
 from kronos.conf.constants import TOOK_FIELD
 
+log = logging.getLogger(__name__)
 
 # Map paths to the functions that serve them
 ENDPOINTS = {}
@@ -122,9 +123,7 @@ def endpoint(url, methods=['GET']):
           response = json.dumps(response)
         return response
       except Exception, e:
-        if settings.debug:
-          traceback.print_exc()
-        
+        log.exception('endpoint: uncaught exception!')
         start_response('400 Bad Request',
                        [('Content-Type', 'application/json')])
         return json.dumps({
