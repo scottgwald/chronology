@@ -13,7 +13,19 @@ README = open(os.path.join(os.path.dirname(__file__), 'README.md')).read()
 REQUIREMENTS = [
   line.strip() for line in open(os.path.join(os.path.dirname(__file__),
                                              'requirements.txt')).readlines()
+  if not line.startswith('git+')
   ]
+DEPDENDENCY_LINKS = [
+  line.strip() for line in open(os.path.join(os.path.dirname(__file__),
+                                             'requirements.txt')).readlines()
+  if line.startswith('git+')
+  ]
+
+# Add dependency_links to requires:
+for link in DEPDENDENCY_LINKS:
+  module, version = link.split('=')[1].rsplit('-', 1)
+  REQUIREMENTS.append('%s==%s' % (module, version))
+
 
 class KronosInstall(install):
   def run(self):
@@ -21,6 +33,7 @@ class KronosInstall(install):
     install.run(self)
     os.system('sudo python scripts/install_kronosd.py')
     os.remove('run_kronos.py')
+
 
 setup(name='kronos',
       version=kronos.__version__,
@@ -32,6 +45,7 @@ setup(name='kronos',
       url='https://github.com/Locu/kronos/',
       keywords=['kronos', 'analytics', 'metrics', 'client', 'logging'],
       install_requires=REQUIREMENTS,
+      dependency_links=DEPDENDENCY_LINKS,
       author='Locu, Inc.',
       author_email='devs@locu.com',
       cmdclass={
