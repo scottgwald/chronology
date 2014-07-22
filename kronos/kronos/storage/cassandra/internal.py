@@ -15,7 +15,6 @@ from datetime import timedelta
 from timeuuid import TimeUUID
 
 from kronos.common.cache import InMemoryLRUCache
-from kronos.conf.constants import ID_FIELD
 from kronos.conf.constants import MAX_LIMIT
 from kronos.conf.constants import TIMESTAMP_FIELD
 from kronos.core.errors import InvalidTimeUUIDComparison

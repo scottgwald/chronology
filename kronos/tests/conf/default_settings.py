@@ -47,10 +47,6 @@ node = {
 }
 
 stream = {
-  'fields': {
-    'id': '@id',
-    'timestamp': '@time'
-  },
   'format': re.compile(r'^[a-z0-9\_]+(\.[a-z0-9\_]+)*$', re.I)
 }
 

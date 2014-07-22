@@ -7,6 +7,8 @@ clean:
 	sudo rm -rf build dist *.egg-info logs
 test: clean
 	python runtests.py all
+benchmark: clean
+	python runbenchmarks.py all
 installdeps:
 	cat packages.txt | xargs sudo apt-get -y install
 	sudo pip install -r requirements.txt

@@ -176,7 +176,7 @@ class KronosClient(object):
     if response.status_code != requests.codes.ok:
       raise KronosClientError('Received response code %s with errors %s' %
                               (response.status_code,
-                               response.json().get('@errors', '')))
+                               response.json().get(ERRORS_FIELD)))
     response_dict = response.json()
     if not response_dict[SUCCESS_FIELD]:
       raise KronosClientError('Encountered errors %s' %

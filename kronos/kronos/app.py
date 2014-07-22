@@ -3,7 +3,6 @@ import sys
 # If running as service, we must call all these patch functions.
 if 'gevent.monkey' not in sys.modules:
   import gevent.monkey; gevent.monkey.patch_all()
-  import kronos.core.monkey; kronos.core.monkey.patch_all()
 
 import json
 import logging
