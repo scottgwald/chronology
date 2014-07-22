@@ -112,7 +112,7 @@ a {
   transition:all linear 3.5s;
 }
 
-.precompute {
+.precompute, .code-toggle {
   padding: 7px 10px 0 10px;
 }
 
@@ -120,7 +120,7 @@ a {
   display: inline-block;
 }
 
-.precompute, .timeframe {
+.precompute, .timeframe, .code-toggle {
   display: inline-block;
   vertical-align: top;
   height: 50px;

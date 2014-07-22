@@ -241,12 +241,24 @@
             </select>
             <span ng-if="panel.data_source.timeframe.mode == 'recent'">
               Trust data older than
-              <input type="number" class="form-control" ng-model="panel.data_source.precompute.untrusted_time.value">
+              <input type="number" class="form-control"
+                     ng-model="panel.data_source.precompute.untrusted_time.value">
               <select selecter="panel.data_source.precompute.untrusted_time.scale">
-                <option ng-repeat="scale in timeScales" value="{[ scale ]}">{[ scale ]}</option>
+                <option ng-repeat="scale in timeScales"
+                        value="{[ scale ]}">
+                  {[ scale ]}
+                </option>
               </select>-->
             </span>
           </div>
+        </div>
+        <div class="code-toggle">
+          <label>Code</label>
+          <label class="toggle">
+            <input type="checkbox"
+                   ng-model="panel.data_source.precompute.enabled">
+            <span class="handle"></span>
+          </label>
         </div>
       </div>
 
