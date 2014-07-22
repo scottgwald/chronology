@@ -4,7 +4,7 @@ run:
 clean:
 	find . -type f -name '*.py[cod]' -delete
 	find . -type f -name '*.*~' -delete
-	sudo rm -rf build dist *.egg-info
+	sudo rm -rf build dist *.egg-info logs
 test: clean
 	python runtests.py all
 installdeps:
