@@ -5,9 +5,9 @@ from kronos.common.cache import memoize
 from kronos.common.lazy import LazyObjectMetaclass
 from kronos.common.settings import merge_dicts
 from kronos.conf import settings
-from kronos.core.exceptions import BackendMissing
-from kronos.core.exceptions import NamespaceMissing
-from kronos.core.validators import validate_stream
+from kronos.core.errors import BackendMissing
+from kronos.core.errors import NamespaceMissing
+from kronos.core.validator import validate_stream
 
 
 class StorageRouter(object):

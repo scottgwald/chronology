@@ -14,7 +14,7 @@ from cStringIO import StringIO
 import kronos
 
 # Validate settings before importing anything else.
-from kronos.core.validators import validate_settings
+from kronos.core.validator import validate_settings
 from kronos.conf import settings; validate_settings(settings)
 from kronos.conf import logger; logger.configure()
 
@@ -24,8 +24,8 @@ from kronos.conf.constants import ResultOrder
 from kronos.conf.constants import SUCCESS_FIELD
 from kronos.core.executor import execute_greenlet_async
 from kronos.core.executor import wait
-from kronos.core.validators import validate_event
-from kronos.core.validators import validate_stream
+from kronos.core.validator import validate_event_and_assign_id
+from kronos.core.validator import validate_stream
 from kronos.storage.router import router
 from kronos.utils.decorators import endpoint
 from kronos.utils.decorators import ENDPOINTS
@@ -83,8 +83,7 @@ def put_events(environment, start_response, headers):
 
     for event in events:
       try:
-        validate_event(event)
-        events_to_insert[stream].append(event)
+        events_to_insert[stream].append(validate_event_and_assign_id(event))
       except Exception, e:
         errors.append(repr(e))
 

@@ -5,9 +5,9 @@ from importlib import import_module
 
 from kronos.conf.constants import ID_FIELD
 from kronos.conf.constants import TIMESTAMP_FIELD
-from kronos.core.exceptions import ImproperlyConfigured
-from kronos.core.exceptions import InvalidEventTime
-from kronos.core.exceptions import InvalidStreamName
+from kronos.core.errors import ImproperlyConfigured
+from kronos.core.errors import InvalidEventTime
+from kronos.core.errors import InvalidStreamName
 from kronos.utils.math import time_to_kronos_time
 from kronos.utils.uuid import uuid_from_kronos_time
 
@@ -43,9 +43,10 @@ def _validate_and_get_value(options, options_name, key, _type):
   return value
 
 
-def validate_event(event):
+def validate_event_and_assign_id(event):
   """
-  Ensure that the event has a valid time and id.
+  Ensure that the event has a valid time. Assign a random UUID based on the
+  event time.
   """
   event_time = event.get(TIMESTAMP_FIELD)
 
@@ -56,7 +57,9 @@ def validate_event(event):
 
   # Generate a uuid1-like sequence from the event time with the non-time bytes
   # set to random values.
-  event[ID_FIELD] = str(uuid_from_kronos_time(event_time))
+  _id = uuid_from_kronos_time(event_time)
+  event[ID_FIELD] = str(_id)
+  return _id, event
 
 
 def validate_stream(stream):

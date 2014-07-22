@@ -6,8 +6,8 @@ from datetime import timedelta
 
 from kronos.conf.constants import ResultOrder
 from kronos.storage.base import BaseStorage
-from kronos.storage.cassandra.internals import Namespace
-from kronos.storage.cassandra.internals import Stream
+from kronos.storage.cassandra.internal import Namespace
+from kronos.storage.cassandra.internal import Stream
 from kronos.utils.math import time_to_kronos_time
 from kronos.utils.uuid import uuid_from_kronos_time
 from kronos.utils.uuid import UUIDType

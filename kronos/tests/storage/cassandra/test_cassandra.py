@@ -5,7 +5,7 @@ from collections import defaultdict
 from kronos.conf import settings
 from kronos.conf.constants import MAX_LIMIT
 from kronos.conf.constants import TIMESTAMP_FIELD
-from kronos.storage.cassandra.internals import StreamShard
+from kronos.storage.cassandra.internal import StreamShard
 from kronos.storage.router import router
 from kronos.utils.math import kronos_time_to_time
 from kronos.utils.math import round_down

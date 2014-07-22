@@ -18,7 +18,7 @@ from kronos.common.cache import InMemoryLRUCache
 from kronos.conf.constants import ID_FIELD
 from kronos.conf.constants import MAX_LIMIT
 from kronos.conf.constants import TIMESTAMP_FIELD
-from kronos.core.exceptions import InvalidTimeUUIDComparison
+from kronos.core.errors import InvalidTimeUUIDComparison
 from kronos.core.executor import execute_greenlet_async
 from kronos.core.executor import wait
 from kronos.storage.cassandra.errors import CassandraStorageError
@@ -169,7 +169,7 @@ class Stream(object):
                                 consistency_level=ConsistencyLevel.QUORUM)
 
     shard_idx = {}
-    for event in events:
+    for _id, event in events:
       shard_time = round_down(event[TIMESTAMP_FIELD], self.width)
       shard = shard_idx.get(shard_time,
                             random.randint(0, self.shards - 1))
@@ -190,7 +190,7 @@ class Stream(object):
                                     routing_key=shard_key,
                                     consistency_level=ConsistencyLevel.QUORUM)
                      .bind((shard_key,
-                            TimeUUID(event[ID_FIELD]),
+                            _id,
                             json.dumps(event))))
       shard_idx[shard_time] = (shard + 1) % self.shards # Round robin.
 
