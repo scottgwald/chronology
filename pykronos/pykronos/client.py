@@ -24,17 +24,6 @@ ID_FIELD = '@id'
 SUCCESS_FIELD = '@success'
 TIMESTAMP_FIELD = '@time'
 
-_DEFAULT_CHUNK_SIZE = 131072 # 128k
-
-
-class _StringGeneratorIO(object):
-  def __init__(self, it):
-    self.buffer = ''
-    self.cursor = 0
-    self.exhausted = False
-
-  def read(self, n):
-    pass
 
 class ResultOrder(object):
   ASCENDING = 'ascending'
@@ -56,16 +45,11 @@ class KronosClient(object):
   Initialize a Kronos client that can connect to a server at `http_url`
 
   Put requests are non-blocking if `blocking`=False.
-  If non-blocking, `sleep_block` specifies the frequency of
-    a background thread that flushes events to the server.
-
-  `chunk_size` is the number of bytes read at once into memory when fetching
-  events. For best performance it should be set equal to the `node.flush_size`
-  setting of the Kronos server.  
+  If non-blocking, `sleep_block` specifies the frequency of a background thread
+  that flushes events to the server.
   """
 
-  def __init__(self, http_url, blocking=True, sleep_block=0.1, namespace=None,
-               chunk_size=_DEFAULT_CHUNK_SIZE):
+  def __init__(self, http_url, blocking=True, sleep_block=0.1, namespace=None):
     http_url = http_url.rstrip('/')
     self._put_url = '%s/1.0/events/put' % http_url
     self._get_url = '%s/1.0/events/get' % http_url
@@ -74,7 +58,6 @@ class KronosClient(object):
     self._streams_url = '%s/1.0/streams' % http_url
 
     self.namespace = namespace
-    self.chunk_size = chunk_size
 
     self._blocking = blocking
     if not blocking:
@@ -232,8 +215,6 @@ class KronosClient(object):
     
     errors = []
     last_id = None
-
-    from cStringIO import StringIO
     
     while True:
       try:
@@ -245,10 +226,6 @@ class KronosClient(object):
           raise KronosClientError('Bad server response code %d' %
                                   response.status_code)
         for event in msgpack.Unpacker(response.raw):
-#        for event in msgpack.Unpacker(StringIO(response.content)):
-          # Python's json adds a lot of overhead when decoding a large
-          # number of events; ujson fares better. However ujson won't work
-          # on PyPy since it's a C extension.
           last_id = event[ID_FIELD]
           yield event
         break
