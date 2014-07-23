@@ -337,7 +337,7 @@ class Namespace(object):
   STREAM_CQL = """CREATE TABLE stream (
     key text,
     id timeuuid,
-    blob text,
+    blob blob,
     PRIMARY KEY (key, id)
   )"""
   INDEX_CQL = """CREATE TABLE idx (

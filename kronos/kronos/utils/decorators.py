@@ -121,8 +121,6 @@ def endpoint(url, methods=['GET']):
         if not isinstance(response, types.GeneratorType):
           response[TOOK_FIELD] = '%fms' % (1000 * (time.time() - start_time))
           response = marshal.dumps(response)
-        print response, len(response)
-        print [ord(c) for c in response.encode('utf-8', 'backslashreplace')]
         return response
       except Exception, e:
         log.exception('endpoint: uncaught exception!')

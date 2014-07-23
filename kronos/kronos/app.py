@@ -177,7 +177,6 @@ def get_events(environment, start_response, headers):
       string_buffer.close()
       string_buffer = StringIO()
     string_buffer.write(event)
-    string_buffer.write('\r\n')
     limit -= 1
   if string_buffer.tell():
     yield string_buffer.getvalue()
@@ -259,7 +258,7 @@ def list_streams(environment, start_response, headers):
     for stream in backend.streams(namespace):
       if stream.startswith(prefix) and stream not in streams_seen_so_far:
         streams_seen_so_far.add(stream)
-        yield '{0}\r\n'.format(marshal.dumps(stream))
+        yield marshal.dumps(stream)
   yield ''
 
 
