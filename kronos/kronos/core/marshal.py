@@ -1,4 +1,5 @@
 import json as _json
+import msgpack
 import sys
 import ujson
 
@@ -24,3 +25,4 @@ def set_marshaler(name):
   setattr(sys.modules[__name__], 'dumps', marshaler.dumps)
 
 set_marshaler('json')
+set_marshaler('msgpack')

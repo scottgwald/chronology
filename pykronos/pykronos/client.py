@@ -1,12 +1,11 @@
 import copy
 import functools
-import json
+import msgpack
 import requests
 import sys
 import time
 import traceback
 import types
-import ujson
 
 from collections import defaultdict
 from contextlib import contextmanager
@@ -118,7 +117,15 @@ class KronosClient(object):
       exception_dict['stack_trace'] = traceback.extract_tb(tb)
 
   def index(self):
-    response_dict = requests.get(self._index_url).json()
+    response = requests.get(self._index_url)
+    print response.text, len(response.text)
+    print [ord(c) for c in response.text.decode('utf-8', 'backslashreplace')]
+    try:
+      response_dict = msgpack.loads(requests.get(self._index_url).text)
+    except Exception, e:
+      print e.unpacked
+      print e.extra
+      raise e
     if not response_dict[SUCCESS_FIELD]:
       raise KronosClientError('Encountered errors %s' %
                               _get_errors(response_dict))
@@ -172,12 +179,12 @@ class KronosClient(object):
     if namespace is not None:
       request_dict['namespace'] = namespace
     
-    response = requests.post(self._put_url, data=json.dumps(request_dict))
+    response = requests.post(self._put_url, data=msgpack.dumps(request_dict))
+    response_dict = msgpack.loads(response.text)
     if response.status_code != requests.codes.ok:
       raise KronosClientError('Received response code %s with errors %s' %
                               (response.status_code,
-                               response.json().get(ERRORS_FIELD)))
-    response_dict = response.json()
+                               response_dict.get(ERRORS_FIELD)))
     if not response_dict[SUCCESS_FIELD]:
       raise KronosClientError('Encountered errors %s' %
                               _get_errors(response_dict))
@@ -224,7 +231,7 @@ class KronosClient(object):
     while True:
       try:
         response = requests.post(self._get_url,
-                                 data=json.dumps(request_dict),
+                                 data=msgpack.dumps(request_dict),
                                  stream=True,
                                  timeout=timeout)
         if response.status_code != requests.codes.ok:
@@ -235,7 +242,7 @@ class KronosClient(object):
             # Python's json adds a lot of overhead when decoding a large
             # number of events; ujson fares better. However ujson won't work
             # on PyPy since it's a C extension.
-            event = ujson.loads(line, precise_float=True)
+            event = msgpack.loads(line)
             last_id = event[ID_FIELD]
             yield event
         break
@@ -278,12 +285,12 @@ class KronosClient(object):
       request_dict['namespace'] = namespace
 
     response = requests.post(self._delete_url,
-                             data=json.dumps(request_dict),
+                             data=msgpack.dumps(request_dict),
                              stream=True)
     if response.status_code != requests.codes.ok:
       raise KronosClientError('Bad server response code %d' %
                               response.status_code)
-    response_dict = response.json()
+    response_dict = msgpack.loads(response.text)
     if not response_dict[SUCCESS_FIELD]:
       raise KronosClientError('Encountered errors %s' %
                               _get_errors(response_dict))
@@ -299,14 +306,14 @@ class KronosClient(object):
     if namespace is not None:
       request_dict['namespace'] = namespace
     response = requests.post(self._streams_url,
-                             data=json.dumps(request_dict),
+                             data=msgpack.dumps(request_dict),
                              stream=True)
     if response.status_code != requests.codes.ok:
       raise KronosClientError('Bad server response code %d' %
                               response.status_code)
     for line in response.iter_lines():
       if line:
-        yield json.loads(line)
+        yield msgpack.loads(line)
 
   def log_function(self, stream_name, properties={},
                    log_function_stack_trace=False,
