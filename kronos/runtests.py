@@ -3,6 +3,7 @@
 import gevent.monkey; gevent.monkey.patch_all()
 
 import functools
+import logging
 import os
 import subprocess
 import sys
@@ -13,6 +14,11 @@ from argparse import ArgumentParser
 from kronos.conf import settings
 from tests.conf import default_settings
 settings.update(default_settings)
+
+# Disable log handlers.
+import kronos.app
+logging.root.handlers[:] = []
+logging.root.addHandler(logging.NullHandler())
 
 
 # Mapping from test name => (<pathname of directory with test file>,
