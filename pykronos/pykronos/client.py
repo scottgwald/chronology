@@ -27,6 +27,15 @@ TIMESTAMP_FIELD = '@time'
 _DEFAULT_CHUNK_SIZE = 131072 # 128k
 
 
+class _StringGeneratorIO(object):
+  def __init__(self, it):
+    self.buffer = ''
+    self.cursor = 0
+    self.exhausted = False
+
+  def read(self, n):
+    pass
+
 class ResultOrder(object):
   ASCENDING = 'ascending'
   DESCENDING = 'descending'
@@ -34,7 +43,7 @@ class ResultOrder(object):
 
 def _get_errors(json_dict):
   errors = []
-  for key, value in json_dict.iteritems:
+  for key, value in json_dict.iteritems():
     if key == ERRORS_FIELD:
       errors.extend(value)
     if isinstance(value, dict):
@@ -117,7 +126,11 @@ class KronosClient(object):
       exception_dict['stack_trace'] = traceback.extract_tb(tb)
 
   def index(self):
-    response_dict = msgpack.loads(requests.get(self._index_url).content)
+    response = requests.get(self._index_url)
+    if not response.ok:
+      raise KronosClientError('Bad server response code %d' %
+                              response.status_code)
+    response_dict = msgpack.loads(response.content)
     if not response_dict[SUCCESS_FIELD]:
       raise KronosClientError('Encountered errors %s' %
                               _get_errors(response_dict))
@@ -172,11 +185,10 @@ class KronosClient(object):
       request_dict['namespace'] = namespace
     
     response = requests.post(self._put_url, data=msgpack.dumps(request_dict))
+    if not response.ok:
+      raise KronosClientError('Bad server response code %d' %
+                              response.status_code)
     response_dict = msgpack.loads(response.content)
-    if response.status_code != requests.codes.ok:
-      raise KronosClientError('Received response code %s with errors %s' %
-                              (response.status_code,
-                               response_dict.get(ERRORS_FIELD)))
     if not response_dict[SUCCESS_FIELD]:
       raise KronosClientError('Encountered errors %s' %
                               _get_errors(response_dict))
@@ -220,17 +232,20 @@ class KronosClient(object):
     
     errors = []
     last_id = None
+
+    from cStringIO import StringIO
+    
     while True:
       try:
         response = requests.post(self._get_url,
                                  data=msgpack.dumps(request_dict),
                                  stream=True,
                                  timeout=timeout)
-        if response.status_code != requests.codes.ok:
+        if not response.ok:
           raise KronosClientError('Bad server response code %d' %
                                   response.status_code)
-        for event in msgpack.Unpacker(
-          response.raw):#iter_content(chunk_size=self.chunk_size)):
+        for event in msgpack.Unpacker(response.raw):
+#        for event in msgpack.Unpacker(StringIO(response.content)):
           # Python's json adds a lot of overhead when decoding a large
           # number of events; ujson fares better. However ujson won't work
           # on PyPy since it's a C extension.
@@ -276,9 +291,8 @@ class KronosClient(object):
       request_dict['namespace'] = namespace
 
     response = requests.post(self._delete_url,
-                             data=msgpack.dumps(request_dict),
-                             stream=True)
-    if response.status_code != requests.codes.ok:
+                             data=msgpack.dumps(request_dict))
+    if not response.ok:
       raise KronosClientError('Bad server response code %d' %
                               response.status_code)
     response_dict = msgpack.loads(response.content)
@@ -299,10 +313,10 @@ class KronosClient(object):
     response = requests.post(self._streams_url,
                              data=msgpack.dumps(request_dict),
                              stream=True)
-    if response.status_code != requests.codes.ok:
+    if not response.ok:
       raise KronosClientError('Bad server response code %d' %
                               response.status_code)
-    for stream in msgpack.Unpacker(response.raw):#iter_content()):
+    for stream in msgpack.Unpacker(response.raw):
       yield stream
 
   def log_function(self, stream_name, properties={},
