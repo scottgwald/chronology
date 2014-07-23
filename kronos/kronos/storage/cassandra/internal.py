@@ -32,7 +32,7 @@ from kronos.utils.uuid import uuid_to_kronos_time
 # objects if the CQL type is timeuuid.
 class TimeUUIDType(cqltypes.TimeUUIDType):
   @staticmethod
-  def deserialize(byts):
+  def deserialize(byts, protocol_version):
     return TimeUUID(bytes=byts)
 
 ResultMessage._type_codes[0x000F] = TimeUUIDType
