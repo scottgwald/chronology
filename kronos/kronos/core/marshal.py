@@ -24,5 +24,4 @@ def set_marshaler(name):
   setattr(sys.modules[__name__], 'loads', marshaler.loads)
   setattr(sys.modules[__name__], 'dumps', marshaler.dumps)
 
-set_marshaler('json')
 set_marshaler('msgpack')

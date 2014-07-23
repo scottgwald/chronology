@@ -1,5 +1,7 @@
+import msgpack
 import unittest
 
+from cStringIO import StringIO
 from werkzeug.test import Client
 from werkzeug.wrappers import BaseResponse
 
@@ -65,8 +67,6 @@ class KronosServerTestCase(unittest.TestCase):
                                      data=marshal.dumps(data),
                                      buffered=True)
     self.assertEqual(response.status_code, 200)
-    import msgpack
-    from cStringIO import StringIO
     return list(msgpack.Unpacker(StringIO(response.data)))
 
   def delete(self, stream, start_time, end_time, start_id=None, namespace=None):
@@ -93,6 +93,4 @@ class KronosServerTestCase(unittest.TestCase):
                                      data=marshal.dumps(data),
                                      buffered=True)
     self.assertEqual(response.status_code, 200)
-    import msgpack
-    from cStringIO import StringIO
     return list(msgpack.Unpacker(StringIO(response.data)))
