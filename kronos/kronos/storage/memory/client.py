@@ -1,9 +1,9 @@
 import bisect
-import json
 
 from collections import defaultdict
 
 from kronos.conf.constants import ResultOrder
+from kronos.core import marshal
 from kronos.storage.base import BaseStorage
 from kronos.utils.uuid import uuid_from_kronos_time
 from kronos.utils.uuid import UUIDType
@@ -106,7 +106,7 @@ class InMemoryStorage(BaseStorage):
       if limit <= 0:
         break
       limit -= 1
-      yield json.dumps(stream_events[i])
+      yield marshal.dumps(stream_events[i])
 
   def _streams(self, namespace):
     return self.db[namespace].iterkeys()

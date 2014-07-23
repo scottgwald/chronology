@@ -1,6 +1,5 @@
 import cassandra
 import heapq
-import json
 import random
 
 from cassandra import ConsistencyLevel
@@ -17,6 +16,7 @@ from timeuuid import TimeUUID
 from kronos.common.cache import InMemoryLRUCache
 from kronos.conf.constants import MAX_LIMIT
 from kronos.conf.constants import TIMESTAMP_FIELD
+from kronos.core import marshal
 from kronos.core.errors import InvalidTimeUUIDComparison
 from kronos.core.executor import execute_greenlet_async
 from kronos.core.executor import wait
@@ -190,7 +190,7 @@ class Stream(object):
                                     consistency_level=ConsistencyLevel.QUORUM)
                      .bind((shard_key,
                             _id,
-                            json.dumps(event))))
+                            marshal.dumps(event))))
       shard_idx[shard_time] = (shard + 1) % self.shards # Round robin.
 
     self.session.execute(batch_stmt)

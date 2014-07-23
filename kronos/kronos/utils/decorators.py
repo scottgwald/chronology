@@ -1,4 +1,3 @@
-import json
 import logging
 import time
 import types
@@ -11,6 +10,7 @@ from kronos.conf.constants import ERRORS_FIELD
 from kronos.conf.constants import ServingMode
 from kronos.conf.constants import SUCCESS_FIELD
 from kronos.conf.constants import TOOK_FIELD
+from kronos.core import marshal
 
 log = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ def endpoint(url, methods=['GET']):
                                       [settings.serving_mode]):
           start_response('403 Forbidden',
                          [('Content-Type', 'application/json')])
-          return json.dumps({
+          return marshal.dumps({
             ERRORS_FIELD: ['kronosd is configured to block access to this '
                            'endpoint.'],
             SUCCESS_FIELD: False,
@@ -73,7 +73,7 @@ def endpoint(url, methods=['GET']):
           start_response('405 Method Not Allowed',
                          [('Allow', ', '.join(methods)),
                           ('Content-Type', 'application/json')])
-          return json.dumps({
+          return marshal.dumps({
             ERRORS_FIELD: ['%s method not allowed' % req_method],
             SUCCESS_FIELD: False,
             TOOK_FIELD: '%fms' % (1000 * (time.time() - start_time))
@@ -101,11 +101,11 @@ def endpoint(url, methods=['GET']):
         # All POST bodies must be json, so decode it here.
         if req_method == 'POST':
           try:
-            environment['json'] = json.loads(environment['wsgi.input'].read())
+            environment['json'] = marshal.loads(environment['wsgi.input'].read())
           except ValueError:
             start_response('400 Bad Request',
                            [('Content-Type', 'application/json')])
-            return json.dumps({
+            return marshal.dumps({
               ERRORS_FIELD: ['Request body must be valid JSON.'],
               SUCCESS_FIELD: False,
               TOOK_FIELD: '%fms' % (1000 * (time.time() - start_time))
@@ -120,13 +120,13 @@ def endpoint(url, methods=['GET']):
         response = function(environment, start_response, headers)
         if not isinstance(response, types.GeneratorType):
           response[TOOK_FIELD] = '%fms' % (1000 * (time.time() - start_time))
-          response = json.dumps(response)
+          response = marshal.dumps(response)
         return response
       except Exception, e:
         log.exception('endpoint: uncaught exception!')
         start_response('400 Bad Request',
                        [('Content-Type', 'application/json')])
-        return json.dumps({
+        return marshal.dumps({
           ERRORS_FIELD: [repr(e)],
           SUCCESS_FIELD: False,
           TOOK_FIELD: '%fms' % (1000 * (time.time() - start_time))

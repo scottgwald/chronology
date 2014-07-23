@@ -1,6 +1,5 @@
-import json
-
 from kronos.conf.constants import ServingMode
+from kronos.core import marshal
 from tests.server import KronosServerTestCase
 
 class TestServingMode(KronosServerTestCase):
@@ -9,14 +8,14 @@ class TestServingMode(KronosServerTestCase):
     if method:
       kwargs = {'path': endpoint}
       if method == 'POST':
-        kwargs.update({'data': json.dumps(data),
+        kwargs.update({'data': marshal.dumps(data),
                        'buffered': True})
       response = getattr(self.http_client, method.lower())(**kwargs)
     elif '/index' in endpoint:
       response = self.http_client.get(path=endpoint)
     else:
       response = self.http_client.post(path=endpoint,
-                                       data=json.dumps(data),
+                                       data=marshal.dumps(data),
                                        buffered=True)
     self.assertTrue(response.status_code in expected_codes)
 

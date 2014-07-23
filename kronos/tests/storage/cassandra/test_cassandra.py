@@ -1,10 +1,9 @@
-import json
-
 from collections import defaultdict
 
 from kronos.conf import settings
 from kronos.conf.constants import MAX_LIMIT
 from kronos.conf.constants import TIMESTAMP_FIELD
+from kronos.core import marshal
 from kronos.storage.cassandra.internal import StreamShard
 from kronos.storage.router import router
 from kronos.utils.math import kronos_time_to_time
@@ -84,7 +83,7 @@ class TestCassandraBackend(KronosServerTestCase):
         events = stream_shard.iterator(
           uuid_from_time(start_time, UUIDType.LOWEST),
           uuid_from_time(start_time + self.width_seconds))
-        bucket_to_events[start_time].extend(json.loads(event.json)
+        bucket_to_events[start_time].extend(marshal.loads(event.json)
                                             for event in events)
 
     num_events = 0

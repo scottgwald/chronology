@@ -4,7 +4,6 @@ import sys
 if 'gevent.monkey' not in sys.modules:
   import gevent.monkey; gevent.monkey.patch_all()
 
-import json
 import logging
 
 from collections import defaultdict
@@ -21,6 +20,7 @@ from kronos.conf.constants import ERRORS_FIELD
 from kronos.conf.constants import MAX_LIMIT
 from kronos.conf.constants import ResultOrder
 from kronos.conf.constants import SUCCESS_FIELD
+from kronos.core import marshal
 from kronos.core.executor import execute_greenlet_async
 from kronos.core.executor import wait
 from kronos.core.validator import validate_event_and_assign_id
@@ -145,8 +145,8 @@ def get_events(environment, start_response, headers):
     log.exception('get_events: stream validation failed for `%s`',
                   request_json.get('stream'))
     start_response('400 Bad Request', headers)
-    yield json.dumps({ERRORS_FIELD : [repr(e)],
-                      SUCCESS_FIELD: False})
+    yield marshal.dumps({ERRORS_FIELD : [repr(e)],
+                         SUCCESS_FIELD: False})
     return
 
   namespace = request_json.get('namespace', settings.default_namespace)
@@ -259,7 +259,7 @@ def list_streams(environment, start_response, headers):
     for stream in backend.streams(namespace):
       if stream.startswith(prefix) and stream not in streams_seen_so_far:
         streams_seen_so_far.add(stream)
-        yield '{0}\r\n'.format(json.dumps(stream))
+        yield '{0}\r\n'.format(marshal.dumps(stream))
   yield ''
 
 
