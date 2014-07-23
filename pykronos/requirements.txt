@@ -1,5 +1,5 @@
 # Django>=1.4 --- no hard depdendency; only needed if KronosMiddleware is used.
+msgpack-python==0.4.2
 mock==1.0.1
 python-dateutil==2.2
 requests==2.3.0
-ujson==1.33

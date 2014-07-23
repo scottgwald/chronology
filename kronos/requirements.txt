@@ -7,6 +7,7 @@ geventhttpclient==1.1.0
 git+git://github.com/chronology/python-timeuuid.git@v0.3.5#egg=timeuuid-0.3.5
 gipc==0.4.0
 lz4==0.7.0
+msgpack-python==0.4.2
 python-dateutil==2.2
 requests==2.3.0
 werkzeug==0.9.6
