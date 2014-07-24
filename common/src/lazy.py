@@ -1,5 +1,7 @@
 import operator
 
+from threading import Lock
+
 _NONE = object()
 
 
@@ -16,12 +18,19 @@ class _LazyObject(object):
     self.__init_args__ = args
     self.__init_kw__ = kwargs
     self.__wrapped__ = _NONE
+    self.__init_lock__ = Lock()
 
   def __setup__(self):
-    self.__wrapped__ = self.__wrapped_cls__(*self.__init_args__,
-                                            **self.__init_kw__)
-    del self.__init_args__
-    del self.__init_kw__
+    # This lock is needed because calling the constructor of `__wrapped_cls__`
+    # could be pre-empted (or cooperatively yields) before completion and we
+    # could end up creating the object multiple times.
+    with self.__init_lock__:
+      if self.__wrapped__ != _NONE:
+        return
+      self.__wrapped__ = self.__wrapped_cls__(*self.__init_args__,
+                                              **self.__init_kw__)
+      del self.__init_args__
+      del self.__init_kw__
 
   # Introspection support.
   __dir__ = wrapped_obj_proxy(dir)
@@ -59,7 +68,7 @@ class _LazyObject(object):
   __getattr__ = wrapped_obj_proxy(getattr)
   
   def __setattr__(self, attr, value):
-    if attr in ('__wrapped__', '__init_args__', '__init_kw__'):
+    if attr in ('__wrapped__', '__init_args__', '__init_kw__', '__init_lock__'):
       # Assign to __dict__ to avoid an infinite loop.
       self.__dict__[attr] = value
     else:
