@@ -241,18 +241,14 @@ class OperatorTestCase(MetisServerTestCase):
                    200),
            cond_and(cond(p('j1.a'), p('right.a'), ConditionOpType.EQ),
                     cond(p('j1.b'), p('right.b'), ConditionOpType.GT)),
-           p('j1.%s' % constants.TIMESTAMP_FIELD),
            left_alias='j1')
       )
     self.assertTrue(len(events) > 0)
     for event in events:
-      self.assertEqual(event[constants.TIMESTAMP_FIELD], 
-                       event['j1.%s' % constants.TIMESTAMP_FIELD])
       self.assertEqual(event['j1.a'], event['right.a'])
       self.assertTrue(event['j1.b'] > event['right.b'])
       self.assertEqual(set(event),
-                       {constants.TIMESTAMP_FIELD,
-                        'j1.%s' % constants.TIMESTAMP_FIELD,
+                       {'j1.%s' % constants.TIMESTAMP_FIELD,
                         'right.%s' % constants.TIMESTAMP_FIELD,
                         'j1.%s' % constants.ID_FIELD,
                         'right.%s' % constants.ID_FIELD,
@@ -282,8 +278,7 @@ class OperatorTestCase(MetisServerTestCase):
                    0,
                    1000),
            # left.a == right.b
-           cond(p('left.b'), p('right.a'), ConditionOpType.EQ),
-           p('left.%s' % constants.TIMESTAMP_FIELD))
+           cond(p('left.b'), p('right.a'), ConditionOpType.EQ))
       )
     self.assertEqual(len(events), 200)
     for event in events:
@@ -301,8 +296,7 @@ class OperatorTestCase(MetisServerTestCase):
            cond(p('left.a'),
                 f(FunctionType.SUBTRACT,
                   [p('right.a'), c(1)]),
-                ConditionOpType.EQ),
-           p('left.%s' % constants.TIMESTAMP_FIELD))
+                ConditionOpType.EQ))
       )
     self.assertEqual(len(events), 200)
     for event in events:
@@ -321,8 +315,7 @@ class OperatorTestCase(MetisServerTestCase):
                          f(FunctionType.ADD,
                            [p('right.%s' % constants.TIMESTAMP_FIELD),
                             c(10)]),
-                         ConditionOpType.GT)),
-           p('left.%s' % constants.TIMESTAMP_FIELD))
+                         ConditionOpType.GT)))
       )
     self.assertTrue(len(events) > 0)
     self.assertTrue(len(events) < 200)

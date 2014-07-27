@@ -56,7 +56,7 @@ class Operator(object):
 
 class KronosOperator(Operator):
   OPERATOR_TYPE = OperatorType.KRONOS
-  
+
   def __init__(self, stream, start_time, end_time, host, namespace=None,
                **kwargs):
     assert isinstance(start_time, int)
@@ -104,9 +104,7 @@ class ProjectOperator(Operator):
     if self.merge:
       projection = event.copy()
     else:
-      # Always project `TIMESTAMP_FIELD`.
-      projection = {constants.TIMESTAMP_FIELD:
-                    event[constants.TIMESTAMP_FIELD]}
+      projection = {}
 
     for field, getter in self.fields.iteritems():
       projection[field] = get_value(event, getter)
@@ -161,7 +159,7 @@ class LimitOperator(Operator):
   def __init__(self, stream, limit, **kwargs):
     assert isinstance(limit, int)
     assert limit > 0
-    
+
     self.limit = limit
     self.stream = Operator.parse(stream)
 
@@ -180,13 +178,9 @@ class AggregateOperator(Operator):
   OPERATOR_TYPE = OperatorType.AGGREGATE
 
   def __init__(self, stream, groups, aggregates, **kwargs):
-    time_seen_in_groups = False
     for group, getter in groups.iteritems():
       validate_getter(getter)
-      if group == constants.TIMESTAMP_FIELD:
-        time_seen_in_groups = True
     counter = Counter()
-    time_seen_in_aggregates = False
     aliases = set()
     for aggregate in aggregates:
       args = aggregate.get('args', [])
@@ -196,15 +190,9 @@ class AggregateOperator(Operator):
       assert aggregate.get('op') in AggregateType.values()
       if not aggregate.get('alias'):
         aggregate['alias'] = '%s_%s' % (aggregate['op'], counter.increment())
-      if aggregate['alias'] == constants.TIMESTAMP_FIELD:
-        time_seen_in_aggregates = True
       if aggregate['alias'] in aliases:
         raise ValueError
       aliases.add(aggregate['alias'])
-    # If there's no grouping over the time field or no aggregate with that
-    # alias, raise an error.
-    if not (time_seen_in_groups or time_seen_in_aggregates):
-      raise ValueError
     self.groups = groups
     self.aggregates = aggregates
     self.stream = Operator.parse(stream)
@@ -287,7 +275,6 @@ class AggregateOperator(Operator):
     return event
 
   def get_rdd(self, spark_context):
-    # This will not preserve sorting on `TIMESTAMP_FIELD`.
     return (self.stream.get_rdd(spark_context)
             .map(self._group)
             .reduceByKey(self._reduce)
@@ -297,15 +284,13 @@ class AggregateOperator(Operator):
 class JoinOperator(Operator):
   OPERATOR_TYPE = OperatorType.JOIN
 
-  def __init__(self, left, right, condition, time_field, **kwargs):
-    validate_getter(time_field)
+  def __init__(self, left, right, condition, **kwargs):
     validate_condition(condition)
 
     self.left = Operator.parse(left)
     self.left_alias = left.get('alias') or 'left'
     self.right = Operator.parse(right)
     self.right_alias = right.get('alias') or 'right'
-    self.time_field = time_field
     self._setup_join(condition)
 
   def _merge(self, events):
@@ -323,10 +308,6 @@ class JoinOperator(Operator):
         event['%s.%s' % (self.left_alias, key)] = value
       for key, value in event2.iteritems():
         event['%s.%s' % (self.right_alias, key)] = value
-    timestamp = get_value(event, self.time_field)
-    if timestamp is None:
-      return None # No timestamp field calculated? Drop event.
-    event[constants.TIMESTAMP_FIELD] = timestamp
     return event
 
   def _get_equijoin_key_getters(self, condition):
@@ -359,7 +340,7 @@ class JoinOperator(Operator):
 
     return None
 
-        
+
   def _map_equijoin(self, alias, key_getters):
     def _map(event):
       new_event = {}
@@ -369,7 +350,7 @@ class JoinOperator(Operator):
                         for getter in key_getters])
       return (key, new_event)
     return _map
-  
+
   def _setup_join(self, condition):
     eq_join_getters = []
 
@@ -400,7 +381,7 @@ class JoinOperator(Operator):
       self._optimize_equijoin = False
 
     self._filter_function = generate_filter(condition) if condition else None
-  
+
   def get_rdd(self, spark_context):
     if self._optimize_equijoin:
       mapped_left = (self.left.get_rdd(spark_context)

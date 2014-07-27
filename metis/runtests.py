@@ -11,6 +11,8 @@ KRONOS_DIR = os.path.join(os.pardir, 'kronos')
 KRONOS_CONF = os.path.join(os.pardir,
                            'metis/tests/conf/kronos_settings.py')
 METIS_DIR = os.path.realpath(os.path.dirname(__file__))
+# Note: you might have to change SPARK_HOME in settings.py below to
+# match your spark home.
 METIS_CONF = 'tests/conf/settings.py'
 
 if __name__ == '__main__':

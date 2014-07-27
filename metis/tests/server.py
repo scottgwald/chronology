@@ -5,6 +5,9 @@ import unittest
 from metis import app
 from pykronos import KronosClient
 
+import logging; logging.basicConfig()
+log = logging.getLogger(__name__)
+
 class MetisServerTestCase(unittest.TestCase):
   '''
   Unit tests for all available `Operator` types.
@@ -23,6 +26,8 @@ class MetisServerTestCase(unittest.TestCase):
   def query(self, plan):
     response = requests.post(self.server_url % self.query_path,
                              data=json.dumps({'plan': plan}))
+    if response.status_code != requests.codes.ok:
+      log.error('Invalid response code for response: %s', response.text)
     self.assertEqual(response.status_code, requests.codes.ok)
     events = []
     for line in response.text.split('\n'):

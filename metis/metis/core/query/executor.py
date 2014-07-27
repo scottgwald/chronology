@@ -7,7 +7,7 @@ _SPARK_CONTEXT = None
 def get_spark_context():
   from pyspark import SparkContext
   global _SPARK_CONTEXT
-  
+
   if _SPARK_CONTEXT is None:
     # Also ship the Metis lib file so worker nodes can deserialize Metis
     # internal data structures.

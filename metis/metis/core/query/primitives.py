@@ -79,7 +79,7 @@ def agg(stream, groups, aggregates):
           'groups': groups,
           'aggregates': aggregates}
 
-def join(left, right, condition, time_field, left_alias=None, right_alias=None):
+def join(left, right, condition, left_alias=None, right_alias=None):
   left = left.copy()
   left['alias'] = left_alias
   right = right.copy()
@@ -87,8 +87,7 @@ def join(left, right, condition, time_field, left_alias=None, right_alias=None):
   return {'operator': OperatorType.JOIN,
           'left': left,
           'right': right,
-          'condition': condition,
-          'time_field': time_field}
+          'condition': condition}
 
 
 def order_by(stream, fields, reverse=False):

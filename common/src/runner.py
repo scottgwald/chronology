@@ -49,7 +49,7 @@ class ProcessRunner(object):
 
   def wait(self):
     pass
-  
+
   def stop(self):
     if not self._sub_proc:
       raise ProcessRunnerError('Process not running!')
@@ -91,4 +91,4 @@ class MetisRunner(ProcessRunner):
 
   def wait(self):
     if not _http_probe_wait('http://localhost:%s/1.0/index' % self.port):
-      raise ProcessRunnerError('Failed to start KronosRunner.')
+      raise ProcessRunnerError('Failed to start MetisRunner.')

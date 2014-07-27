@@ -143,13 +143,12 @@ def cohort_queryplan(plan):
                     [p('cohort.%s' % TIMESTAMP_FIELD),
                      c(additional_action_time)]),
                   ConditionOpType.LT)),
-    p('cohort.date'),
     left_alias='cohort',
     right_alias='action')
 
   user_aggregated = agg(
     joined,
-    {TIMESTAMP_FIELD: p(TIMESTAMP_FIELD),
+    {TIMESTAMP_FIELD: p('cohort.date'),
      'group': p('cohort.%s' % cohort['grouping_key']),
      'action_step': f(FunctionType.FLOOR,
                       [f(FunctionType.SUBTRACT,
@@ -165,7 +164,7 @@ def cohort_queryplan(plan):
      'action_step': p('action_step')},
     [agg_op(AggregateType.COUNT, [], alias='cohort_actions')]
     )
-  
+
   # TODO(marcua): Also sum up the cohort sizes, join with the plan.
   return aggregated
 

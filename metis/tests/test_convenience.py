@@ -26,15 +26,15 @@ class CohortTestCase(MetisServerTestCase):
   EMAIL_WEEKS = [(0, 2), (2, 4), (1, 3), (3, 0), (4, 1)]
   NUM_USERS = 400
   MAX_DT = datetime(2020, 1, 1).replace(tzinfo=tzutc())
-  
+
   def generate_data(self):
     user_ids = range(CohortTestCase.NUM_USERS)
-    
+
     # Email stream: Users in groups 1-5 get an email in weeks 1 and 3,
     # 2 and 4, 3 and 5, 4 and 1, 5 and 2, respectively.
     # See `EMAIL_WEEKS`.
     user_dates = {}
-    
+
     # Fill in expected_output, which is of
     # the form: {cohort_date: {cohort_size: NN,
     #                          action_dates: {action_date: num_actions}}}
@@ -49,7 +49,7 @@ class CohortTestCase(MetisServerTestCase):
       week2 = CohortTestCase.START_DATETIME + timedelta(weeks=weeks2)
       date2 = week2 + timedelta(hours=randint(0, 72))
       week1_str = datetime_to_date_str(week1)
-      week2_str = datetime_to_date_str(week2)      
+      week2_str = datetime_to_date_str(week2)
       user_dates[user_id] = ({'cohort': week1_str,
                               'cohort_date': week1,
                               'precise_date': date1},
@@ -128,7 +128,7 @@ class CohortTestCase(MetisServerTestCase):
     metis_plan = cohort_queryplan(plan)
     events = self.query(metis_plan)
     cohort = cohort_response(plan, events)
-    
+
     # Same set of cohorts.
     self.assertEqual(set(expected), set(cohort))
     # Action dates match for all cohorts.
