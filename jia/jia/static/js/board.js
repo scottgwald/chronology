@@ -3,10 +3,12 @@ var app = angular.module('jia.boards', ['ngSanitize',
                                         'ui.bootstrap',
                                         'ui.bootstrap.datetimepicker',
                                         'ui.select',
-                                        'jia.timeseries',
-                                        'jia.table',
-                                        'jia.gauge',
-                                        'jia.barchart'
+                                        'selecter',
+                                        'jia.querybuilder',
+                                        'jia.vis.timeseries',
+                                        'jia.vis.table',
+                                        'jia.vis.gauge',
+                                        'jia.vis.barchart'
                                        ]);
 
 app.config(['$interpolateProvider', function($interpolateProvider) {
@@ -64,13 +66,18 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
   };
 
   $scope.timeScales = [
-    'seconds',
-    'minutes',
-    'hours',
-    'days',
-    'weeks',
-    'months',
-    'years'
+    {name: 'seconds'},
+    {name: 'minutes'},
+    {name: 'hours'},
+    {name: 'days'},
+    {name: 'weeks'},
+    {name: 'months'},
+    {name: 'years'}
+  ];
+
+  $scope.timeframeModes = [
+    {name: 'Most recent', value: 'recent'},
+    {name: 'Date range', value: 'range'}
   ];
 
   $scope.bucketWidthHelpText = 'If you are aggregating events, pick a bucket '+
@@ -85,8 +92,8 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
   this.loadVisualizations = function () {
     var visualizations = {};
     _.each(app.requires, function (dependency) {
-      if (dependency.indexOf('jia.') == 0) {
-        module = dependency.substring('jia.'.length);
+      if (dependency.indexOf('jia.vis.') == 0) {
+        module = dependency.substring('jia.vis.'.length);
         visualizations[module] = $injector.get(module);
       }
     });
@@ -354,12 +361,12 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
       id: (Math.floor(Math.random() * 0x100000000)).toString(16),
       title: '',
       data_source: {
-        source_type: 'pycode',
+        source_type: 'querybuilder',
         refresh_seconds: null,
         code: '',
         stream: '',
         timeframe: {
-          mode: 'recent',
+          mode: $scope.timeframeModes[0],
           value: 2,
           scale: 'days',
           from: moment().subtract('days', 2).format($scope.dateTimeFormat),
@@ -518,62 +525,3 @@ app.directive('visualization', function ($http, $compile) {
   };
 });
 
-app.directive('selecter', function ($http, $compile) {
-  /*
-   * Simple Angular directive for Ben Plum's Selecter.js
-   *
-   * Example usage:
-   * <!-- Bind the selected value to someVarInScope (similar to ng-model) -->
-   * <select selecter="someVarInScope">
-   *   <!-- Can easily use ng-repeat here if desired -->
-   *   <option value="opt1">Option 1</option>
-   *   <option value="opt2">Option 2</option>
-   * </select>
-   *
-   */
-
-  var linker = function(scope, element, attrs) {
-    var createSelecter = function () {
-      $(element).selecter({
-        callback: function (value, index) {
-          scope.model = value;
-          scope.$apply();
-        }
-      });
-    }
-     
-    var updateSelector = function (newVal) {
-      // Update the selecter when the value changes in scope
-      // Selecter doesn't provide an update method, so destroy and recreate
-      $(element).selecter('destroy');
-      if (typeof newVal != 'undefined') {
-        $(element).find('option[value="' + newVal + '"]')
-                  .attr('selected', 'selected');
-      }
-      createSelecter();
-    };
- 
-    scope.$watch('model', function (newVal, oldVal) {
-      // The timeout of zero is magic to wait for an ng-repeat to finish
-      // populating the <select>. See: http://stackoverflow.com/q/12240639/
-      setTimeout(function () { updateSelector(newVal); });
-    });
-
-    scope.$watch('watch', function (newVal, oldVal) {
-      console.log('change watch');
-      setTimeout(function () { updateSelector(); });
-    }, true);
-
-  }
-
-  return {
-    restrict: "A",
-    replace: false,
-    link: linker,
-    scope: {
-      model: '=selecter',
-      watch: '=watch',
-    }
-  };
-
-});

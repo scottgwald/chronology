@@ -1,7 +1,10 @@
+import datetime
 import random
 import re
 import types
 
+from pykronos.utils.time import kronos_time_to_datetime
+from pykronos.utils.time import datetime_to_kronos_time
 from metis.common.event_tools import get_property
 from metis.core.query.condition import Condition
 from metis.core.query.value import Function
@@ -172,6 +175,7 @@ def _validate_function(function):
   args = function.get('arguments')
   assert isinstance(args, list)
   for arg in args:
+    print arg
     assert isinstance(arg, dict)
     arg_type = arg.get('type')
     assert arg_type in Value.Type.values()

@@ -1,0 +1,11 @@
+<selecter model="type" options="types"></selecter>
+<input type="text" class="form-control" ng-if="type.name == 'Property'">
+<input type="text" class="form-control" ng-if="type.name == 'Constant'">
+<selecter model="func" options="functions" ng-if="type.name == 'Function'">
+</selecter>
+<input type="text"
+       class="form-control"
+       ng-if="type.name == 'Function'"
+       ng-repeat-start="arg in func.args"
+       placeholder="{[ arg ]}">
+<span ng-repeat-end></span><!-- Hack to insert whitespace for inline-block -->

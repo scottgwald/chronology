@@ -147,7 +147,7 @@
           <span ng-show="panel.data_source.display">
             <span class="glyphicon glyphicon-eye-close"></span> Hide
           </span>
-          Code
+          Query
         </button>
         <a class="btn btn-default" target="_blank"
            download="{[ panel.title + '.csv']}"
@@ -171,22 +171,17 @@
           </ui-select>
         </div>
         <div class="timeframe">
-          <select selecter="panel.data_source.timeframe.mode">
-            <option value="recent">Most recent</option>
-            <option value="range">Date range</option>
-          </select>
+          <selecter model="panel.data_source.timeframe.mode"
+                    options="timeframeModes"></selecter>
           <div class="recent"
-               ng-if="panel.data_source.timeframe.mode == 'recent'">
+               ng-if="panel.data_source.timeframe.mode.value == 'recent'">
             <input type="number" class="form-control"
                    ng-model="panel.data_source.timeframe.value">
-            <select selecter="panel.data_source.timeframe.scale">
-              <option ng-repeat="scale in timeScales" value="{[ scale ]}">
-                {[ scale ]}
-              </option>
-            </select>
+            <selecter model="panel.data_source.timeframe.scale"
+                      options="timeScales"></selecter>
           </div>
           <div class="daterange"
-               ng-if="panel.data_source.timeframe.mode == 'range'">
+               ng-if="panel.data_source.timeframe.mode.value == 'range'">
             <div class="dropdown dtp-container">
               <a class="dropdown-toggle" id="dt_from" role="button">
                 <input type="text" class="form-control"
@@ -239,7 +234,7 @@
                 {[ scale ]}
               </option>
             </select>
-            <span ng-if="panel.data_source.timeframe.mode == 'recent'">
+            <span ng-if="panel.data_source.timeframe.mode.value == 'recent'">
               Trust data older than
               <input type="number" class="form-control"
                      ng-model="panel.data_source.precompute.untrusted_time.value">
@@ -256,21 +251,21 @@
           <label>Code</label>
           <label class="toggle">
             <input type="checkbox"
-                   ng-model="panel.data_source.precompute.enabled">
+                   ng-model="panel.data_source.type.code">
             <span class="handle"></span>
           </label>
         </div>
       </div>
 
-      <!-- TODO(marcua): CodeMirror is unhappy when we toggle
-      visibility of the editor.  It hides line numbers until you
-      click in the text area after toggling visbility, which
-      hides some of the code until the click event.  Address
-      this. -->
+      <querybuilder ng-if="panel.data_source.display &&
+                           panel.data_source.source_type == 'querybuilder'">
+      </querybuilder>
+
       <div ui-codemirror="editorOptions"
            ng-model="panel.data_source.code"
            class="code"
-           ng-show="panel.data_source.display"
+           ng-if="panel.data_source.display &&
+                  panel.data_source.source_type == 'pycode'"
            ui-refresh="panel.data_source.display">
       </div>
     </div>

@@ -1,4 +1,4 @@
-var module = angular.module('jia.timeseries', ['angular-rickshaw']);
+var module = angular.module('jia.vis.timeseries', ['angular-rickshaw']);
 
 module.factory('timeseries', function () {
 

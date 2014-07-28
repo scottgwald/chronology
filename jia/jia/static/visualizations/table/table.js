@@ -1,4 +1,4 @@
-var module = angular.module('jia.table', ['ngTable']);
+var module = angular.module('jia.vis.table', ['ngTable']);
 
 module.factory('table', function ($filter, ngTableParams) {
 

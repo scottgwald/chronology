@@ -38,7 +38,6 @@ a {
 }
 
 .board .panel {
-  overflow: hidden;
 }
 
 .board-title {
@@ -114,6 +113,10 @@ a {
 
 .precompute, .code-toggle {
   padding: 7px 10px 0 10px;
+}
+
+.code-toggle label {
+  margin-top: 12px;
 }
 
 .recent {
@@ -481,4 +484,74 @@ rickshaw {
 
 .btn-default-focus {
   background: #F5F7FA;
+}
+
+querybuilder > div {
+  background: #E6E9ED;
+  border-top: solid 1px #AAB2BD;
+  padding: 10px;
+  border-bottom-left-radius: 2px;
+  border-bottom-right-radius: 2px;
+}
+
+operator .selecter,
+newoperator .selecter {
+  display: inline-block;
+  width: 150px;
+  vertical-align: top;
+  margin-bottom: 5px;
+}
+
+operator .selecter.flat-left {
+  display: block;
+  float: left;
+}
+
+operator div.args {
+  margin-left: 188px;
+}
+
+.selecter .selecter-item.placeholder {
+  display: none;
+  color: #999;
+}
+
+ul.steps {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+
+ul.steps li {
+}
+
+ul.steps li:after {
+  content: "";
+  display: block;
+  width: 70px;
+  height: 40px;
+  background-image: url(images/arrow.png);
+  background-size: 70px 40px;
+  margin-left: 57px;
+}
+
+ul.steps li:last-child:after {
+  display: none;
+}
+
+ul.steps li:last-child .selecter {
+  width: 184px;
+}
+
+.btn-group .selecter.flat-left .selecter-selected,
+.btn-group .selecter.flat-left.bottom.open .selecter-selected {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: none;
+}
+
+ul.steps .form-control {
+  display: inline-block;
+  vertical-align: middle;
+  width: 150px;
 }

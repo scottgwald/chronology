@@ -20,6 +20,8 @@ from pykronos.utils.time import epoch_time_to_kronos_time
 =======
 >>>>>>> Refactor of precompute/compute and other things
 
+import jia.query
+
 @app.route('/status', methods=['GET'])
 def status():
   """ A successful request endpoint without authentication.

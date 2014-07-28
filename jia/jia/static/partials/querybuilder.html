@@ -1,0 +1,16 @@
+<div ng-controller="QueryBuilderController">
+  {[ query ]}
+  <ul class="steps">
+    <li ng-repeat="step in query">
+      <div class="btn-group">
+      <button class="btn btn-danger" ng-click="delete(step)">
+        &times;
+      </button>
+      <operator operator="step.operator"></operator>
+      </div>
+    </li>
+    <li>
+      <operator operator="nextStep" newop="true"></operator>
+    </li>
+  </ul>
+</div>

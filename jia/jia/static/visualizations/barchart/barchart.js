@@ -1,4 +1,4 @@
-var module = angular.module('jia.barchart', ['angular-c3']);
+var module = angular.module('jia.vis.barchart', ['angular-c3']);
 
 module.factory('barchart', function () {
 

@@ -1,4 +1,4 @@
-var module = angular.module('jia.gauge', []);
+var module = angular.module('jia.vis.gauge', []);
 
 module.factory('gauge', function () {
 
