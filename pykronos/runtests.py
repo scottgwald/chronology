@@ -10,7 +10,7 @@ KRONOS_CONF = os.path.join(os.pardir,
                            'pykronos/tests/conf/kronos_settings.py')
 
 if __name__ == '__main__':
-  kronos_runner = KronosRunner(KRONOS_DIR, config=KRONOS_CONF)
+  kronos_runner = KronosRunner(KRONOS_DIR, config=KRONOS_CONF, verbose=True)
   kronos_runner.start()
 
   test_suites = unittest.defaultTestLoader.discover(

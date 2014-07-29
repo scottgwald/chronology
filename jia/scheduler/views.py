@@ -45,7 +45,7 @@ def schedule():
     })
 
   new_task.save()
-
+  
   return json.dumps({
     'status': 'success',
     'id': task_id,
@@ -65,8 +65,8 @@ def cancel():
 
   if not task:
     return json.dumps({
-      'status': 'fail',
-      'reason': 'Task with id %s does not exist' % task_id,
+      'status': 'success',
+      'id': None,
     })
 
   task.delete()
@@ -85,9 +85,8 @@ def cancel():
         'interval': other_task.interval
       })
 
-
-
   return json.dumps({
     'status': 'success',
     'id': task_id,
   })
+

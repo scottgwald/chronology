@@ -49,6 +49,24 @@
     <input type="text" class="form-control panel-title" placeholder="New panel" ng-model="panel.title"/>
     <visualization ng-repeat="visualization in panel.cache.visualizations" module="visualization" ng-if="visualization.meta.title == panel.display.display_type"></visualization>
     <div class="code-box">
+      <div class="error log alert alert-danger" ng-if="panel.cache.log.errors.length">
+        <div class="alert-icon"><span class="glyphicon glyphicon-remove-sign"></span></div>
+        <ul>
+          <li ng-repeat="message in panel.cache.log.errors" ng-bind-html="message"></li>
+        </ul>
+      </div>
+      <div class="warn log alert alert-warning" ng-if="panel.cache.log.warns.length">
+        <div class="alert-icon"><span class="glyphicon glyphicon-exclamation-sign"></span></div>
+        <ul>
+          <li ng-repeat="message in panel.cache.log.warns" ng-bind-html="message"></li>
+        </ul>
+      </div>
+      <div class="info log alert alert-info" ng-if="panel.cache.log.infos.length">
+        <div class="alert-icon"><span class="glyphicon glyphicon-info-sign"></span></div>
+        <ul>
+          <li ng-repeat="message in panel.cache.log.infos" ng-bind-html="message"></li>
+        </ul>
+      </div>
       <div class="code-controls">
         <button type="button" class="btn btn-success run-btn navbar-btn" ng-click="callSource(panel)">
           <span class="fa fa-circle-o-notch fa-spin" ng-show="panel.cache.loading"></span>
@@ -72,29 +90,70 @@
         </a>
       </div>
 
+      <div class="code-controls query-builder" ng-show="panel.data_source.display">
+        <div class="timeframe">
+          <label>Timeframe</label>
+          <select selecter="panel.data_source.timeframe.mode">
+            <option value="recent">Most recent</option>
+            <option value="range">Date range</option>
+          </select>
+          <div class="timeframe" ng-if="panel.data_source.timeframe.mode == 'recent'">
+            <input type="number" class="form-control" ng-model="panel.data_source.timeframe.value">
+            <select selecter="panel.data_source.timeframe.scale">
+              <option ng-repeat="scale in timeScales" value="{[ scale ]}">{[ scale ]}</option>
+            </select>
+          </div>
+          <div class="daterange" ng-if="panel.data_source.timeframe.mode == 'range'">
+            <div class="dropdown dtp-container">
+              <a class="dropdown-toggle" id="dt_from" role="button">
+                <div class="input-group"><input type="text" class="form-control" data-ng-model="panel.data_source.timeframe.from"><span class="input-group-addon"><i class="glyphicon glyphicon-calendar"></i></span>
+                </div>
+              </a>
+              <ul class="dropdown-menu" role="menu" aria-labelledby="dLabel">
+                <datetimepicker data-ng-model="panel.data_source.timeframe.from" data-datetimepicker-config="{ dropdownSelector: '#dt_from' }"/>
+              </ul>
+            </div>
+            to
+            <div class="dropdown dtp-container">
+              <a class="dropdown-toggle" id="dt_to" role="button"> 
+                <div class="input-group"><input type="text" class="form-control" data-ng-model="panel.data_source.timeframe.to"><span class="input-group-addon"><i class="glyphicon glyphicon-calendar"></i></span>
+                </div>
+              </a>
+              <ul class="dropdown-menu" role="menu" aria-labelledby="dLabel">
+                <datetimepicker data-ng-model="panel.data_source.timeframe.to" data-datetimepicker-config="{ dropdownSelector: '#dt_to' }"/>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="precompute">
+          <div class="enable">
+            <label>Precompute</label>
+            <label class="toggle">
+              <input type="checkbox" ng-model="panel.data_source.precompute.enabled">
+              <span class="handle"></span>
+            </label>
+          </div>
+          <div class="options animate-show" ng-show="panel.data_source.precompute.enabled">
+            Bucket width <button class="btn btn-primary btn-sm btn-help" popover="{[ bucketWidthHelpText ]}"><span class="fa fa-question"></span></button>
+            <input type="number" class="form-control" ng-model="panel.data_source.precompute.bucket_width.value">
+            <select selecter="panel.data_source.precompute.bucket_width.scale">
+              <option ng-repeat="scale in timeScales" value="{[ scale ]}">{[ scale ]}</option>
+            </select>
+            <span ng-if="panel.data_source.timeframe.mode == 'recent'">Trust data older than
+              <input type="number" class="form-control" ng-model="panel.data_source.precompute.untrusted_time.value">
+              <select selecter="panel.data_source.precompute.untrusted_time.scale">
+                <option ng-repeat="scale in timeScales" value="{[ scale ]}">{[ scale ]}</option>
+              </select>
+            </span>
+          </div>
+        </div>
+      </div>
+
       <!-- TODO(marcua): CodeMirror is unhappy when we toggle
       visibility of the editor.  It hides line numbers until you
       click in the text area after toggling visbility, which
       hides some of the code until the click event.  Address
       this. -->
-      <div class="error log alert alert-danger" ng-if="panel.cache.log.errors.length">
-        <div class="alert-icon"><span class="glyphicon glyphicon-remove-sign"></span></div>
-        <ul>
-          <li ng-repeat="message in panel.cache.log.errors" ng-bind-html="message"></li>
-        </ul>
-      </div>
-      <div class="warn log alert alert-warning" ng-if="panel.cache.log.warns.length">
-        <div class="alert-icon"><span class="glyphicon glyphicon-exclamation-sign"></span></div>
-        <ul>
-          <li ng-repeat="message in panel.cache.log.warns" ng-bind-html="message"></li>
-        </ul>
-      </div>
-      <div class="info log alert alert-info" ng-if="panel.cache.log.infos.length">
-        <div class="alert-icon"><span class="glyphicon glyphicon-info-sign"></span></div>
-        <ul>
-          <li ng-repeat="message in panel.cache.log.infos" ng-bind-html="message"></li>
-        </ul>
-      </div>
       <div ui-codemirror="editorOptions"
            ng-model="panel.data_source.code"
            class="code"

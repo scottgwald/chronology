@@ -3,6 +3,7 @@ from __future__ import absolute_import
 import datetime
 import gevent
 import gipc
+import traceback
 
 from heapq import heappush, heappop, heapify
 from common.concurrent import GIPCExecutor
@@ -60,6 +61,8 @@ class Scheduler(object):
       'code': ...,  # string of Python code
       'interval': 600,  # in seconds
     }
+
+    An interval of 0 indicates the task should only be run once.
     """
     self._schedule_pipe.put(('schedule', task))
 
@@ -91,13 +94,11 @@ class Scheduler(object):
       now = datetime.datetime.now()
       if self._task_queue and self._task_queue[0][0] <= now:
         task = heappop(self._task_queue)[1]
-
         if task['id'] not in self._pending_cancels:
-          result = self._executor.submit(_execute, [task])
+          result = self._executor.submit(_execute, task)
           results.add(result)
         else:
           self._pending_cancels.remove(task['id'])
-
       else:
         # Check for new tasks coming from HTTP
         with gevent.Timeout(0.5, False) as t:
@@ -106,7 +107,6 @@ class Scheduler(object):
             self._schedule(message[1], next_run=now)
           elif message[0] == 'cancel':
             self._cancel(message[1])
-        
         # Reschedule completed tasks
         if not results:
           gevent.sleep(0.5)
@@ -114,9 +114,14 @@ class Scheduler(object):
         ready = self._executor.wait(results, num=1, timeout=0.5)
         for result in ready:
           results.remove(result)
-          task = result.value
-          run_at = now + datetime.timedelta(seconds=int(task['interval']))
-          self._schedule(task, next_run=run_at)
+          if result.value:
+            task = result.value
+            interval = int(task['interval'])
+            if interval:
+              run_at = now + datetime.timedelta(seconds=int(task['interval']))
+              self._schedule(task, next_run=run_at)
+          else:
+            print "ERROR:", result.exception
 
 def _execute(task):
   """A wrapper around exec
@@ -125,6 +130,8 @@ def _execute(task):
   sent to the executor.
 
   TODO(derek): add better exception handling
+  TODO(derek): if the code being `exec`ed modifies the variable `task` (or
+  presumably other things in scope) everything gets messed up
   """
   print "[%s] -- %s -- START" % (datetime.datetime.now(), task['id'])
   try:
@@ -132,5 +139,6 @@ def _execute(task):
     print "[%s] -- %s -- COMPLETE" % (datetime.datetime.now(), task['id'])
   except Exception as e:
     print "[%s] -- %s -- FAIL" % (datetime.datetime.now(), task['id'])
-
-  return task
+    print traceback.format_exc()
+  finally:
+    return task

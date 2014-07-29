@@ -1,6 +1,7 @@
 var app = angular.module('jia.boards', ['ngSanitize',
                                         'ui.codemirror',
                                         'ui.bootstrap',
+                                        'ui.bootstrap.datetimepicker',
                                         'jia.timeseries',
                                         'jia.table',
                                         'jia.gauge',
@@ -34,6 +35,25 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
     theme: 'mdn-like',
   };
 
+  $scope.timeScales = [
+    'seconds',
+    'minutes',
+    'hours',
+    'days',
+    'weeks',
+    'months',
+    'years'
+  ];
+
+  $scope.bucketWidthHelpText = 'If you are aggregating events, pick a bucket '+
+                               'width that is equal to or a multiple of the '+
+                               'timeframe you are aggregating on. For '+
+                               'example, if computing a 5-minute average, '+
+                               'computation should be bucketed in intervals '+
+                               'like 5 or 10. Picking non-positive or '+
+                               'non-integer multiples of the bucket width '+
+                               'will cause incorrect results.';
+ 
   this.loadVisualizations = function () {
     var visualizations = {};
     _.each(app.requires, function (dependency) {
@@ -180,11 +200,9 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
 
   $scope.cleanBoard = function () {
     // Deep copy the board data and remove the cached data.
-    
     if (!$scope.boardData) {
       return undefined;
     }
-
     return JSON.parse(JSON.stringify($scope.boardData, function(key, value) {
       if (key === 'cache') {
         return undefined;
@@ -236,30 +254,99 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
       log: new $scope.log()
     };
 
+    // Avoid any board data format incompatibilities by initalizing
+    // unset fields
+    var defaultPanel = $scope.newPanelObj();
+    var setDefaults = function (obj, defaults) {
+      _.each(defaults, function (element, key) {
+        if (typeof obj[key] == 'undefined') {
+          obj[key] = element;
+        }
+        if (typeof obj[key] == 'object') {
+          setDefaults(obj[key], element);
+        }
+      });
+    };
+    setDefaults(panel, defaultPanel);
+
     // Initialize the active visualization type
     var visualizationType = panel.display.display_type;
-    var newVisualization = new $scope.visualizations[visualizationType].visualization();
+    var selectedVisualization = $scope.visualizations[visualizationType];
+    var newVisualization = new selectedVisualization.visualization();
     panel.cache.visualizations[visualizationType] = newVisualization;
     panel.cache.visualization = panel.cache.visualizations[visualizationType];
 
     // Flag to toggle bootstrap dropdown menu status
     panel.cache.visualizationDropdownOpen = false;
+
+    // Any changes to the code result in precompute being turned off
+    $scope.$watch(function () {
+      return panel.data_source.code;
+    }, function (newVal, oldVal) {
+      if (newVal != oldVal) {
+        panel.data_source.precompute.enabled = false;
+      }
+    });
+
+    // Automatically format from/to datetime fields
+    $scope.$watch(function () {
+      return panel.data_source.timeframe.from;
+    }, function (newVal, oldVal) {
+      panel.data_source.timeframe.from = $scope.formatDateTime(newVal);      
+    });
+    $scope.$watch(function (newVal, oldVal) {
+      return panel.data_source.timeframe.to;
+    }, function (newVal, oldVal) {
+      panel.data_source.timeframe.to = $scope.formatDateTime(newVal);
+    });
   };
 
-  $scope.addPanel = function() {
-    var panel = {
+  $scope.newPanelObj = function () {
+    return {
+      id: (Math.floor(Math.random() * 0x100000000)).toString(16),
       title: '',
       data_source: {
         source_type: 'pycode',
         refresh_seconds: null,
-        code: ''
+        code: '',
+        timeframe: {
+          mode: 'recent',
+          value: 2,
+          scale: 'days',
+          from: moment().subtract('days', 2).format($scope.dateTimeFormat),
+          to: moment().format($scope.dateTimeFormat)
+        },
+        precompute: {
+          enabled: false,
+          task_id: null,
+          bucket_width: {
+            value: 1,
+            scale: 'hours'
+          },
+          untrusted_time: {
+            value: 30,
+            scale: 'minutes'
+          }
+        }
       },
       display: {
         display_type: 'timeseries'
-      }
+      },
     };
-    $scope.boardData.panels.unshift(panel);
+  };
+
+  $scope.addPanel = function() {
+    $scope.boardData.panels.unshift($scope.newPanelObj());
     $scope.initPanel($scope.boardData.panels[0]);
+  };
+  
+  $scope.dateTimeFormat = 'ddd MMM DD YYYY HH:mm:ss';
+
+  $scope.formatDateTime = function (datetime) {
+    if (typeof datetime == 'string') {
+      datetime = moment(datetime).format($scope.dateTimeFormat);
+    }
+    return String(datetime).split(' ').slice(0, 5).join(' ');
   };
 
   $scope.getBoards = function () {
@@ -287,6 +374,11 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
     });
   }
 
+  $scope.modes = [
+    {name: 'recent', display: 'Most recent'},
+    {name: 'range', display: 'Date range'},
+  ];
+
   $scope.$watch($scope.cleanBoard, function (newVal, oldVal) {
     // The initial setting of boardData doesn't count as a change in my books
     if (typeof newVal == 'undefined' || typeof oldVal == 'undefined') {
@@ -299,6 +391,7 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
       $scope.boardHasChanges = true;
     }
   }, true); // Deep watch
+
 
   if ($scope.boardId != 'new') {
     $http.get('/board/' + $scope.boardId)
@@ -371,4 +464,56 @@ app.directive('visualization', function ($http, $compile) {
       module:'='
     }
   };
+});
+
+app.directive('selecter', function ($http, $compile) {
+  /*
+   * Simple Angular directive for Ben Plum's Selecter.js
+   *
+   * Example usage:
+   * <!-- Bind the selected value to someVarInScope (similar to ng-model) -->
+   * <select selecter="someVarInScope">
+   *   <!-- Can easily use ng-repeat here if desired -->
+   *   <option value="opt1">Option 1</option>
+   *   <option value="opt2">Option 2</option>
+   * </select>
+   *
+   */
+
+  var linker = function(scope, element, attrs) {
+    var createSelecter = function () {
+      $(element).selecter({
+        callback: function (value, index) {
+          scope.model = value;
+          scope.$apply();
+        }
+      });
+    }
+     
+    var updateSelector = function (newVal) {
+      // Update the selecter when the value changes in scope
+      // Selecter doesn't provide an update method, so destroy and recreate
+      $(element).selecter('destroy');
+      $(element).find('option[value="' + newVal + '"]')
+                .attr('selected', 'selected');
+      createSelecter();
+    };
+ 
+    scope.$watch('model', function (newVal, oldVal) {
+      // The timeout of zero is magic to wait for an ng-repeat to finish
+      // populating the <select>. See: http://stackoverflow.com/q/12240639/
+      setTimeout(function () { updateSelector(newVal); });
+    });
+
+  }
+
+  return {
+    restrict: "A",
+    replace: false,
+    link: linker,
+    scope: {
+      model: '=selecter'
+    }
+  };
+
 });

@@ -3,8 +3,6 @@ import json
 from flask import Flask, request
 from flask.ext.sqlalchemy import SQLAlchemy
 
-# from scheduler.schedule import Scheduler
-
 app = Flask(__name__)
 app.config.from_pyfile('../settings.cfg')
 app.config.update(PORT=app.config['SCHEDULER_PORT'])

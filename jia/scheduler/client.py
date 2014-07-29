@@ -14,8 +14,8 @@ default_url = "http://%s:%s" % (app.config['SCHEDULER_HOST'],
 
 
 def _send_with_auth(values, secret_key, url):
-  """Send a dictionary of JSON serializable `values` as a POST body to `url`
-  along with auth_token that's generated from the `secret_key` and `values`.
+  """Send dictionary of JSON serializable `values` as a POST body to `url`
+     along with `auth_token` that's generated from `secret_key` and `values`
 
   scheduler.auth.create_token expects a JSON serializable payload, so we send
   a dictionary. On the receiving end of the POST request, the Flask view will
@@ -43,6 +43,11 @@ def _send_with_auth(values, secret_key, url):
 
 
 def schedule(code, interval, secret_key=default_key, url=default_url):
+  """Schedule a string of `code` to be executed every `interval`
+
+  Specificying an `interval` of 0 indicates the event should only be run
+  one time and will not be rescheduled.
+  """
   url = '%s/schedule' % url
   values = {
     'interval': interval,
@@ -52,6 +57,7 @@ def schedule(code, interval, secret_key=default_key, url=default_url):
 
 
 def cancel(task_id, secret_key=default_key, url=default_url):
+  """Cancel scheduled task with `task_id`"""
   url = '%s/cancel' % url
   values = {
     'id': task_id,
