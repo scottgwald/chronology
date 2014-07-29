@@ -1,5 +1,54 @@
-Creating/Installing Visualizations
-----------------------------------
+Jia
+===
+
+## Task Scheduler
+The Jia task scheduler can be used to enable the precomputation of long-running
+queries so the results are always ready when you visit the dashboard.
+
+### Running
+Be sure to modify the relevant settings in `settings.cfg`
+
+```
+# Precompute settings
+PRECOMPUTE = True
+CACHE_KRONOS_URL = 'http://localhost:8150' # The cache is written here
+                                           # Can be the same as KRONOS_URL
+CACHE_KRONOS_NAMESPACE = 'locu_computed' # The namespace for cache streams
+SCHEDULER_HOST = '127.0.0.1' # It is not recommended to expose the scheduler outside the LAN
+SCHEDULER_PORT = 8157
+SCHEDULER_DATABASE_URI = 'sqlite:///%s/scheduler.db' % APPROOT
+```
+
+Always use the following command to start the scheduler. Never serve the
+scheduler app from another WSGI server (see the top of runscheduler.py
+for details).
+```
+$ python runscheduler.py
+```
+
+### Scheduling
+In addition to precompute tasks, you can send the scheduler any Python code
+you want executed on a regular basis. The scheduler client API provides access
+to `schedule` and `cancel` methods.
+```
+from scheduler.client import schedule, cancel
+
+# Prints jia every 5 seconds
+result = schedule("print 'jia'", 5)
+
+if result['status'] != 'success':
+  print result['reason']
+  exit()
+
+# Unschedule the task we just made
+result = cancel(result['id'])
+
+if result['status'] != 'success':
+  print result['reason']
+```
+
+
+## Creating/Installing Visualizations
 
 Visualizations are stored in `/static/visualizations`. Each Jia visualization is made up of an Angular module and a template. The name of the module must be prefixed with `jia` (for example: `jia.example`). In order to install a visualization, add it as a dependency to the `boardApp` in `board.js`. Also add any necessary JavaScript or CSS dependencies to `board.html`.
 

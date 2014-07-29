@@ -1,3 +1,15 @@
+::-moz-selection {
+  background: #fe57a1;
+  color: #fff;
+  text-shadow: none;
+}
+
+::selection {
+  background: #fe57a1;
+  color: #fff;
+  text-shadow: none;
+}
+
 body {
   font-family: 'Cambo', serif;
   margin: 25px 50px;
@@ -10,6 +22,10 @@ a {
 
 .navbar-brand:hover {
   color: #fff !important;
+}
+
+.board {
+  min-width: 1120px;
 }
 
 .board-navigation {
@@ -32,6 +48,18 @@ a {
   height: 40px;
 }
 
+.btn-help {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin-right: 3px;
+  border-radius: 50%;
+}
+
+.btn-help span {
+  margin-left: -1px;
+}
+
 .required {
   border-bottom: 1px solid #f00 !important;
   background: #fee;
@@ -47,9 +75,82 @@ a {
 }
 
 .code-box .code-controls {
-  margin-top: 10px;
   padding: 0 10px;
   background: #E6E9ED;
+  border-top: solid 1px #AAB2BD;
+}
+
+.code-box .code-controls input[type=number] {
+  width: 60px;
+  display: inline-block;
+  vertical-align: middle;
+  text-align: center;
+  padding: 6px 0;
+}
+
+.code-box .code-controls .selecter {
+  width: 113px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.timeframe, .daterange {
+  display: inline;
+}
+
+.timeframe label {
+  margin-top: 8px;
+}
+
+.timeframe .selecter {
+  margin: 8px 0;
+}
+
+.animate-show.ng-hide-add.ng-hide-add-active,
+.animate-show.ng-hide-remove.ng-hide-remove-active {
+  -webkit-transition:all linear 3.5s;
+  transition:all linear 3.5s;
+}
+
+.precompute {
+  display: inline-block;
+  vertical-align: top;
+  height: 50px;
+  margin: 0 10px;
+  padding: 7px 10px 0 10px;
+  color: #656D78;
+  border-left: solid 1px #AAB2BD;
+}
+
+.code-controls label {
+  color: #656D78;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: bold;
+  font-size: 0.8em;
+}
+
+.precompute .enable {
+  display: inline-block;
+  padding-top: 8px;
+}
+
+.precompute .options {
+  display: inline;
+  width: auto;
+  opacity: 1;
+}
+
+.precompute .options.animate-show.ng-hide {
+  opacity:0;
+  width: 0;
+}
+
+.precompute .options input[type=text] {
+  width: 70px;
+  padding: 0;
+  display: inline;
+  text-align: center;
 }
 
 .code-box .error-alert {
@@ -215,4 +316,91 @@ rickshaw {
   left: 50%;
   margin-left: -8px;
   margin-top: -8px;
+}
+
+.datetimepicker {
+  color: #CCD1D9;
+}
+
+.dtp-container {
+  width: 240px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+
+/* Copied from datetimepicker.css */
+.datetimepicker table tr td span.active,
+.datetimepicker table tr td span.active:hover,
+.datetimepicker table tr td span.active.disabled,
+.datetimepicker table tr td span.active.disabled:hover {
+  background: none;
+  background-color: #4fc1e9;
+}
+
+.datetimepicker table tr td.active,
+.datetimepicker table tr td.active:hover,
+.datetimepicker table tr td.active.disabled,
+.datetimepicker table tr td.active.disabled:hover {
+  background: #4fc1e9;
+}
+
+.datetimepicker table tr td.active:hover,
+.datetimepicker table tr td.active:hover:hover,
+.datetimepicker table tr td.active.disabled:hover,
+.datetimepicker table tr td.active.disabled:hover:hover,
+.datetimepicker table tr td.active:active,
+.datetimepicker table tr td.active:hover:active,
+.datetimepicker table tr td.active.disabled:active,
+.datetimepicker table tr td.active.disabled:hover:active,
+.datetimepicker table tr td.active.active,
+.datetimepicker table tr td.active:hover.active,
+.datetimepicker table tr td.active.disabled.active,
+.datetimepicker table tr td.active.disabled:hover.active,
+.datetimepicker table tr td.active.disabled,
+.datetimepicker table tr td.active:hover.disabled,
+.datetimepicker table tr td.active.disabled.disabled,
+.datetimepicker table tr td.active.disabled:hover.disabled,
+.datetimepicker table tr td.active[disabled],
+.datetimepicker table tr td.active:hover[disabled],
+.datetimepicker table tr td.active.disabled[disabled],
+.datetimepicker table tr td.active.disabled:hover[disabled] {
+  background-color: #4fc1e9;
+}
+
+.datetimepicker table tr td span.active:hover,
+.datetimepicker table tr td span.active:hover:hover,
+.datetimepicker table tr td span.active.disabled:hover,
+.datetimepicker table tr td span.active.disabled:hover:hover,
+.datetimepicker table tr td span.active:active,
+.datetimepicker table tr td span.active:hover:active,
+.datetimepicker table tr td span.active.disabled:active,
+.datetimepicker table tr td span.active.disabled:hover:active,
+.datetimepicker table tr td span.active.active,
+.datetimepicker table tr td span.active:hover.active,
+.datetimepicker table tr td span.active.disabled.active,
+.datetimepicker table tr td span.active.disabled:hover.active,
+.datetimepicker table tr td span.active.disabled,
+.datetimepicker table tr td span.active:hover.disabled,
+.datetimepicker table tr td span.active.disabled.disabled,
+.datetimepicker table tr td span.active.disabled:hover.disabled,
+.datetimepicker table tr td span.active[disabled],
+.datetimepicker table tr td span.active:hover[disabled],
+.datetimepicker table tr td span.active.disabled[disabled],
+.datetimepicker table tr td span.active.disabled:hover[disabled] {
+  background-color: #4fc1e9;
+}
+
+.datetimepicker table tr td.past, .datetimepicker table tr td.future {
+  color: #656D78;
+}
+
+.datetimepicker table tr td.minute:hover,
+.datetimepicker table tr td.hour:hover,
+.datetimepicker table tr td.day:hover,
+.datetimepicker table tr td span:hover,
+.datetimepicker thead tr:first-child th:hover,
+.datetimepicker tfoot tr:first-child th:hover {
+  background-color: #E6E9ED;
+  color: #656D78;
 }

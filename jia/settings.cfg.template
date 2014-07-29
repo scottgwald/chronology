@@ -10,6 +10,15 @@ FORCE_SSL = False
 
 # Precompute settings
 PRECOMPUTE = True
+CACHE_KRONOS_URL = 'http://localhost:8150' # The cache is written here
+                                           # Can be the same as KRONOS_URL
+CACHE_KRONOS_NAMESPACE = 'default_cache'
+SCHEDULER_HOST = '127.0.0.1' # It is not recommended to expose the scheduler outside the LAN
+SCHEDULER_PORT = 8157
+SCHEDULER_DATABASE_URI = 'sqlite:///%s/scheduler.db' % APPROOT
+
+# Precompute settings
+PRECOMPUTE = True
 SCHEDULER_HOST = '127.0.0.1' # It is not recommended to expose the scheduler outside the LAN
 SCHEDULER_PORT = 8157
 SCHEDULER_DATABASE_URI = 'sqlite:///%s/scheduler.db' % APPROOT

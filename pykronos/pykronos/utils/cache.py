@@ -1,8 +1,9 @@
 import hashlib
+import marshal
+import binascii
 
 from datetime import datetime
 from datetime import timedelta
-from inspect import getsource
 from pykronos.client import TIMESTAMP_FIELD
 from pykronos.utils.time import datetime_to_epoch_time
 from pykronos.utils.time import epoch_time_to_kronos_time
@@ -41,19 +42,15 @@ class QueryCache(object):
     the same result, and thus these results can be cached.  For data
     after that datetime, computations are considered untrustable
     still, and any computed results will be returned but not cached.
-  - A QueryCache exposes two interfaces: `cached_results` and
-    `compute_and_cache`.  `compute_and_cache` is most useful in
-    scenarios where a caller wants to benefit from previously computed
-    results while caching any that haven't been computed yet.
-    `cached_results` is useful in scenarios where a caller wants to
-    precompute and cache results asynchronously using
-    `compute_and_cache`, and then quickly retrieve any previously
-    computed results without performing any new computation.
+  - A QueryCache exposes `retrieve_interval` for access to events.
+    Flags for computing uncached buckets, forcing recompute on all buckets,
+    and caching newly computed values are provided.
   """
   QUERY_CACHE_VERSION = 1
   CACHE_KEY = 'cached'
 
-  def __init__(self, client, query_function, bucket_width, scratch_namespace):
+  def __init__(self, client, query_function, bucket_width, scratch_namespace,
+               query_function_args=[], query_function_kwargs={}):
     """
     Initializes the query cache.
     
@@ -69,10 +66,16 @@ class QueryCache(object):
     of data.
     :param scratch_namespace: The namespace under which to store
     cached events.
+    :param query_function_args: An optional list of args to send to
+    query_function.
+    :param query_function_kwargs: An optional dict of kwargs to send to
+    query_function.
     """
-
+    
     self._client = client
     self._query_function = query_function
+    self._query_function_args = query_function_args
+    self._query_function_kwargs = query_function_kwargs
     self._bucket_width = int(bucket_width.total_seconds())
     if self._bucket_width != bucket_width.total_seconds():
       raise ValueError('bucket_width can not have subsecond granularity')
@@ -97,7 +100,9 @@ class QueryCache(object):
     query_details = [
       str(QueryCache.QUERY_CACHE_VERSION),
       str(self._bucket_width),
-      getsource(self._query_function),
+      binascii.b2a_hex(marshal.dumps(self._query_function.func_code)),
+      str(self._query_function_args),
+      str(self._query_function_kwargs),
       ]
     return hashlib.sha512('$'.join(query_details)).hexdigest()[:20]
 
@@ -165,67 +170,32 @@ class QueryCache(object):
         yield (kronos_time_to_epoch_time(first_result[TIMESTAMP_FIELD]),
                first_result[QueryCache.CACHE_KEY])
 
-  def _compute_and_cache_bucket(self, bucket, untrusted_time):
+  def _compute_bucket(self, bucket, untrusted_time=None, cache=False):
     bucket_start = kronos_time_to_datetime(
       epoch_time_to_kronos_time(bucket))
     bucket_end = kronos_time_to_datetime(
       epoch_time_to_kronos_time(bucket + self._bucket_width))
-    bucket_events = list(self._query_function(bucket_start, bucket_end))
-    # If all events in the bucket happened before the untrusted
-    # time, cache the query results.
-    if bucket_end < untrusted_time:
-      caching_event = {TIMESTAMP_FIELD: bucket_start,
-                       QueryCache.CACHE_KEY: bucket_events}
-      self._client.delete(self._scratch_stream, bucket_start,
-                          bucket_start + timedelta(milliseconds=1),
-                          namespace=self._scratch_namespace)
-      self._client.put({self._scratch_stream: [caching_event]},
-                       namespace=self._scratch_namespace)
+    bucket_events = list(self._query_function(bucket_start, bucket_end,
+                                              *self._query_function_args,
+                                              **self._query_function_kwargs))
+
+    if cache:
+      # If all events in the bucket happened before the untrusted
+      # time, cache the query results.
+      if not untrusted_time or bucket_end < untrusted_time:
+        caching_event = {TIMESTAMP_FIELD: bucket_start,
+                         QueryCache.CACHE_KEY: bucket_events}
+        self._client.delete(self._scratch_stream, bucket_start,
+                            bucket_start + timedelta(milliseconds=1),
+                            namespace=self._scratch_namespace)
+        self._client.put({self._scratch_stream: [caching_event]},
+                         namespace=self._scratch_namespace)
     return bucket_events
 
-  def cached_results(self, start_time, end_time):
-    """
-    Retrieve all previously computed results.
-
-    Retrieves all results from the cache between `start_time` and
-    `end_time` (datetimes), which must align to `bucket_width`
-    boundaries.  Performs no computation.  Useful for
-    asynchronously/periodically calling `compute_and_cache` to
-    precompute results and quickly retrieving all cached results in
-    interactive time.
-
-    :param start_time: A datetime for the beginning of the range,
-    aligned with `bucket_width`.
-    :param end_time: A datetime for the end of the range, aligned with
-    `bucket_width`.
-    """
+  def _compute_buckets(self, start_time, end_time, compute_missing=True,
+                       cache=False, untrusted_time=None,
+                       force_recompute=False):
     self._sanity_check_time(start_time, end_time)
-    for bucket, bucket_events in self._cached_results(start_time, end_time):
-      for event in bucket_events:
-        yield event
-
-  def compute_and_cache(self, start_time, end_time, untrusted_time,
-                        force_compute=False):
-    """
-    Return the results for `query_function` on every `bucket_width`
-    time period between `start_time` and `end_time`.  Look for
-    previously cached results to avoid recomputation.  For any buckets
-    where all events would have occurred before `untrusted_time`,
-    cache the results.
-
-    :param start_time: A datetime for the beginning of the range,
-    aligned with `bucket_width`.
-    :param end_time: A datetime for the end of the range, aligned with
-    `bucket_width`.
-    :param untrusted_time: A datetime after which to not trust that
-    computed data is stable.  Any buckets that overlap with or follow
-    this untrusted_time will not be cached.
-    :param force_compute: A boolean that, if True, will force
-    recompute and recaching of even previously cached data.
-    """
-    self._sanity_check_time(start_time, end_time)
-    if not untrusted_time.tzinfo:
-      untrusted_time = untrusted_time.replace(tzinfo=tzutc())
 
     # Generate a list of all cached buckets we need to see data for.
     required_buckets = xrange(int(datetime_to_epoch_time(start_time)),
@@ -233,7 +203,7 @@ class QueryCache(object):
                               self._bucket_width)
 
     # Get any cached results, grouped by bucket.
-    if force_compute is True:
+    if force_recompute is True:
       cached_bucket_iterator = iter([])
     else:
       cached_bucket_iterator = iter(self._cached_results(start_time, end_time))
@@ -250,13 +220,65 @@ class QueryCache(object):
           pass
       emit_events = None
       if (current_cached_bucket != None) and (
-        current_cached_bucket[0] == required_bucket):
+          current_cached_bucket[0] == required_bucket):
         emit_events = current_cached_bucket[1]
         current_cached_bucket = None
       else:
-        # We don't have cached events, so compute the query.
-        emit_events = self._compute_and_cache_bucket(required_bucket,
-                                                     untrusted_time)
+        if compute_missing is True:
+          # We don't have cached events, so compute the query.
+          emit_events = self._compute_bucket(required_bucket, untrusted_time,
+                                             cache=cache)
+        else:
+          emit_events = []
       for event in emit_events:
         yield event
     self._client.flush()
+
+  def compute_and_cache_missing_buckets(self, start_time, end_time,
+                                        untrusted_time, force_recompute=False):
+    """
+    Return the results for `query_function` on every `bucket_width`
+    time period between `start_time` and `end_time`.  Look for
+    previously cached results to avoid recomputation.  For any buckets
+    where all events would have occurred before `untrusted_time`,
+    cache the results.
+
+    :param start_time: A datetime for the beginning of the range,
+    aligned with `bucket_width`.
+    :param end_time: A datetime for the end of the range, aligned with
+    `bucket_width`.
+    :param untrusted_time: A datetime after which to not trust that
+    computed data is stable.  Any buckets that overlap with or follow
+    this untrusted_time will not be cached.
+    :param force_recompute: A boolean that, if True, will force
+    recompute and recaching of even previously cached data.
+    """
+    if untrusted_time and not untrusted_time.tzinfo:
+      untrusted_time = untrusted_time.replace(tzinfo=tzutc())
+
+    events = self._compute_buckets(start_time, end_time, compute_missing=True,
+                                   cache=True, untrusted_time=untrusted_time,
+                                   force_recompute=force_recompute)
+
+    for event in events:
+      yield event
+
+
+  def retrieve_interval(self, start_time, end_time, compute_missing=False):
+    """
+    Return the results for `query_function` on every `bucket_width`
+    time period between `start_time` and `end_time`.  Look for
+    previously cached results to avoid recomputation.
+
+    :param start_time: A datetime for the beginning of the range,
+    aligned with `bucket_width`.
+    :param end_time: A datetime for the end of the range, aligned with
+    `bucket_width`.
+    :param compute_missing: A boolean that, if True, will compute any
+    non-cached results.
+    """
+    events = self._compute_buckets(start_time, end_time,
+                                   compute_missing=compute_missing)
+
+    for event in events:
+      yield event

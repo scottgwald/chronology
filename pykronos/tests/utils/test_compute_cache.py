@@ -61,8 +61,8 @@ class QueryCacheTest(unittest.TestCase):
 
   def verify_results(self, result_func, cache, expected_results,
                      expected_computations):
-    with patch.object(cache, '_compute_and_cache_bucket',
-                      wraps=cache._compute_and_cache_bucket) as mock_method:
+    with patch.object(cache, '_compute_bucket',
+                      wraps=cache._compute_bucket) as mock_method:
       results = result_func()
       self.assertEqual(mock_method.call_count, expected_computations)
 
@@ -83,7 +83,7 @@ class QueryCacheTest(unittest.TestCase):
                         self.computed_namespace)
     self.assertRaises(ValueError, bad_bucket_width)
 
-    # stat_time and end_time should align to bucket_width boundaries.
+    # start_time and end_time should align to bucket_width boundaries.
     cache = QueryCache(self.client, self.filter_and_sum,
                        self.bucket_width, self.computed_namespace)
     start_time = self.start_time - (self.bucket_width * 3)
@@ -93,8 +93,8 @@ class QueryCacheTest(unittest.TestCase):
       timedelta(minutes=(self.total_events / 2) - 25))
     def bad_start_boundary():
       return list(
-        cache.compute_and_cache(start_time + timedelta(minutes=1),
-                                end_time, untrusted_time))
+        cache.retrieve_interval(start_time + timedelta(minutes=1),
+                                end_time))
     self.assertRaises(ValueError, bad_start_boundary)
 
   @compute_cache_test
@@ -109,78 +109,98 @@ class QueryCacheTest(unittest.TestCase):
 
     # Verify all results were computed correctly.
     self.verify_results(lambda: list(
-        cache.compute_and_cache(start_time, end_time, untrusted_time)),
+        cache.compute_and_cache_missing_buckets(start_time, end_time,
+                                                untrusted_time)),
                         cache, 25, 31)
 
     # Verify only trusted results are cached.
     self.verify_results(lambda: list(
-        cache.cached_results(start_time, end_time)),
+        cache.retrieve_interval(start_time, end_time)),
                         cache, 11, 0)
 
     # Running the same operations twice should result in the same
     # results as before.
     self.verify_results(lambda: list(
-        cache.compute_and_cache(start_time, end_time, untrusted_time)),
+        cache.compute_and_cache_missing_buckets(start_time, end_time,
+                                                untrusted_time)),
                         cache, 25, 17)
     self.verify_results(lambda: list(
-        cache.cached_results(start_time, end_time)),
+        cache.retrieve_interval(start_time, end_time)),
                         cache, 11, 0)
+
+    # Expanding the time range without caching should also result in the same
+    # results
+    self.verify_results(lambda: list(
+        cache.retrieve_interval(start_time - self.bucket_width,
+                                end_time + self.bucket_width)),
+                        cache, 11, 0)
+
+    # But specifying compute_missing should get all results for the timerange
+    self.verify_results(lambda: list(
+        cache.retrieve_interval(start_time - self.bucket_width,
+                                end_time + self.bucket_width,
+                                compute_missing=True)),
+                        cache, 25, 19)
 
     # Overlapping time queries should result in the same
     # results as before, and benefit from the cache.
     self.verify_results(lambda: list(
-        cache.compute_and_cache(start_time - self.bucket_width,
-                                end_time + self.bucket_width,
-                                untrusted_time)),
+        cache.compute_and_cache_missing_buckets(start_time - self.bucket_width,
+                                                end_time + self.bucket_width,
+                                                untrusted_time)),
                         cache, 25, 19)
     self.verify_results(lambda: list(
-        cache.cached_results(start_time, end_time)),
+        cache.retrieve_interval(start_time, end_time)),
                         cache, 11, 0)
 
     # Increasing the trusted time should increase the cached results.
     untrusted_time = untrusted_time + timedelta(minutes=40)
     self.verify_results(lambda: list(
-        cache.compute_and_cache(start_time, end_time, untrusted_time)),
+        cache.compute_and_cache_missing_buckets(start_time, end_time,
+                                                untrusted_time)),
                         cache, 25, 17)
     self.verify_results(lambda: list(
-        cache.cached_results(start_time, end_time)),
+        cache.retrieve_interval(start_time, end_time)),
                         cache, 13, 0)
 
     # Decreasing trusted time shouldn't remove results.
     untrusted_time = untrusted_time - timedelta(minutes=40)
     self.verify_results(lambda: list(
-        cache.compute_and_cache(start_time, end_time, untrusted_time)),
+        cache.compute_and_cache_missing_buckets(start_time, end_time,
+                                                untrusted_time)),
                         cache, 25, 15)
     self.verify_results(lambda: list(
-        cache.cached_results(start_time, end_time)),
+        cache.retrieve_interval(start_time, end_time)),
                         cache, 13, 0)
 
     # If there are two cached entries, that cached time should no
     # longer be returned.
-    results = list(cache.cached_results(start_time, end_time))
+    results = list(cache.retrieve_interval(start_time, end_time))
     duplicate_result = dict(results[10])
     duplicate_result['b_sum'] = 0
     self.client.put({cache._scratch_stream:
                        [duplicate_result]},
                     namespace=cache._scratch_namespace)
     self.client.flush()
-    safe_results = list(cache.cached_results(start_time, end_time))
+    safe_results = list(cache.retrieve_interval(start_time, end_time))
     self.assertEqual(results[:10]+ results[11:], safe_results)
 
     # Rerunning the cache/computation should re-cache the corrupted
     # element.
     self.verify_results(lambda: list(
-        cache.compute_and_cache(start_time, end_time, untrusted_time)),
+        cache.compute_and_cache_missing_buckets(start_time, end_time,
+                                                untrusted_time)),
                         cache, 25, 16)
     self.verify_results(lambda: list(
-        cache.cached_results(start_time, end_time)),
+        cache.retrieve_interval(start_time, end_time)),
                         cache, 13, 0)
 
     # Forcing computation should generate the same result set.
     self.verify_results(lambda: list(
-        cache.compute_and_cache(start_time, end_time, untrusted_time,
-                                force_compute=True)),
+        cache.compute_and_cache_missing_buckets(start_time, end_time,
+                                                untrusted_time,
+                                                force_recompute=True)),
                         cache, 25, 31)
     self.verify_results(lambda: list(
-        cache.cached_results(start_time, end_time)),
+        cache.retrieve_interval(start_time, end_time)),
                         cache, 13, 0)

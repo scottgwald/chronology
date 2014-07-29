@@ -1,6 +1,7 @@
 import binascii
 import os
 import sys
+import datetime
 
 from flask import redirect
 from flask import request
@@ -10,8 +11,9 @@ from jia.auth import require_auth
 from jia.decorators import json_endpoint
 from jia.errors import PyCodeError
 from jia.models import Board
+from jia.compute import QueryCompute, enable_precompute, disable_precompute
+from jia.utils import get_seconds
 from pykronos import KronosClient
-
 
 @app.route('/status', methods=['GET'])
 def status():
@@ -82,6 +84,58 @@ def board(id=None):
       board_data['id'] = new_id
     else:
       board = Board.query.filter_by(id=id).first_or_404()
+
+    old_panels = board.json()['panels']
+    new_panels = board_data['panels']
+
+    # Make panel dicts so they are searchable by ID
+    try:
+      old_panels = {p['id']: p for p in old_panels}
+    except KeyError:
+      # If the old panels do not have an id, then they are pre-precompute era.
+      # Therefore none of them have precompute turned on, so for the purpose of
+      # determining whether precompute has been enabled or changed, we can
+      # pretend they don't exist.
+      old_panels = {}
+    new_panels = {p['id']: p for p in new_panels}
+
+    # Find any changes to precompute settings
+    for panel in old_panels.values():
+      new_panel = new_panels.get(panel['id'])
+
+      # Check for deletions
+      if (panel['data_source']['precompute']['enabled'] and not new_panel):
+        disable_precompute(panel)
+
+      # Check for precompute disabled
+      elif (panel['data_source']['precompute']['enabled']
+            and new_panel
+            and not new_panel['data_source']['precompute']['enabled']):
+        disable_precompute(panel)
+
+    for panel in new_panels.values():
+      if panel['data_source']['precompute']['enabled']:
+        old_panel = old_panels.get(panel['id'])
+
+        # Check for precompute enabled
+        if (not old_panel 
+            or not old_panel['data_source']['precompute']['enabled']):
+          task_id = enable_precompute(panel)
+          panel['data_source']['precompute']['task_id'] = task_id
+
+        # Check for code change or precompute settings change
+        elif (old_panel['data_source']['code'] != panel['data_source']['code']
+              or old_panel['data_source']['precompute']
+              != panel['data_source']['precompute']
+              or old_panel['data_source']['timeframe']
+              != panel['data_source']['timeframe']):
+          disable_precompute(old_panel)
+          task_id = enable_precompute(panel)
+          panel['data_source']['precompute']['task_id'] = task_id
+
+    # Transform panel dict back into list for saving
+    new_panels = new_panels.values()
+
     board.set_board_data(board_data)
     board.save()
   else:
@@ -108,25 +162,14 @@ def delete_board(id=None):
 def callsource(id=None):
   request_body = request.get_json()
   code = request_body.get('code')
+  precompute = request_body.get('precompute')
+  timeframe = request_body.get('timeframe')
+  bucket_width = get_seconds(precompute['bucket_width']['value'],
+                             precompute['bucket_width']['scale'])
 
-  locals_dict = {
-    'kronos_client': KronosClient(app.config['KRONOS_URL'],
-                                  namespace=app.config['KRONOS_NAMESPACE']),
-    'events': []
-    }
+  task = QueryCompute(code, timeframe, bucket_width=bucket_width)
+  events = task.compute(use_cache=precompute['enabled'])
 
-  # TODO(marcua): We'll evenutally get rid of this security issue
-  # (i.e., `exec` is bad!) once we build a query building interface.
-  # In the meanwhile, we trust in user authentication.
-  if code:
-    try:
-      exec code in {}, locals_dict # No globals.
-    except:
-      _, exception, tb = sys.exc_info()
-      raise PyCodeError(exception, tb)
-
-  events = sorted(locals_dict.get('events', []),
-                  key=lambda event: event['@time'])
   response = {}
   response['events'] = events
   return response

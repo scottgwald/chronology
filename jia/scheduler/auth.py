@@ -10,3 +10,4 @@ def create_token(key, payload):
   token = hmac.new(key)
   token.update(json.dumps(payload))
   return token.hexdigest()
+
