@@ -111,7 +111,7 @@ class TestElasticSearchBackend(KronosServerTestCase):
     es = router.get_backend('elasticsearch').es
     index = router.get_backend('elasticsearch').index_manager.get_index(
       'kronos')
-    indices.remove(index)
+    indices.discard(index)
     for index in indices:
       self.assertTrue(es.count(index=index)['count'] >= 10)
 
