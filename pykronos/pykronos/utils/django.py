@@ -6,7 +6,7 @@ import sys
 import time
 
 from pykronos.client import KronosClient
-from pykronos.utils.time import kronos_time_now
+from pykronos.common.time import kronos_time_now
 
 log = logging.getLogger(__name__)
 

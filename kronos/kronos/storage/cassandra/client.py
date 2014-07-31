@@ -2,21 +2,21 @@ import atexit
 import logging
 
 from cassandra.cluster import Cluster
-from datetime import timedelta
 
+from kronos.common.time import epoch_time_to_kronos_time
 from kronos.conf.constants import ResultOrder
 from kronos.storage.base import BaseStorage
 from kronos.storage.cassandra.internal import Namespace
 from kronos.storage.cassandra.internal import Stream
-from kronos.utils.math import time_to_kronos_time
 from kronos.utils.uuid import uuid_from_kronos_time
 from kronos.utils.uuid import UUIDType
-from kronos.utils.validate import is_non_empty_str, is_pos_int, is_list
+from kronos.utils.validate import is_list
+from kronos.utils.validate import is_non_empty_str
+from kronos.utils.validate import is_pos_int
 
 log = logging.getLogger(__name__) 
 
 CASSANDRA_PROTOCOL_VERSION = 2 # Change to 1 for Cassandra < 2.0
-LENGTH_OF_YEAR = int(timedelta(days=365.25).total_seconds() * 1e7)
 
 
 class CassandraStorageException(Exception):
@@ -26,22 +26,22 @@ class CassandraStorageException(Exception):
 class CassandraStorage(BaseStorage): 
   SETTINGS_VALIDATORS = {
     'timewidth_seconds': 
-       lambda x: (int(x) > 0 and 
-                  time_to_kronos_time(int(x)) <= Stream.MAX_WIDTH),
+       lambda x: (is_pos_int(x) and 
+                  epoch_time_to_kronos_time(int(x)) <= Stream.MAX_WIDTH),
     'shards_per_bucket': is_pos_int,
     'hosts': is_list,
     'keyspace_prefix': is_non_empty_str,
-    'replication_factor': lambda x: int(x) >= 1,
-    'read_size': lambda x: int(x)
+    'replication_factor': is_pos_int,
+    'read_size': is_pos_int
   }
 
-  def __init__(self, name, namespaces=None, **settings):
+  def __init__(self, name, namespaces, **settings):
     """
     Check that settings contains all of the required parameters in the right
     format, then setup a connection to the specified Cassandra instance.
     """
-    super(CassandraStorage, self).__init__(name, **settings)
-    self.namespaces = dict()
+    super(CassandraStorage, self).__init__(name, namespaces, **settings)
+    self.namespaces = {}
     self.setup_cassandra(namespaces)
     
   def setup_cassandra(self, namespaces):
@@ -74,7 +74,7 @@ class CassandraStorage(BaseStorage):
 
   def get_stream(self, namespace, stream, configuration):
     namespace = self.namespaces[namespace]
-    width = time_to_kronos_time(configuration['timewidth_seconds'])
+    width = epoch_time_to_kronos_time(configuration['timewidth_seconds'])
     return namespace.get_stream(stream, width,
                                 int(configuration['shards_per_bucket']))
 

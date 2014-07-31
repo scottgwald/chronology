@@ -16,8 +16,8 @@ from threading import Lock
 from threading import Thread
 
 from pykronos.errors import KronosClientError
-from pykronos.utils.time import datetime_to_kronos_time
-from pykronos.utils.time import kronos_time_now
+from pykronos.common.time import datetime_to_kronos_time
+from pykronos.common.time import kronos_time_now
 
 # These are constants, do not modify them.
 ERRORS_FIELD = '@errors'

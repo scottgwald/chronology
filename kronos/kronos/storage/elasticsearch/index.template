@@ -1,10 +1,10 @@
 {
-  "template": "{{ event_index_prefix }}*",
+  "template": "{{ index_prefix }}-*",
   "settings": {
-    "index.number_of_shards": 2,
-    "index.number_of_replicas": 0,
+    "index.number_of_shards": {{ shards }},
+    "index.number_of_replicas": {{ replicas }},
     "index.auto_expand_replicas": false,
-    "index.refresh_interval": "60s",
+    "index.refresh_interval": "30s",
     "index.store.compress.stored": true,
     "index.query.default_field": "_source",
     "analysis": {
@@ -28,13 +28,10 @@
         "enabled": false
       },
       "_source": {
-        "compress": false
+        "compress": true
       },
       "_id": {
         "path": "{{ id_field }}"
-      },
-      "_timestamp" : { 
-        "enabled" : true 
       },
       "numeric_detection" : true,
       "dynamic_templates": [

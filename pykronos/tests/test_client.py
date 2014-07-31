@@ -6,7 +6,7 @@ from datetime import datetime
 
 from pykronos import KronosClient
 from pykronos.client import TIMESTAMP_FIELD
-from pykronos.utils.time import kronos_time_now
+from pykronos.common.time import kronos_time_now
 
 
 class KronosClientTest(unittest.TestCase):

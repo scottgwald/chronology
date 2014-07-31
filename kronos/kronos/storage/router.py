@@ -22,14 +22,16 @@ class StorageRouter(object):
   __metaclass__ = LazyObjectMetaclass
   
   def __init__(self):
-    self.backends = dict()
-    self.prefix_read_backends = dict()
-    self.prefix_confs = dict()
+    self.backends = {}
+    self.prefix_read_backends = {}
+    self.prefix_confs = {}
     self.namespaces = settings.namespace_to_streams_configuration.keys()
     self.load_backends()
     self.load_prefix_configurations()
 
   def reload(self):
+    for backend in self.backends.itervalues():
+      backend.stop()
     self.__init__()
 
   def load_backends(self):
@@ -43,7 +45,7 @@ class StorageRouter(object):
       # Create an instance of the configured backend.
       backend_constructor = getattr(backend_module, backend_cls)
       self.backends[name] = backend_constructor(name,
-                                                namespaces=self.namespaces,
+                                                self.namespaces,
                                                 **backend_settings)
 
   def get_backend(self, name):
@@ -61,7 +63,7 @@ class StorageRouter(object):
   def load_prefix_configurations(self):
     for namespace, streams_conf in (settings.namespace_to_streams_configuration
                                     .iteritems()):
-      prefix_read_backends = self.prefix_read_backends[namespace] = dict()
+      prefix_read_backends = self.prefix_read_backends[namespace] = {}
       prefix_confs  = self.prefix_confs[namespace] = defaultdict(dict)
       for prefix, options in streams_conf.iteritems():
         prefix_read_backends[prefix] = self.get_backend(options['read_backend'])

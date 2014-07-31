@@ -1,7 +1,9 @@
 import re
 
-from kronos.conf.constants import ServingMode
 from uuid import getnode
+
+from kronos.conf.constants import ServingMode
+from kronos.storage.elasticsearch.client import IndexInterval
 
 debug = True
 profile = False
@@ -24,16 +26,16 @@ storage = {
   },
   'elasticsearch': {
     'backend': 'elasticsearch.ElasticSearchStorage',
-    'hosts': [{'host': 'localhost',
-               'port': 9200}],
-    'keyspace_prefix': 'kronos_test',
-    'event_index_template': 'kronos',
-    'event_index_prefix': 'kronos',
+    'hosts': [{'host': 'localhost', 'port': 9200}],
+    'index_template': 'kronos_test',
+    'index_prefix': 'kronos_test',
+    'index_interval': IndexInterval.HOUR,
+    'shards': 1,
+    'replicas': 0,
     'force_refresh': True,
-    # TODO(usmanm): Support for the following  configs will be added soon.
-    'rollover_size': 10000, #?
-    'rollover_check_period_seconds': 10, #?
-    'read_size': 5000 #?
+    'read_size': 10,
+    'rollover_size': 100,
+    'rollover_check_period_seconds': 2
   }
 }
 

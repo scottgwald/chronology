@@ -38,8 +38,8 @@ class InMemoryStorage(BaseStorage):
     'max_items': is_pos_int,
   }
   
-  def __init__(self, name, **settings):
-    super(InMemoryStorage, self).__init__(name, **settings)
+  def __init__(self, name, namespaces, **settings):
+    super(InMemoryStorage, self).__init__(name, namespaces, **settings)
     self.db = defaultdict(lambda: defaultdict(list))
 
   def is_alive(self):

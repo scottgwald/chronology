@@ -196,8 +196,7 @@ class Stream(object):
     self.session.execute(batch_stmt)
 
   def iterator(self, start_id, end_id, descending, limit):
-    start_id.descending = descending
-    end_id.descending = descending
+    start_id.descending = end_id.descending = descending
     
     shards = self.get_overlapping_shards(uuid_to_kronos_time(start_id),
                                          uuid_to_kronos_time(end_id))

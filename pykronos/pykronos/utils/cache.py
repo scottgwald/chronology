@@ -5,10 +5,10 @@ import binascii
 from datetime import datetime
 from datetime import timedelta
 from pykronos.client import TIMESTAMP_FIELD
-from pykronos.utils.time import datetime_to_epoch_time
-from pykronos.utils.time import epoch_time_to_kronos_time
-from pykronos.utils.time import kronos_time_to_datetime
-from pykronos.utils.time import kronos_time_to_epoch_time
+from pykronos.common.time import datetime_to_epoch_time
+from pykronos.common.time import epoch_time_to_kronos_time
+from pykronos.common.time import kronos_time_to_datetime
+from pykronos.common.time import kronos_time_to_epoch_time
 from dateutil.tz import tzutc
 
 class QueryCache(object):

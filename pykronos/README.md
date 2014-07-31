@@ -3,7 +3,7 @@ The contents of this file can be found in `demo.py` and are compiled
 into `README.md`, so you can consume the readme while running the
 Python script to understand how it works.
 # Importing pykronos and some useful utilities
-Check out `pykronos.client` and `pykronos.utils.time` for some useful
+Check out `pykronos.client` and `pykronos.common.time` for some useful
 utility functions.  PyKronos has a bunch of utilities to deal with
 `datetime` objects.
 ```python
@@ -11,7 +11,7 @@ from pykronos.client import ID_FIELD
 from pykronos.client import TIMESTAMP_FIELD
 from pykronos.client import KronosClient
 from pykronos.client import ResultOrder
-from pykronos.utils.time import datetime_to_kronos_time
+from pykronos.common.time import datetime_to_kronos_time
 from datetime import datetime
 from datetime import timedelta
 from dateutil.tz import tzutc

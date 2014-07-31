@@ -9,7 +9,7 @@ from django.http import QueryDict
 from pykronos.client import ID_FIELD
 from pykronos.client import TIMESTAMP_FIELD
 from pykronos.utils.django import KronosLoggingMiddleware
-from pykronos.utils.time import kronos_time_now
+from pykronos.common.time import kronos_time_now
 
 class KronosLoggingMiddlewareTest(unittest.TestCase):
   @classmethod

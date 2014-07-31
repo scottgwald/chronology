@@ -43,9 +43,5 @@ def kronos_time_now():
   return datetime_to_kronos_time(datetime.now(tz=tzutc()))
 
 
-def is_kronos_reserved_key(key):
-  return len(key) and key.startswith('@')
-
-
 def timedelta_to_kronos_time(td):
   return datetime_to_kronos_time(EPOCH + td)

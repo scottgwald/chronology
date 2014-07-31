@@ -4,10 +4,10 @@ import time
 from collections import defaultdict
 from timeuuid import TimeUUID
 
+from kronos.common.time import epoch_time_to_kronos_time
 from kronos.conf.constants import ID_FIELD
 from kronos.conf.constants import ResultOrder
 from kronos.conf.constants import TIMESTAMP_FIELD
-from kronos.utils.math import time_to_kronos_time
 from tests.server import KronosServerTestCase
 
 
@@ -179,10 +179,10 @@ class TestKronosAPIs(KronosServerTestCase):
     self.assertEqual(len(self.get(stream, 4, 4)), 0)
 
     # `start_time` and `end_time` in the future.
-    now = time_to_kronos_time(time.time())
+    now = epoch_time_to_kronos_time(time.time())
     self.assertEqual(len(self.get(stream,
-                                  now + time_to_kronos_time(1000),
-                                  now + time_to_kronos_time(2000))), 0)
+                                  now + epoch_time_to_kronos_time(1000),
+                                  now + epoch_time_to_kronos_time(2000))), 0)
     # `start_time` > `end_time`
     self.assertEqual(len(self.get(stream, 10, 5)), 0)
 
@@ -237,10 +237,11 @@ class TestKronosAPIs(KronosServerTestCase):
       stream = 'TestKronosAPIs_test_streams_{}'.format(n)
       self.put(stream, [{TIMESTAMP_FIELD: n, n: None, 'lol': 'cat'}])
       streams[stream] = n
+    time.sleep(0.1)
     retrieved_streams = {stream for stream in self.get_streams()
                          if stream.startswith('TestKronosAPIs_test_streams_')}
     self.assertEqual(len(retrieved_streams), 10)
-    self.assertEqual(retrieved_streams, set(streams.iterkeys()))
+    self.assertEqual(retrieved_streams, set(streams))
 
   def test_namespaces(self):
     namespace1 = 'namespace1'
@@ -259,6 +260,7 @@ class TestKronosAPIs(KronosServerTestCase):
 
     # Put events into namespace1.
     self.put(stream, events1, namespace=namespace1)
+    time.sleep(0.1)
     self.assertEqual(len(self.get_streams(namespace=namespace1)), 1)
     self.assertEqual(len(self.get_streams(namespace=namespace2)), 0)
     self.assertEqual(len(self.get(stream, 0, 10, namespace=namespace1)), 3)
@@ -268,6 +270,7 @@ class TestKronosAPIs(KronosServerTestCase):
 
     # Put events into namespace2.
     self.put(stream, events2, namespace=namespace2)
+    time.sleep(0.1)
     self.assertEqual(len(self.get_streams(namespace=namespace1)), 1)
     self.assertEqual(len(self.get_streams(namespace=namespace2)), 1)
     self.assertEqual(len(self.get(stream, 0, 10, namespace=namespace1)), 3)

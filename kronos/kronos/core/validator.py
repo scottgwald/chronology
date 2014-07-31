@@ -3,12 +3,12 @@ import time
 
 from importlib import import_module
 
+from kronos.common.time import epoch_time_to_kronos_time
 from kronos.conf.constants import ID_FIELD
 from kronos.conf.constants import TIMESTAMP_FIELD
 from kronos.core.errors import ImproperlyConfigured
 from kronos.core.errors import InvalidEventTime
 from kronos.core.errors import InvalidStreamName
-from kronos.utils.math import time_to_kronos_time
 from kronos.utils.uuid import uuid_from_kronos_time
 
 MAX_STREAM_LENGTH = 2048
@@ -51,7 +51,7 @@ def validate_event_and_assign_id(event):
   event_time = event.get(TIMESTAMP_FIELD)
 
   if event_time is None:
-    event[TIMESTAMP_FIELD] = event_time = time_to_kronos_time(time.time())
+    event[TIMESTAMP_FIELD] = event_time = epoch_time_to_kronos_time(time.time())
   elif type(event_time) not in (int, long):
     raise InvalidEventTime(event_time)
 

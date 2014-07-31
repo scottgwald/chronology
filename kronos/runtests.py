@@ -26,9 +26,10 @@ logging.root.addHandler(logging.NullHandler())
 TESTS = {
   'cassandra': ('tests/storage/cassandra', ('cassandra', )),
   'common': ('tests/common', ('memory',
-                              'cassandra',)),
-                              #'elasticsearch')),
-  'conf': ('tests/conf', ('memory', ))
+                              'cassandra',
+                              'elasticsearch',)),
+  'conf': ('tests/conf', ('memory', )),
+  'elasticsearch': ('tests/storage/elasticsearch', ('elasticsearch', )),
   }
 
 
@@ -104,6 +105,7 @@ if __name__ == '__main__':
     run_test('common')
     run_test('cassandra')
     run_test('conf')
+    run_test('elasticsearch')
   else:
     for test in args.tests:
       run_test(test)

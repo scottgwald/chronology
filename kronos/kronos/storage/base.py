@@ -16,7 +16,7 @@ class BaseStorage(object):
   # SETTINGS_VALIDATORS = { 'max_size': lambda x: int(x) >= 0 }
   SETTINGS_VALIDATORS = {}
 
-  def __init__(self, name, **settings):
+  def __init__(self, name, namespaces, **settings):
     """
     Subclasses can assume that `settings` only contains keys that are also in
     `SETTINGS_VALIDATORS` and that their values are valid.
@@ -26,6 +26,7 @@ class BaseStorage(object):
       setattr(self, setting, settings[setting])
       assert self.__class__.SETTINGS_VALIDATORS[setting](getattr(self, setting))
     self._settings = settings
+    self.namespaces = namespaces
 
   def is_alive(self):
     raise NotImplementedError('Must implement `is_alive` method for %s' %
@@ -91,3 +92,8 @@ class BaseStorage(object):
       helper method used to clear the db during testing
     """
     raise NotImplementedError('Must implement `_clear` method for %s' % self.__class__.__name__)
+
+  def stop(self):
+    """ The backend will be removed from the router. Stop any background
+    activity. """
+    pass

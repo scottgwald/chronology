@@ -8,8 +8,8 @@ from mock import patch
 from pykronos import KronosClient
 from pykronos.client import TIMESTAMP_FIELD
 from pykronos.utils.cache import QueryCache
-from pykronos.utils.time import datetime_to_kronos_time
-from pykronos.utils.time import timedelta_to_kronos_time
+from pykronos.common.time import datetime_to_kronos_time
+from pykronos.common.time import timedelta_to_kronos_time
 
 
 class QueryCacheTest(unittest.TestCase):
