@@ -90,8 +90,8 @@ storage = {
     'hosts': ['127.0.0.1'],
     'keyspace_prefix': 'kronos_test',
     'replication_factor': 3,
-    'default_timewidth_seconds': 60 * 60, # 1 hour.
-    'default_shards_per_bucket': 3,
+    'timewidth_seconds': 60 * 60, # 1 hour.
+    'shards_per_bucket': 3,
     'read_size': 1000
   }
 }
@@ -116,7 +116,7 @@ on the topic.  Here are what the parameters above mean:
     have to manually change the replication factor of existing
     keyspaces.
 
-  * `default_timewidth_seconds` is the number of seconds worth of data
+  * `timewidth_seconds` is the number of seconds worth of data
     to bucket together.  The Cassandra backend stores all events that
     happened within the same time span (e.g., one hour) together.  Set
     this to a small timewidth to reduce latency (you won't have to
@@ -125,7 +125,7 @@ on the topic.  Here are what the parameters above mean:
     won't have to look through a bunch of buckets to aggregate all of
     the data of a large timespan).  We tend to go for an hour as a default.
 
-  * `default_shards_per_bucket` makes up for the white lie we told in
+  * `shards_per_bucket` makes up for the white lie we told in
     the last bullet point.  Rather than storing all events that happen
     during a given timespan in a single bucket (which will put
     pressure on a single Cassandra row key/nodes storing that key), we
