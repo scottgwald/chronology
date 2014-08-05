@@ -74,13 +74,13 @@ class TestElasticSearchBackend(KronosServerTestCase):
     self.assertTrue(index2 in aliases)
     self.assertEqual(set(aliases[index1]['aliases']) &
                      set(aliases[index2]['aliases']),
-                     set(['kronos_test-kronos-2014.01.01.01']))
+                     set(['kronos_test:kronos:2014.01.01.01']))
     self.assertEqual(set(aliases[index1]['aliases']),
-                     set(['kronos_test-kronos-2014.01.01.00',
-                          'kronos_test-kronos-2014.01.01.01']))
+                     set(['kronos_test:kronos:2014.01.01.00',
+                          'kronos_test:kronos:2014.01.01.01']))
     self.assertEqual(set(aliases[index2]['aliases']),
-                     set(['kronos_test-kronos-2014.01.01.01',
-                          'kronos_test-kronos-2014.01.01.02']))
+                     set(['kronos_test:kronos:2014.01.01.01',
+                          'kronos_test:kronos:2014.01.01.02']))
 
     self.assertEqual(es.count(index=index1)['count'], 10)
     self.assertEqual(es.count(index=index2)['count'], 10)

@@ -1,5 +1,5 @@
 {
-  "template": "{{ index_prefix }}-*",
+  "template": "{{ index_prefix }}:*:*",
   "settings": {
     "index.number_of_shards": {{ shards }},
     "index.number_of_replicas": {{ replicas }},
