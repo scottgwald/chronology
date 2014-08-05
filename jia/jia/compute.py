@@ -189,6 +189,9 @@ class QueryCompute(object):
     try:
       exec self._query in {}, locals_dict # No globals.
     except:
+      # TODO(marcua): Replace the code below with a notification
+      # mechanism (e.g., email or sentry) so the user can be alerted
+      # to scheduler-based errors.
       log.error('Error running code', exc_info=True)
       _, exception, tb = sys.exc_info()
       raise PyCodeError(exception, tb)
