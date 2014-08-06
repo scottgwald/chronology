@@ -2,12 +2,12 @@ from collections import defaultdict
 from datetime import datetime
 from datetime import timedelta
 from dateutil.tz import tzutc
-from pykronos.utils.time import datetime_to_kronos_time
-from pykronos.utils.time import kronos_time_to_datetime
-from pykronos.utils.time import kronos_time_to_epoch_time
-from pykronos.utils.time import epoch_time_to_kronos_time
 
 from metis import app
+from metis.common.time import datetime_to_kronos_time
+from metis.common.time import kronos_time_to_datetime
+from metis.common.time import kronos_time_to_epoch_time
+from metis.common.time import epoch_time_to_kronos_time
 from metis.conf.constants import TIMESTAMP_FIELD
 from metis.core.query.enums import AggregateType
 from metis.core.query.enums import ConditionOpType
