@@ -27,8 +27,8 @@ class TestElasticSearchBackend(KronosServerTestCase):
       'kronos')
 
     time1 = datetime_to_kronos_time(datetime(2014, 1, 1, 0))
-    time2 = datetime_to_kronos_time(datetime(2014, 1, 1, 1))
-    time3 = datetime_to_kronos_time(datetime(2014, 1, 1, 2))
+    time2 = datetime_to_kronos_time(datetime(2014, 1, 2, 0))
+    time3 = datetime_to_kronos_time(datetime(2014, 1, 3, 0))
     self.put('test_aliasing', [{TIMESTAMP_FIELD: time1, 'i': i, 'j': 0}
                                for i in xrange(5)])
     self.put('test_aliasing', [{TIMESTAMP_FIELD: time2, 'i': i, 'j': 0}
@@ -74,13 +74,13 @@ class TestElasticSearchBackend(KronosServerTestCase):
     self.assertTrue(index2 in aliases)
     self.assertEqual(set(aliases[index1]['aliases']) &
                      set(aliases[index2]['aliases']),
-                     set(['kronos_test:kronos:2014.01.01.01']))
+                     set(['kronos_test:kronos:2014.01.02']))
     self.assertEqual(set(aliases[index1]['aliases']),
-                     set(['kronos_test:kronos:2014.01.01.00',
-                          'kronos_test:kronos:2014.01.01.01']))
+                     set(['kronos_test:kronos:2014.01.01',
+                          'kronos_test:kronos:2014.01.02']))
     self.assertEqual(set(aliases[index2]['aliases']),
-                     set(['kronos_test:kronos:2014.01.01.01',
-                          'kronos_test:kronos:2014.01.01.02']))
+                     set(['kronos_test:kronos:2014.01.02',
+                          'kronos_test:kronos:2014.01.03']))
 
     self.assertEqual(es.count(index=index1)['count'], 10)
     self.assertEqual(es.count(index=index2)['count'], 10)

@@ -3,7 +3,6 @@ import re
 from uuid import getnode
 
 from kronos.conf.constants import ServingMode
-from kronos.storage.elasticsearch.client import IndexInterval
 
 debug = True
 profile = False
@@ -29,7 +28,6 @@ storage = {
     'hosts': [{'host': 'localhost', 'port': 9200}],
     'index_template': 'kronos_test',
     'index_prefix': 'kronos_test',
-    'index_interval': IndexInterval.HOUR,
     'shards': 1,
     'replicas': 0,
     'force_refresh': True,
