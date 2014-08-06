@@ -140,17 +140,12 @@ class OrderByOperator(Operator):
     self.reverse = bool(reverse)
     self.stream = Operator.parse(stream)
 
-  def _cmp_function(self, eventA, eventB):
-    return cmp(tuple(get_value(eventA, field) for field in self.fields),
-               tuple(get_value(eventB, field) for field in self.fields))
-
   def get_rdd(self, spark_context):
-    # TODO(usmanm): Is there a more efficient way to do this? PySpark doesn't
-    # seem to have a notion of OrderedRDD (which exists in Scala land and
-    # supports a `sortByKey` operation).
-    events = sorted(self.stream.get_rdd(spark_context).collect(),
-                    self._cmp_function, reverse=self.reverse)
-    return spark_context.parallelize(events)
+    return (self.stream.get_rdd(spark_context)
+            .keyBy(lambda x: tuple(get_value(x, field)
+                                   for field in self.fields))
+            .sortByKey(ascending=not self.reverse)
+            .map(lambda x: x[1]))
 
 
 class LimitOperator(Operator):
