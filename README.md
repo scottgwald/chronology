@@ -9,8 +9,8 @@ This repository contains three loosely coupled projects:
   backends (e.g., Cassandra, S3).  It's a way friendlier logging API
   than your filesystem.
 
-* [Metis](metis/) is a time series compute engine.  It's
-  currently implemented as a thin HTTP endpoint wrapper around the
+* [Metis](metis/) is an HTTP compute service. It's currently implemented as a
+  thin wrapper around the
   [Spark data processing engine](http://spark.apache.org/).
 
 * [Jia](jia/) is a visualization, dashboarding, and data
