@@ -1,5 +1,6 @@
 import datetime
 import sys
+import traceback
 from jia.utils import get_seconds
 from jia.errors import PyCodeError
 from pykronos import KronosClient
@@ -10,9 +11,6 @@ from pykronos.utils.time import epoch_time_to_kronos_time
 from pykronos.utils.time import kronos_time_to_datetime
 from scheduler import client as scheduler_client
 from scheduler import app
-
-import logging; logging.basicConfig()
-log = logging.getLogger(__name__)
 
 """Utilities for executing Jia queries.
 
@@ -189,12 +187,8 @@ class QueryCompute(object):
     try:
       exec self._query in {}, locals_dict # No globals.
     except:
-      # TODO(marcua): Replace the code below with a notification
-      # mechanism (e.g., email or sentry) so the user can be alerted
-      # to scheduler-based errors.
-      log.error('Error running code', exc_info=True)
       _, exception, tb = sys.exc_info()
-      raise PyCodeError(exception, tb)
+      raise PyCodeError(exception, traceback.format_tb(tb))
 
     events = sorted(locals_dict.get('events', []),
                     key=lambda event: event['@time'])

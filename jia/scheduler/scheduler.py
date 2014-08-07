@@ -4,9 +4,13 @@ import datetime
 import gevent
 import gipc
 import traceback
+import sys
 
-from heapq import heappush, heappop, heapify
 from common.concurrent import GIPCExecutor
+from heapq import heappush, heappop, heapify
+from jia.errors import PyCodeError
+from jia.utils import send_mail
+from scheduler import app
 from scheduler.models import Task
 
 class Scheduler(object):
@@ -128,17 +132,24 @@ def _execute(task):
 
   This exists outside the Scheduler class because it is pickled after it is
   sent to the executor.
-
-  TODO(derek): add better exception handling
-  TODO(derek): if the code being `exec`ed modifies the variable `task` (or
-  presumably other things in scope) everything gets messed up
   """
   print "[%s] -- %s -- START" % (datetime.datetime.now(), task['id'])
   try:
-    exec task['code']
+    exec task['code'] in {}, {}
     print "[%s] -- %s -- COMPLETE" % (datetime.datetime.now(), task['id'])
   except Exception as e:
-    print "[%s] -- %s -- FAIL" % (datetime.datetime.now(), task['id'])
-    print traceback.format_exc()
+    if isinstance(e, PyCodeError):
+      err_msg = "%s: %s\n%s" % (e.data['name'], e.data['message'],
+                                ''.join(e.data['traceback']))
+    else:
+      err_msg = traceback.format_exc()
+    sys.stderr.write(err_msg)
+    sys.stderr.write("[%s] -- %s -- FAIL\n" % (datetime.datetime.now(),
+                                               task['id']))
+    email_msg = 'Task %s failed at %s\n\n%s' % (task['id'],
+                                                datetime.datetime.now(),
+                                                err_msg)
+    send_mail(app.config['SCHEDULER_FAILURE_EMAILS'], 'Scheduler Failure',
+              email_msg)
   finally:
     return task

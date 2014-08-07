@@ -136,6 +136,9 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
           });
           panel.cache.log.error(traceback, true);
         }
+        else if (status == 500) {
+          panel.cache.log.error("Internal server error");
+        }
         else {
           panel.cache.log.error("Could not reach server");
         }
