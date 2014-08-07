@@ -20,12 +20,11 @@ def cpf(args):
 
 def transform(query_plan, args):
   fields = {} 
-  for arg in args:
-    fields[arg['name']] = cpf(arg['value'])
-  return proj(query_plan, fields)
+  fields[args[0]] = cpf(args[1])
+  return proj(query_plan, fields, merge=True)
 
 def filter(query_plan, args):
-  condition = cond(cpf(args['left']), cpf(args['right']), args['operator'])
+  condition = cond(cpf(args[0]), cpf(args[2]), args[1])
   return filt(query_plan, condition)
 
 def aggregate(query_plan, args):
@@ -73,45 +72,3 @@ def translate_query(query):
 
   return json.dumps({'plan': query_plan})
 
-
-q = translate_query([
-  {
-    'operator': 'aggregate',
-    'args': [
-      {
-        'type': 'count',
-      },
-      {
-        'cpf_type': 'function',
-        'name': 'datetrunc',
-        'args': [
-          {
-            'cpf_type': 'property',
-            'name': '@time'
-          },
-          {
-            'cpf_type': 'constant',
-            'value': 'hour',
-          }
-        ]
-      }
-    ]
-    # 'args': [
-    #   {
-    #     'name': '@time',
-    #     'value': {'cpf_type': 'property', 'name': '@time'}
-    #   },
-    #   {
-    #     'name': 'E-Mail',
-    #     'value': {'cpf_type': 'property', 'name': 'email'}
-    #   }
-    # ]
-  }
-])
-
-# r = requests.post("http://localhost:8155/1.0/query", data=q)
-# print r.text
-
-import pprint
-pp = pprint.PrettyPrinter(indent=4)
-pp.pprint(json.loads(q))

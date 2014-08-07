@@ -354,6 +354,13 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
     }, function (newVal, oldVal) {
       panel.data_source.timeframe.to = $scope.formatDateTime(newVal);
     });
+
+    // Update property dropdowns/typeaheads when the stream changes
+    $scope.$watch(function () {
+      return panel.data_source.stream;
+    }, function (newVal, oldVal) {
+      panel.cache.streamProperties = [];
+    });
   };
 
   $scope.newPanelObj = function () {
@@ -437,6 +444,7 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
   ];
 
   $scope.$watch($scope.cleanBoard, function (newVal, oldVal) {
+    console.log('board change');
     // The initial setting of boardData doesn't count as a change in my books
     if (typeof newVal == 'undefined' || typeof oldVal == 'undefined') {
       return;
