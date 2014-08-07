@@ -1,5 +1,6 @@
 import json
 import sys
+import traceback
 from functools import wraps
 from flask import Response
 from jia import errors
@@ -22,7 +23,7 @@ def json_endpoint(function):
         return response
       except:
         _, exception, tb = sys.exc_info()
-        raise PyCodeError(exception, tb)
+        raise PyCodeError(exception, traceback.format_tb(tb))
     except errors.JiaError as e:
       return e.to_response()
   return wrapper

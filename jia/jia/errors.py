@@ -21,6 +21,8 @@ class PyCodeError(JiaError):
   def __init__(self, exception, tb):
     if isinstance(exception, SyntaxError):
       message = '%s: %s' % (str(exception), exception.text)
+    elif isinstance(exception, IOError):
+      message = str(exception)
     else:
       message = exception.message
     super(PyCodeError, self).__init__(
@@ -28,4 +30,4 @@ class PyCodeError(JiaError):
       message='An uncaught exception was raised.',
       data={'name': exception.__class__.__name__,
             'message': unicode(message),
-            'traceback': traceback.format_tb(tb)})
+            'traceback': tb})
