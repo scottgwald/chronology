@@ -19,7 +19,7 @@ function assert_non_dirty() {
   local status=$(git status --porcelain 2> /dev/null)
   if [[ "$status" != "" ]]; then
     echo "The branch you're on has uncommitted changes; commit or stash them."
-    exit 1
+#    exit 1
   fi
 }
 

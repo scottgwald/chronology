@@ -1,6 +1,4 @@
 import datetime
-import inspect
-import math
 import sys
 from jia.utils import get_seconds
 from jia.errors import PyCodeError
@@ -12,6 +10,9 @@ from pykronos.utils.time import epoch_time_to_kronos_time
 from pykronos.utils.time import kronos_time_to_datetime
 from scheduler import client as scheduler_client
 from scheduler import app
+
+import logging; logging.basicConfig()
+log = logging.getLogger(__name__)
 
 """Utilities for executing Jia queries.
 
@@ -71,7 +72,7 @@ class QueryCompute(object):
     the purposes of storing default/previous values. If the mode is recent,
     only 'value' and 'scale' are used. If the mode is 'range', only 'from' and
     'to' are used.
-    
+
     Example timeframe:
     timeframe = {
       'mode': 'recent',
@@ -135,7 +136,7 @@ class QueryCompute(object):
         # the bucket width
         if (end_time % bucket_width) != 0:
           end_time += bucket_width - (end_time % bucket_width)
-        
+
         if (start_time % bucket_width) != 0:
           start_time -= (start_time % bucket_width)
 
@@ -177,7 +178,7 @@ class QueryCompute(object):
                           namespace=app.config['KRONOS_NAMESPACE'],
                           blocking=False,
                           sleep_block=0.2)
-    
+
     locals_dict = {
       'kronos_client': client,
       'events': [],
@@ -188,6 +189,10 @@ class QueryCompute(object):
     try:
       exec self._query in {}, locals_dict # No globals.
     except:
+      # TODO(marcua): Replace the code below with a notification
+      # mechanism (e.g., email or sentry) so the user can be alerted
+      # to scheduler-based errors.
+      log.error('Error running code', exc_info=True)
       _, exception, tb = sys.exc_info()
       raise PyCodeError(exception, tb)
 
@@ -199,7 +204,7 @@ class QueryCompute(object):
   def compute(self, use_cache=True):
     """Call a user defined query and return events with optional help from
     the cache.
-    
+
     :param use_cache: Specifies whether the cache should be used when possible
     """
     if use_cache:
@@ -251,7 +256,7 @@ def enable_precompute(panel):
 
   if result['status'] != 'success':
     raise RuntimeError(result.get('reason'))
-  
+
   return result['id']
 
 

@@ -1,7 +1,5 @@
 import binascii
 import os
-import sys
-import datetime
 
 from flask import redirect
 from flask import request
@@ -9,7 +7,6 @@ from flask import render_template
 from jia import app
 from jia.auth import require_auth
 from jia.decorators import json_endpoint
-from jia.errors import PyCodeError
 from jia.models import Board
 from jia.compute import QueryCompute, enable_precompute, disable_precompute
 from jia.utils import get_seconds
@@ -118,7 +115,7 @@ def board(id=None):
         old_panel = old_panels.get(panel['id'])
 
         # Check for precompute enabled
-        if (not old_panel 
+        if (not old_panel
             or not old_panel['data_source']['precompute']['enabled']):
           task_id = enable_precompute(panel)
           panel['data_source']['precompute']['task_id'] = task_id
@@ -169,7 +166,6 @@ def callsource(id=None):
 
   task = QueryCompute(code, timeframe, bucket_width=bucket_width)
   events = task.compute(use_cache=precompute['enabled'])
-
   response = {}
   response['events'] = events
   return response

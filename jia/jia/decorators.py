@@ -1,8 +1,9 @@
+import json
+import sys
 from functools import wraps
-
-from flask import jsonify
-
+from flask import Response
 from jia import errors
+from jia.errors import PyCodeError
 
 
 def json_endpoint(function):
@@ -10,7 +11,18 @@ def json_endpoint(function):
   def wrapper(*args, **kwargs):
     # Will let abort() exceptions bubble up.
     try:
-      return jsonify(function(*args, **kwargs))
+      try:
+        # Don't call flask's `jsonify` because it sometimes
+        # pretty-prints output, calling indent=2 when dumping json.
+        # This causes certain datatypes (e.g., `numpy.int64`) to be
+        # implicitly converted when they shouldn't be.
+        response = Response(json.dumps(function(*args, **kwargs)),
+                            status=200,
+                            mimetype='application/json')
+        return response
+      except:
+        _, exception, tb = sys.exc_info()
+        raise PyCodeError(exception, tb)
     except errors.JiaError as e:
       return e.to_response()
   return wrapper
