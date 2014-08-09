@@ -48,7 +48,6 @@ if __name__ == '__main__':
 
   if 'all' in args.benchmarks:
     # Run all benchmarks.
-    run_benchmark('cassandra')
-  else:
-    for benchmark in args.benchmarks:
-      run_benchmark(benchmark)
+    args.benchmarks = ['cassandra', 'elasticsearch']
+  for benchmark in args.benchmarks:
+    run_benchmark(benchmark)
