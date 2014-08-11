@@ -1,4 +1,4 @@
-from common.event_tools import get_property
+from pykronos.common.event_tools import get_property
 from pykronos.client import TIMESTAMP_FIELD
 from pykronos.common.time import kronos_time_to_epoch_time
 
