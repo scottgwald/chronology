@@ -20,8 +20,8 @@ from dateutil.parser import parse
 from pykronos import KronosClient
 from pykronos import ID_FIELD
 from pykronos import TIMESTAMP_FIELD
-from pykronos.utils.time import epoch_time_to_kronos_time
-from pykronos.utils.time import datetime_to_kronos_time
+from pykronos.common.time import epoch_time_to_kronos_time
+from pykronos.common.time import datetime_to_kronos_time
 
 log = logging.getLogger(__name__)
 

@@ -3,10 +3,10 @@ from datetime import datetime
 from datetime import timedelta
 from dateutil.tz import tzutc
 from datadiff.tools import assert_equal
-from pykronos.utils.time import datetime_to_kronos_time
 from random import randint
 from random import random
 
+from metis.common.time import datetime_to_kronos_time
 from metis.conf import constants
 from metis.convenience.cohort import cohort_queryplan
 from metis.convenience.cohort import cohort_response

@@ -7,6 +7,7 @@ DEBUG = True
 PORT = 8152
 SECRET_KEY = 'a secret key---you should absolutely set this to something unique and strong'
 FORCE_SSL = False
+SYSTEM_EMAIL = 'noreply@yourcompany.com' # Emails sent from here
 
 # Precompute settings
 PRECOMPUTE = True
@@ -16,6 +17,11 @@ CACHE_KRONOS_NAMESPACE = 'default_cache'
 SCHEDULER_HOST = '127.0.0.1' # It is not recommended to expose the scheduler outside the LAN
 SCHEDULER_PORT = 8157
 SCHEDULER_DATABASE_URI = 'sqlite:///%s/scheduler.db' % APPROOT
+# When precompute query code fails, emails will be sent to the following
+SCHEDULER_FAILURE_EMAILS = [
+  'you@yourcompany.com',
+  'other@yourcompany.com',
+]
 
 # Kronos and metis pointers
 KRONOS_URL = 'http://localhost:8150'

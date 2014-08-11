@@ -14,3 +14,5 @@ htmlcoverage: clean
 	coverage html -d coverage_html
 readme: clean
 	python pykronos/common/readmeify.py < demo.py > README.md
+installdeps:
+	sudo pip install -r requirements.txt

@@ -6,8 +6,8 @@ from mock import patch
 
 from analysis import funnel_analyze
 from analysis import FunnelStep
-from pykronos.utils.time import datetime_to_kronos_time
-from pykronos.utils.time import timedelta_to_kronos_time
+from pykronos.common.time import datetime_to_kronos_time
+from pykronos.common.time import timedelta_to_kronos_time
 
 
 class TestFunnelAnalysis(unittest.TestCase):

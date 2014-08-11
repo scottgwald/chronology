@@ -1,11 +1,11 @@
 import logging
 from datetime import timedelta
 
-from common.event_tools import get_property
+from pykronos.common.event_tools import get_property
 from pykronos.client import TIMESTAMP_FIELD
-from pykronos.utils.time import datetime_to_kronos_time
-from pykronos.utils.time import timedelta_to_kronos_time
-from pykronos.utils.time import EPOCH
+from pykronos.common.time import datetime_to_kronos_time
+from pykronos.common.time import timedelta_to_kronos_time
+from pykronos.common.time import EPOCH
 
 log = logging.getLogger(__name__)
 

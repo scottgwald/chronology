@@ -4,8 +4,8 @@ import os
 import weakref
 
 from calendar import monthrange
+from collections import defaultdict
 from datetime import datetime
-from dateutil.parser import parse as dt_parse
 from dateutil.tz import tzutc
 from elasticsearch import Elasticsearch
 from elasticsearch import helpers as es_helpers
@@ -13,12 +13,12 @@ from elasticsearch.exceptions import TransportError
 from timeuuid import TimeUUID
 from timeuuid import UUIDType
 
+from kronos.common.cache import InMemoryLRUCache
 from kronos.common.time import kronos_time_to_datetime
 from kronos.conf.constants import ID_FIELD, TIMESTAMP_FIELD
 from kronos.conf.constants import ResultOrder
 from kronos.core import marshal; json = marshal.get_marshaler('json')
 from kronos.storage.base import BaseStorage
-from kronos.utils.math import round_down
 from kronos.utils.uuid import uuid_from_kronos_time
 from kronos.utils.uuid import uuid_to_kronos_time
 from kronos.utils.validate import is_bool
@@ -29,56 +29,23 @@ from kronos.utils.validate import is_pos_int
 
 
 INDEX_TEMPLATE = 'index.template'
-INDEX_PATTERN = '%Y.%m.%d.%H' # YYYY.MM.DD.HH for Kibana.
+INDEX_PATTERN = '%Y.%m.%d' # YYYY.MM.DD for Kibana.
 LOGSTASH_TIMESTAMP_FIELD = '@timestamp'
 
 
-def _round_datetime_down(dt, interval):
-  kwargs = {'tzinfo': tzutc(),
+def _round_datetime_down(dt):
+  return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+def _round_datetime_up(dt):
+  kwargs = {'tzinfo': dt.tzinfo or tzutc(),
             'microsecond': 0,
             'second': 0,
             'minute': 0,
             'hour': 0,
-            'day': 1,
-            'month': 1,
-            'year': dt.year}
-
-  if interval < IndexInterval.YEAR:
-    kwargs['month'] = dt.month
-  if interval < IndexInterval.WEEK:
-    kwargs['day'] = dt.day
-  elif interval == IndexInterval.WEEK:
-    kwargs['day'] = round_down(dt.day, 7)
-  if interval == IndexInterval.HOUR:
-    kwargs['hour'] = dt.hour
-
-  return datetime(**kwargs)
-
-
-def _round_datetime_up(dt, interval):
-  kwargs = {'tzinfo': tzutc(),
-            'microsecond': 0,
-            'second': 0,
-            'minute': 0,
-            'hour': dt.hour,
-            'day': dt.day,
+            'day': dt.day + 1,
             'month': dt.month,
             'year': dt.year}
 
-  if interval == IndexInterval.HOUR:
-    kwargs['hour'] += 1
-  if interval == IndexInterval.DAY:
-    kwargs['day'] += dt.day
-  elif interval == IndexInterval.WEEK:
-    kwargs['day'] = round_down(dt.day, 7) + 7
-  if interval == IndexInterval.MONTH:
-    kwargs['month'] += 1
-  if interval == IndexInterval.YEAR:
-    kwargs['year'] += 1
-
-  if kwargs['hour'] > 23:
-    kwargs['hour'] = 0
-    kwargs['day'] += 1
   _, num_days = monthrange(kwargs['year'], kwargs['month'])
   if kwargs['day'] > num_days:
     kwargs['day'] = 1
@@ -90,18 +57,6 @@ def _round_datetime_up(dt, interval):
   return datetime(**kwargs)
 
 
-class IndexInterval(object):
-  """
-  Index *intervals* supported by Logstash/Kibana.
-  http://www.elasticsearch.org/guide/en/kibana/current/_dashboard_schema.html#index-settings
-  """
-  HOUR = 0
-  DAY = 1
-  WEEK = 2
-  MONTH = 3
-  YEAR = 4
-
-
 class IndexManager(object):
   def __init__(self, storage):
     self.es = storage.es
@@ -110,6 +65,10 @@ class IndexManager(object):
     self.rollover_check_period_seconds = storage.rollover_check_period_seconds
     self.namespaces = storage.namespaces
     self.namespace_to_metadata = {}
+
+    # Alias cache is a write cache. It prevents us creating an alias for an
+    # index if we've already created it in a previous operation.
+    self.alias_cache = defaultdict(lambda: InMemoryLRUCache(max_items=1000))
 
     self.update()
     
@@ -144,6 +103,8 @@ class IndexManager(object):
         doc = self.es.get('%s:directory' % self.index_prefix,
                           namespace,
                           doc_type='idx')
+
+      self.alias_cache[namespace].clear()
       return rand, doc['_version']
     
     docs = self.es.mget({'ids': list(self.namespaces)},
@@ -161,6 +122,7 @@ class IndexManager(object):
 
     for namespace in self.namespaces:
       index, version = self.namespace_to_metadata[namespace]
+      # TODO(usmanm): Change count to actual disk size.
       count = self.es.count(index=index,
                             ignore_unavailable=True).get('count', 0)
       if count >= self.rollover_size:
@@ -177,22 +139,23 @@ class IndexManager(object):
   def get_index(self, namespace):
     return self.namespace_to_metadata[namespace][0]
 
-  def add_aliases(self, namespace, index, start_dts, interval):
-    for start_dt in start_dts:
-      alias = self.get_alias(namespace, start_dt)
-      self.es.indices.update_aliases({
-        'actions': [{'add': {'index': index, 'alias': alias}}]
-        })
-      self.es.update(
-        '%s:directory' % self.index_prefix,
-        'alias',
-        alias,
-        body={'upsert': {'interval': interval,
-                         'start_time': start_dt},
-              'script': ('if (ctx._source.interval < interval)'
-                         '{ ctx._source.interval = interval }'),
-              'params': {'interval': interval}},
-        refresh=True)
+  def add_aliases(self, namespace, index, start_dts):
+    aliases = [self.get_alias(namespace, start_dt) for start_dt in start_dts]
+    cached_aliases = self.alias_cache[namespace]
+    aliases_to_add = []
+    for alias in aliases:
+      try:
+        cached_aliases.get(alias)
+      except KeyError:
+        aliases_to_add.append(alias)
+        cached_aliases.set(alias, None)
+
+    if not aliases_to_add:
+      return
+
+    self.es.indices.update_aliases({'actions':
+                                    [{'add': {'index': index, 'alias': alias}}
+                                     for alias in aliases_to_add]})
 
   def get_alias(self, namespace, dt):
     if isinstance(dt, datetime):
@@ -200,39 +163,19 @@ class IndexManager(object):
     return '%s:%s:%s' % (self.index_prefix, namespace, dt)
 
   def get_aliases(self, namespace, start_time, end_time):
-    start_time = _round_datetime_down(kronos_time_to_datetime(start_time),
-                                      IndexInterval.YEAR)
-    end_time = kronos_time_to_datetime(end_time)
-    
-    body = {
-      'query': {
-        'bool': {
-          'must': [
-            {'prefix': {'_id': '%s:%s' % (self.index_prefix, namespace)}},
-            {'range': {'start_time': {'gte': start_time, 'lte': end_time}}}
-            ]
-          }
-        }
-      }
+    start_alias = self.get_alias(
+      namespace,
+      _round_datetime_down(kronos_time_to_datetime(start_time)))
+    end_alias = self.get_alias(namespace,
+                               kronos_time_to_datetime(end_time))
 
-    potential_aliases = self.es.search(index='%s:directory' % self.index_prefix,
-                                       doc_type='alias',
-                                       size=2**24 - 1,
-                                       body=body,
-                                       _source=True,
-                                       ignore=[400, 404],
-                                       allow_no_indices=True,
-                                       ignore_unavailable=True)
-    aliases = []
-    for hit in potential_aliases.get('hits', {}).get('hits', []):
-      alias = hit['_id']
-      interval = hit['_source']['interval']
-      start_dt = dt_parse(hit['_source']['start_time'])
-      end_dt = _round_datetime_up(start_dt, interval)
-      if end_dt < start_time or start_dt > end_time:
-        continue
-      aliases.append(alias)
-    return aliases
+    aliases = set()
+
+    for value in self.es.indices.get_aliases(
+      index=self.get_alias(namespace, '*')).itervalues():
+      aliases.update(value['aliases'])
+
+    return filter(lambda a: a >= start_alias and a <= end_alias, aliases)
 
 
 class ElasticSearchStorage(BaseStorage):
@@ -241,7 +184,6 @@ class ElasticSearchStorage(BaseStorage):
     'hosts': lambda x: is_list,
     'index_template': is_non_empty_str,
     'index_prefix': is_non_empty_str,
-    'index_interval': lambda x: True,
     'replicas': is_int,
     'rollover_size': is_pos_int,
     'rollover_check_period_seconds': is_pos_int,
@@ -288,8 +230,7 @@ class ElasticSearchStorage(BaseStorage):
     def actions():
       for _id, event in events:
         dt = kronos_time_to_datetime(uuid_to_kronos_time(_id))
-        start_dts_to_add.add(_round_datetime_down(
-          dt, configuration['index_interval']))
+        start_dts_to_add.add(_round_datetime_down(dt))
         event['_index'] = index
         event['_type'] = stream
         event[LOGSTASH_TIMESTAMP_FIELD] = dt.isoformat()
@@ -300,8 +241,7 @@ class ElasticSearchStorage(BaseStorage):
                                    refresh=self.force_refresh))
     self.index_manager.add_aliases(namespace,
                                    index,
-                                   start_dts_to_add,
-                                   configuration['index_interval'])
+                                   start_dts_to_add)
   
   def _delete(self, namespace, stream, start_id, end_time, configuration):
     """
