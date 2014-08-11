@@ -243,7 +243,7 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
       $http.post('/board/' + $scope.boardId + '/delete')
         .success(function (data, status, headers, config) {
           if (data.status == 'success') {
-            $scope.getBoards();
+            $scope.deleting = true;
             $location.path('/boards/new');
           }
         });
@@ -430,7 +430,7 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
   });
 
   $scope.$on('$locationChangeStart', function(event, next, current) {
-    if($scope.boardHasChanges &&
+    if($scope.boardHasChanges && !$scope.deleting &&
        !confirm(leavingPageText +
                 "\n\nAre you sure you want to leave this page?")) {
       event.preventDefault();
