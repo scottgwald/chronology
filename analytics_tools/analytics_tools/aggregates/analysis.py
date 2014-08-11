@@ -1,6 +1,6 @@
 from common.event_tools import get_property
 from pykronos.client import TIMESTAMP_FIELD
-from pykronos.utils.time import kronos_time_to_epoch_time
+from pykronos.common.time import kronos_time_to_epoch_time
 
 
 def aggregate_stream(events, aggregator_class, field, bucket_width):

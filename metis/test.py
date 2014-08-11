@@ -26,7 +26,7 @@ from metis.core.query.primitives import proj
 from metis.core.query.primitives import ID
 from metis.core.query.primitives import TIME
 from pykronos import KronosClient
-from pykronos.utils.time import datetime_to_kronos_time
+from pykronos.common.time import datetime_to_kronos_time
 from random import randint
 from random import random
 
