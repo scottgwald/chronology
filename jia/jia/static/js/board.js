@@ -331,6 +331,9 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
     panel.cache.visualizations[visualizationType] = newVisualization;
     panel.cache.visualization = panel.cache.visualizations[visualizationType];
 
+    // Give the query builder a piece of cache
+    panel.cache.query_builder = {};
+
     // Flag to toggle bootstrap dropdown menu status
     panel.cache.visualizationDropdownOpen = false;
 
@@ -340,6 +343,28 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
     }, function (newVal, oldVal) {
       if (newVal != oldVal) {
         panel.data_source.precompute.enabled = false;
+      }
+    });
+
+    // Translate the code toggle switch into a source_type value and vice-versa
+    $scope.$watch(function () {
+      return panel.data_source.source_type;
+    }, function (newVal, oldVal) {
+      if (panel.data_source.source_type == 'pycode') {
+        panel.cache.query_builder.code = true;
+      }
+      else {
+        panel.cache.query_builder.code = false;
+      }
+    });
+    $scope.$watch(function () {
+      return panel.cache.query_builder.code;
+    }, function (newVal, oldVal) {
+      if (panel.cache.query_builder.code) {
+        panel.data_source.source_type = 'pycode';
+      }
+      else {
+        panel.data_source.source_type = 'querybuilder';
       }
     });
 
