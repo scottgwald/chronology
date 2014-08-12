@@ -16,7 +16,7 @@ if 'metis.zip' not in str(__file__):
   METIS_PATH = os.path.realpath(os.path.dirname(__file__))
 
   app = Flask(__name__)
-  app.config.from_pyfile('%s/conf/settings.py' % METIS_PATH)
+  app.config.from_pyfile('%s/conf/default_settings.py' % METIS_PATH)
   app.config['PATH'] = METIS_PATH
 
   import metis.views

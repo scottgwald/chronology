@@ -20,13 +20,13 @@ First, check out Kronos, add some default settings, and launch it
 locally:
 
 ```bash
-git clone https://github.com/Locu/kronos.git
-cd kronos/kronos
+git clone https://github.com/Locu/chronology.git
+cd chronology/kronos
 make installdeps
 python runserver.py --port 8151 --config settings.py.template --debug
 ```
 
-Then, from the `kronos/pykronos` directory, run a `python` shell, and
+Then, from the `chronology/pykronos` directory, run a `python` shell, and
 insert/retrieve some data:
 
 ```python

@@ -1,7 +1,0 @@
-DEBUG = True
-DEFAULT_READ_NAMESPACE = 'locu'
-KRONOS_SERVER = 'http://localhost:8150'
-NUM_WORKERS = 20
-PORT = 8152
-SPARK_HOME = '/scratch/spark-1.0.0'
-SPARK_MASTER = 'local'
