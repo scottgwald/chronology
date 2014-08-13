@@ -93,6 +93,28 @@ a {
   vertical-align: middle;
 }
 
+.cpf .selecter {
+  width: 45px;
+  float: left;
+}
+
+.cpf .selecter .selecter-selected {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+cpf .btn-group selecter:first-child .selecter-selected {
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+  border-left: 1px solid #aab2bd;
+}
+
+cpf .btn-group input, cpf .btn-group .selecter-selected {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: none;
+}
+
 .timeframe, .daterange {
   display: inline;
 }

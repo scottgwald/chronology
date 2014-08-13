@@ -1,11 +1,21 @@
-<selecter model="type" options="types"></selecter>
-<input type="text" class="form-control" ng-if="type.name == 'Property'">
-<input type="text" class="form-control" ng-if="type.name == 'Constant'">
-<selecter model="func" options="functions" ng-if="type.name == 'Function'">
-</selecter>
+<div class="btn-group">
+  <selecter model="type" options="types" class="cpf"></selecter>
+  <input type="text"
+         class="form-control"
+         ng-show="type.type == 'property'"
+         ng-model="name">
+  <input type="text"
+         class="form-control"
+         ng-show="type.type == 'constant'"
+         ng-model="value">
+  <selecter model="func" options="functions" ng-show="type.type == 'function'">
+  </selecter>
+</div>
 <input type="text"
        class="form-control"
-       ng-if="type.name == 'Function'"
-       ng-repeat-start="arg in func.args"
-       placeholder="{[ arg ]}">
+       ng-show="type.type == 'function'"
+       ng-repeat-start="arg in func.options"
+       ng-model="args[func.options.indexOf(arg)]"
+       placeholder="{[ arg.name ]}">
 <span ng-repeat-end></span><!-- Hack to insert whitespace for inline-block -->
+

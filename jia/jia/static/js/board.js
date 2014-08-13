@@ -469,7 +469,6 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
   ];
 
   $scope.$watch($scope.cleanBoard, function (newVal, oldVal) {
-    console.log('board change');
     // The initial setting of boardData doesn't count as a change in my books
     if (typeof newVal == 'undefined' || typeof oldVal == 'undefined') {
       return;

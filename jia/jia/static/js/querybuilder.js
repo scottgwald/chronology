@@ -59,7 +59,8 @@ qb.directive('operator', function ($http, $compile) {
     link: linker,
     scope: {
       operator: '=',
-      newop: '='
+      newop: '=',
+      count: '='
     }
   };
 });
@@ -67,7 +68,7 @@ qb.directive('operator', function ($http, $compile) {
 qb.directive('cpf', function ($http, $compile) {
   var linker = function (scope, element, attrs) {
     scope.argIndex = $(element).index();
-    if (scope.$parent.operator.args.length) {
+    if (scope.$parent.operator.args[scope.argIndex]) {
       var type = scope.$parent.operator.args[scope.argIndex]['cpf_type'];
       var func = scope.$parent.operator.args[scope.argIndex]['function_name'];
       var name = scope.$parent.operator.args[scope.argIndex]['property_name'];
@@ -180,9 +181,9 @@ qb.directive('cpf', function ($http, $compile) {
           {name: 'High', type: 'constant'}
         ]
       }
-      /* 'Add': ['Property 1', 'Property 2'], */
-      /* 'Subtract': ['Property 1', 'Property 2'], */
-      /* 'Length': ['?'], */
+      /*
+       * TODO(derek): Missing functions
+       */
     ];
     $scope.func = $scope.functions[0];
 
@@ -330,7 +331,9 @@ qb.directive('val', function ($http, $compile) {
 qb.directive('prop', function ($http, $compile) {
   var linker = function (scope, element, attrs) {
     scope.argIndex = $(element).index();
-    scope.val = scope.$parent.operator.args[scope.argIndex]['property_name'];
+    if (scope.$parent.operator.args.length) {
+      scope.val = scope.$parent.operator.args[scope.argIndex]['property_name'];
+    }
   };
 
   var controller = ['$scope', function ($scope) {

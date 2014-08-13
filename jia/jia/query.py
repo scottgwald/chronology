@@ -66,8 +66,9 @@ def translate_query(query):
   }
 
   for instruction in query:
-    operator = instruction['operator']
-    args = instruction['args']
+    operation = instruction['operation']
+    operator = operation['operator']
+    args = operation['args']
     query_plan = operators[operator](query_plan, args)
 
   return json.dumps({'plan': query_plan})
