@@ -59,10 +59,17 @@ def boards(id=None):
   boards = []
   for board in board_query:
     board_data = board.json()
-    boards.append({
-      'id': board_data['id'],
-      'title': board_data['title'],
-    })
+    try:
+      boards.append({
+        'id': board_data['id'],
+        'title': board_data['title'],
+      })
+    except KeyError:
+      # Boards should always have titles, but just in case...
+      boards.append({
+        'id': board_data['id'],
+        'title': 'Untitled Board',
+      })
 
   return {
     'boards': boards

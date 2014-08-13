@@ -1,5 +1,5 @@
-from jia import db
 import json
+from jia import db
 
 class Board(db.Model):
   class PanelSource(object):
@@ -21,7 +21,7 @@ class Board(db.Model):
   def save(self):
     db.session.add(self)
     db.session.commit()
-
+  
   def delete(self):
     db.session.delete(self)
     db.session.commit()

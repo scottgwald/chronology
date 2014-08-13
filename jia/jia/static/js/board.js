@@ -19,11 +19,34 @@ app.config(['$compileProvider', function($compileProvider) {
   $compileProvider.aHrefSanitizationWhitelist(/^\s*(https?|ftp|mailto|data):/);
 }]);
 
+app.factory('BoardTransport', function () {
+  /*
+   * A simple storage service (store an object with setData/getData) used for
+   * transporting board data between controllers during a route change.
+   */
+  var emptyBoard = {
+    title: '',
+    panels: []
+  };
+  var data = emptyBoard;
+  return {
+    setData: function (newData) {
+      data = newData;
+    },
+    getData: function () {
+      return data;
+    },
+    reset: function () {
+      data = emptyBoard;
+    }
+  };
+});
+
 app.controller('BoardController',
 ['$scope', '$http', '$location', '$timeout', '$injector', '$routeParams',
- '$sce', '$sanitize', '$modal',
+ '$sce', '$sanitize', '$modal', 'BoardTransport',
 function ($scope, $http, $location, $timeout, $injector, $routeParams,
-          $sce, $sanitize, $modal) {
+          $sce, $sanitize, $modal, BoardTransport) {
   // TODO(marcua): Re-add the sweet periodic UI refresh logic I cut
   // out of @usmanm's code in the Angular rewrite.
   $scope.boardId = $routeParams.boardId;
@@ -237,6 +260,23 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
       });
   };
 
+  $scope.forkModal = function () {
+    $scope.forkName = 'Fork of ' + $scope.boardData.title;
+    $scope.forkModalInstance = $modal.open({
+      templateUrl: '/static/partials/namefork.html',
+      scope: $scope   
+    });
+  };
+
+  $scope.forkBoard = function (newTitle) {
+    var forkData = {};
+    jQuery.extend(forkData, $scope.boardData); 
+    forkData['title'] = newTitle;
+    BoardTransport.setData(forkData);
+    $location.path('/boards/new');
+    $scope.forkModalInstance.close();
+  };
+  
   $scope.deleteBoard = function () {
     var title = $scope.boardData.title || "this board";
     if (confirm("Are you sure you want to delete " + title + "?")) {
@@ -248,7 +288,7 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
           }
         });
     }
-  }
+  };
 
   $scope.initPanel = function(panel) {
     panel.cache = {
@@ -411,10 +451,12 @@ function ($scope, $http, $location, $timeout, $injector, $routeParams,
       });
   }
   else {
-    $scope.boardData = {
-      title: '',
-      panels: []
-    };
+    $scope.boardData = BoardTransport.getData();
+    BoardTransport.reset();
+    if ($scope.boardData.panels.length) {
+      // If it is coming from a fork, it needs to be saved.
+      $scope.saveBoard();
+    }
   }
 
   var leavingPageText = "Anything not saved will be lost.";

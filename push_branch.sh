@@ -31,7 +31,7 @@ function assert_single_arg() {
 }
 
 assert_feature_branch "$branch"
-assert_non_dirty
+# assert_non_dirty
 assert_single_arg "$@"
 
 git checkout master

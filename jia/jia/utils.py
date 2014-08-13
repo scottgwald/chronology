@@ -2,6 +2,7 @@ import smtplib
 from email.mime.text import MIMEText 
 from jia import app
 
+
 def get_seconds(value, scale):
   """Convert time scale dict to seconds
 
