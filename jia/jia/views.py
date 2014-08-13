@@ -45,7 +45,7 @@ def streams():
   client = KronosClient(app.config['KRONOS_URL'],
                         namespace=app.config['KRONOS_NAMESPACE'])
   kronos_streams = client.get_streams(namespace=app.config['KRONOS_NAMESPACE'])
-  kronos_streams = list(kronos_streams)
+  kronos_streams = sorted(kronos_streams)
   return {
     'streams': kronos_streams,
   }
