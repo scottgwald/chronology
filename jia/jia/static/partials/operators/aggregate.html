@@ -1,1 +1,19 @@
-Aggregate args
+<div ng-repeat="arg in operator.args" class="operator-arg-set">
+  <aggtype arg="arg[0]"></aggtype>
+  <span ng-show="arg[0].val == 'count'">
+    events
+  </span>
+  <span ng-show="arg[0].val != 'count'">
+    of <cpf arg="arg[1]"></cpf>
+  </span>
+  and group by
+  <cpf arg="arg[2]"></cpf>
+  Store result in <val placeholder="'new field'" arg="arg[3]"></val>
+  <button class="btn btn-danger btn-xs" ng-click="removeArg($index)">
+    &times;
+  </button>
+</div>
+<button class="btn btn-primary btn-xs" ng-click="addArg()">
+  <span class="glyphicon glyphicon-plus"></span>
+  Add aggregate
+</button>

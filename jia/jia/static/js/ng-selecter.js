@@ -45,7 +45,9 @@ angular.module('selecter', [])
 
 .directive('selecter', ['$http', '$compile', function ($http, $compile) {
   var linker = function(scope, element, attrs) {
+    console.log(scope.options);
     var changeCallback = function (value, index) {
+      console.log(scope.model, scope.options, value, index);
       scope.model = lookupOption(value);
       scope.$apply();
     }
@@ -136,6 +138,7 @@ angular.module('selecter', [])
     }
      
     var updateSelector = function (newVal) {
+      console.log('updating', newVal);
       // Update the selecter when the value changes in scope
       // Selecter doesn't provide an update method, so destroy and recreate
       $(element).find('select').selecter('destroy');

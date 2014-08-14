@@ -24,7 +24,7 @@ def transform(query_plan, args):
   return proj(query_plan, fields, merge=True)
 
 def filter(query_plan, args):
-  condition = cond(cpf(args[0]), cpf(args[2]), args[1])
+  condition = cond(cpf(args[0]['val']), cpf(args[2]['val']), args[1]['val'])
   return filt(query_plan, condition)
 
 def aggregate(query_plan, args):
@@ -40,15 +40,18 @@ def aggregate(query_plan, args):
   
   return agg(query_plan, {'@time':group}, [aggr])
 
-def translate_query(query):
-  stream = 'locu.claim_api.claim.wsb.new_user_signup'
-  namespace = 'locu'
-  host = 'http://cassandra1.locu.com:8153'
+def orderby(query_plan, args):
+  fields = []
+  for arg in args:
+    fields.append(cpf(arg[0]))
+  return order_by(query_plan, fields)
 
-  now = datetime.datetime.now()
-  start = now - datetime.timedelta(days=1)
-  start_time = datetime_to_kronos_time(start)
-  end_time = datetime_to_kronos_time(now)
+def limit(query_plan, args):
+  return lim(query_plan, int(args[0]['val']))
+
+def translate_query(query, stream, start_time, end_time):
+  namespace = app.config['KRONOS_NAMESPACE']
+  host = app.config['KRONOS_URL']
 
   query_plan = {
     'operator': 'kronos',

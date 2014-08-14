@@ -93,8 +93,12 @@ a {
   vertical-align: middle;
 }
 
+.btn-group .selecter {
+  margin-bottom: 0;
+}
+
 .cpf .selecter {
-  width: 45px;
+  width: 90px;
   float: left;
 }
 
@@ -113,6 +117,27 @@ cpf .btn-group input, cpf .btn-group .selecter-selected {
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
   border-left: none;
+}
+
+cpf .btn-group .selecter.open .selecter-selected {
+  border-left: 1px solid #3bafda;
+  border-bottom-left-radius: 0;
+}
+
+cpf .btn-group .selecter.bottom.open .selecter-selected {
+  border-left: 1px solid #3bafda;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 4px;
+}
+
+cpf, op, aggop, val, prop {
+  display: inline-block;
+  margin-bottom: 5px;
+  vertical-align: middle;
+}
+
+.operator-arg-set {
+  margin-bottom: 5px;
 }
 
 .timeframe, .daterange {
@@ -545,6 +570,9 @@ ul.steps {
 }
 
 ul.steps li {
+  position: relative;
+  min-height: 77px;
+  padding-bottom: 10px;
 }
 
 ul.steps li:after {

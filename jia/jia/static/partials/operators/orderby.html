@@ -1,1 +1,10 @@
-<prop></prop>
+<div ng-repeat="arg in operator.args" class="operator-arg-set">
+  <prop arg="arg[0]"></prop>
+  <button class="btn btn-danger btn-xs" ng-click="removeArg($index)">
+    &times;
+  </button>
+</div>
+<button class="btn btn-primary btn-xs" ng-click="addArg()">
+  <span class="glyphicon glyphicon-plus"></span>
+  Add order by
+</button>
