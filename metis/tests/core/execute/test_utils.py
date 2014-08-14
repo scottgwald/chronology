@@ -1,11 +1,10 @@
 import unittest
 
-from metis.core.query.enums import FunctionType
-from metis.core.query.primitives import (p,
-                                         f,
-                                         c)
-from metis.core.query.utils import (get_property,
-                                    get_property_names_from_getter)
+from metis.core.execute.utils import get_property
+from metis.core.execute.utils import get_property_names_from_getter
+from metis.core.query.value import Add
+from metis.core.query.value import Constant
+from metis.core.query.value import Property
 
 
 class QueryUtilsTestCase(unittest.TestCase):
@@ -17,18 +16,15 @@ class QueryUtilsTestCase(unittest.TestCase):
     self.assertEqual(get_property({'a': {'c': 1}, 'a.c': 2, 'b': 3}, 'a.c'), 2)
   
   def test_get_property_names_from_getter(self):
-    self.assertEqual(get_property_names_from_getter(p('lolcat')),
+    self.assertEqual(get_property_names_from_getter(Property('lolcat').to_dict()),
                      ['lolcat'])
-    self.assertEqual(get_property_names_from_getter(c(0)),
+    self.assertEqual(get_property_names_from_getter(Constant(0).to_dict()),
                      [])
     self.assertEqual(
       get_property_names_from_getter(
-        f(FunctionType.ADD,
-          [p('lolcat'),
-           c(1),
-           f(FunctionType.ADD,
-             [p('hello'),
-              c(2)])]
-          )
+        Add([Property('lolcat'),
+             Constant(1),
+             Add([Property('hello'), Constant(2)])]
+            ).to_dict()
         ),
       ['lolcat', 'hello'])

@@ -7,7 +7,7 @@ from flask import Response
 import metis
 
 from metis import app
-from metis.core.query import executor
+from metis.core.execute import executor
 
 @app.route('/1.0/index', methods=['GET'])
 def index():

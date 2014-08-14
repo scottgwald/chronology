@@ -9,3 +9,7 @@ class Enum(object):
         values.add(value)
     cls._values = values
     return values
+
+  @classmethod
+  def titlecase(cls, value):
+    return ''.join(map(lambda s: s.title(), value.split('_')))

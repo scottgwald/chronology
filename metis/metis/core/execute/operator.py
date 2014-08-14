@@ -1,20 +1,28 @@
+"""
+TODO(usmanm): This module will be almost completely rewritten. This
+implementation currently uses `Operators` which have been deprecated.
+Furthermore it is a Spark-based implementation and doesn't afford ways to
+swap out a different computation framework (like Hadoop MapRedude). We will move
+towards a visitor-based implementation with multiple executors (Spark,
+Hadoop (MapReduce), PANDAS, etc.) in a future version.
+"""
+
 import inspect
 import json
 import sys
 import types
 
-from metis.conf import constants
-from metis.core.query.enums import (AggregateType,
-                                    ConditionType,
-                                    ConditionOpType,
-                                    OperatorType)
-from metis.core.query.utils import (cast_to_number,
-                                    Counter,
-                                    get_property_names_from_getter,
-                                    get_value,
-                                    generate_filter,
-                                    validate_condition,
-                                    validate_getter)
+from metis.core.query.aggregate import Aggregator
+from metis.core.query.condition import Condition
+from metis.core.query.stream import Stream
+from metis.core.query.transform import Transform
+from metis.core.execute.utils import (cast_to_number,
+                                      Counter,
+                                      get_property_names_from_getter,
+                                      get_value,
+                                      generate_filter,
+                                      validate_condition,
+                                      validate_getter)
 
 # XXX(usmanm): PySpark in sensitive to modifying Python objects in functions
 # like `map`. Please be wary of that!
@@ -40,14 +48,11 @@ class Operator(object):
           continue
         Operator.OPERATORS[obj.get_name()] = obj
       # Ensure that we have an Operator class for each `OperatorType`.
-      assert set(Operator.OPERATORS) == OperatorType.values()
+      assert set(Operator.OPERATORS) == (Stream.Type.values() |
+                                         Transform.Type.values())
     assert isinstance(op_dict, dict)
-    # The stream operator dict maybe wrapped into a {stream: ..., alias: ...}.
-    if 'operator' not in op_dict:
-      assert 'stream' in op_dict
-      op_dict = op_dict['stream']
-    assert op_dict.get('operator') in Operator.OPERATORS
-    return Operator.OPERATORS[op_dict['operator']](**op_dict)
+    assert op_dict.get('type') in Operator.OPERATORS
+    return Operator.OPERATORS[op_dict['type']](**op_dict)
 
   def get_rdd(self, spark_context):
     ''' Always returns an RDD for a valid event collection. '''
@@ -55,7 +60,7 @@ class Operator(object):
 
 
 class KronosOperator(Operator):
-  OPERATOR_TYPE = OperatorType.KRONOS
+  OPERATOR_TYPE = Stream.Type.KRONOS
 
   def __init__(self, stream, start_time, end_time, host, namespace=None,
                **kwargs):
@@ -89,12 +94,12 @@ class ProjectOperator(Operator):
   the original event is not dropped and `fields` are only updated/added to the
   event.
   '''
-  OPERATOR_TYPE = OperatorType.PROJECT
+  OPERATOR_TYPE = Transform.Type.PROJECT
 
   def __init__(self, stream, fields, merge=False, **kwargs):
-    for field, getter in fields.iteritems():
-      assert isinstance(field, types.StringTypes)
-      validate_getter(getter)
+    for field in fields:
+      assert isinstance(field.get('alias'), types.StringTypes)
+      validate_getter(field)
 
     self.merge = bool(merge)
     self.fields = fields
@@ -106,8 +111,8 @@ class ProjectOperator(Operator):
     else:
       projection = {}
 
-    for field, getter in self.fields.iteritems():
-      projection[field] = get_value(event, getter)
+    for field in self.fields:
+      projection[field['alias']] = get_value(event, field)
 
     return projection
 
@@ -116,7 +121,7 @@ class ProjectOperator(Operator):
 
 
 class FilterOperator(Operator):
-  OPERATOR_TYPE = OperatorType.FILTER
+  OPERATOR_TYPE = Transform.Type.FILTER
 
   def __init__(self, stream, condition, **kwargs):
     validate_condition(condition)
@@ -130,7 +135,7 @@ class FilterOperator(Operator):
 
 
 class OrderByOperator(Operator):
-  OPERATOR_TYPE = OperatorType.ORDER_BY
+  OPERATOR_TYPE = Transform.Type.ORDER_BY
 
   def __init__(self, stream, fields, reverse=False, **kwargs):
     for field in fields:
@@ -149,7 +154,7 @@ class OrderByOperator(Operator):
 
 
 class LimitOperator(Operator):
-  OPERATOR_TYPE = OperatorType.LIMIT
+  OPERATOR_TYPE = Transform.Type.LIMIT
 
   def __init__(self, stream, limit, **kwargs):
     assert isinstance(limit, int)
@@ -170,64 +175,57 @@ class AggregateOperator(Operator):
   runs the `aggregates` to output a new Kronos stream which has only
   the aggregated values.
   '''
-  OPERATOR_TYPE = OperatorType.AGGREGATE
+  OPERATOR_TYPE = Transform.Type.AGGREGATE
 
-  def __init__(self, stream, groups, aggregates, **kwargs):
-    for group, getter in groups.iteritems():
-      validate_getter(getter)
+  def __init__(self, stream, group_by, aggregates, **kwargs):
+    for group in group_by:
+      validate_getter(group)
     counter = Counter()
     aliases = set()
     for aggregate in aggregates:
-      args = aggregate.get('args', [])
-      assert isinstance(args, list)
-      for arg in args:
+      arguments = aggregate.get('arguments', [])
+      assert isinstance(arguments, list)
+      for arg in arguments:
         validate_getter(arg)
-      assert aggregate.get('op') in AggregateType.values()
+      assert aggregate.get('op') in Aggregator.Op.values()
       if not aggregate.get('alias'):
         aggregate['alias'] = '%s_%s' % (aggregate['op'], counter.increment())
       if aggregate['alias'] in aliases:
         raise ValueError
       aliases.add(aggregate['alias'])
-    self.groups = groups
+    self.groups = group_by
     self.aggregates = aggregates
     self.stream = Operator.parse(stream)
 
   def _group(self, event):
     # `key` can only be strings in Spark if you want to use `reduceByKey`.
-    new_event = {group: get_value(event, getter)
-                 for group, getter in self.groups.iteritems()}
+    new_event = {group['alias']: get_value(event, group)
+                 for group in self.groups}
     key = json.dumps(new_event)
     for aggregate in self.aggregates:
-      args = aggregate.get('args', [])
-      if aggregate['op'] == AggregateType.COUNT:
-        assert len(args) in (0, 1)
-        if not len(args):
+      arguments = aggregate.get('arguments', [])
+      if aggregate['op'] == Aggregator.Op.COUNT:
+        assert len(arguments) in (0, 1)
+        if not len(arguments):
           value = 1
         else:
-          value = 0 if get_value(event, args[0]) is None else 1
-      elif aggregate['op'] == AggregateType.SUM:
-        assert len(args) == 1
-        value = cast_to_number(get_value(event, args[0]), 0)
-      elif aggregate['op'] == AggregateType.MIN:
-        assert len(args) == 1
-        value = cast_to_number(get_value(event, args[0]), float('inf'))
-      elif aggregate['op'] == AggregateType.MAX:
-        assert len(args) == 1
-        value = cast_to_number(get_value(event, args[0]), -float('inf'))
-      elif aggregate['op'] == AggregateType.AVG:
-        assert len(args) == 1
-        value = cast_to_number(get_value(event, args[0]), None)
+          value = 0 if get_value(event, arguments[0]) is None else 1
+      elif aggregate['op'] == Aggregator.Op.SUM:
+        assert len(arguments) == 1
+        value = cast_to_number(get_value(event, arguments[0]), 0)
+      elif aggregate['op'] == Aggregator.Op.MIN:
+        assert len(arguments) == 1
+        value = cast_to_number(get_value(event, arguments[0]), float('inf'))
+      elif aggregate['op'] == Aggregator.Op.MAX:
+        assert len(arguments) == 1
+        value = cast_to_number(get_value(event, arguments[0]), -float('inf'))
+      elif aggregate['op'] == Aggregator.Op.AVG:
+        assert len(arguments) == 1
+        value = cast_to_number(get_value(event, arguments[0]), None)
         if value is None:
           value = (0, 0)
         else:
           value = (value, 1)
-      elif aggregate['op'] == AggregateType.VALUE_COUNT:
-        assert len(args) > 0
-        if len(args) == 1:
-          value_key = str(get_value(event, args[0]))
-        else:
-          value_key = str(tuple(get_value(event, arg) for arg in args))
-        value = {value_key: 1}
       else:
         raise ValueError
       new_event[aggregate['alias']] = value
@@ -237,20 +235,15 @@ class AggregateOperator(Operator):
     event = event1.copy()
     for aggregate in self.aggregates:
       alias = aggregate['alias']
-      if aggregate['op'] in (AggregateType.COUNT, AggregateType.SUM):
+      if aggregate['op'] in (Aggregator.Op.COUNT, Aggregator.Op.SUM):
         value = event1[alias] + event2[alias]
-      elif aggregate['op'] == AggregateType.MIN:
+      elif aggregate['op'] == Aggregator.Op.MIN:
         value = min(event1[alias], event2[alias])
-      elif aggregate['op'] == AggregateType.MAX:
+      elif aggregate['op'] == Aggregator.Op.MAX:
         value = max(event1[alias], event2[alias])
-      elif aggregate['op'] == AggregateType.AVG:
+      elif aggregate['op'] == Aggregator.Op.AVG:
         value = (event1[alias][0] + event2[alias][0],
                  event1[alias][1] + event2[alias][1])
-      elif aggregate['op'] == AggregateType.VALUE_COUNT:
-        value = event1[alias].copy()
-        for key in event2[alias]:
-          value.setdefault(key, 0)
-          value[key] += event2[alias][key]
       else:
         raise ValueError
       event[alias] = value
@@ -260,7 +253,7 @@ class AggregateOperator(Operator):
     # `event` is of the form (key, event).
     event = event[1].copy()
     for aggregate in self.aggregates:
-      if aggregate['op'] == AggregateType.AVG:
+      if aggregate['op'] == Aggregator.Op.AVG:
         alias = aggregate['alias']
         value = event[alias]
         if not value[1]:
@@ -277,7 +270,7 @@ class AggregateOperator(Operator):
 
 
 class JoinOperator(Operator):
-  OPERATOR_TYPE = OperatorType.JOIN
+  OPERATOR_TYPE = Transform.Type.JOIN
 
   def __init__(self, left, right, condition, **kwargs):
     validate_condition(condition)
@@ -307,7 +300,7 @@ class JoinOperator(Operator):
 
   def _get_equijoin_key_getters(self, condition):
     # condition must be a *leaf* condition.
-    if condition.get('op') != ConditionOpType.EQ:
+    if condition.get('op') != Condition.Op.EQ:
       return None
 
     # Get properties being accessed by left and right side of the
@@ -352,7 +345,7 @@ class JoinOperator(Operator):
     # TODO(usmanm): Right now we only optimize if the conditional is an EQ or
     # if its an AND and has some EQ in the top level. We don't do any recursive
     # searching in condition trees. Improve that.
-    if condition.get('type') == ConditionType.AND:
+    if condition.get('type') == Condition.Type.AND:
       filter_conditions = []
       for _condition in condition['conditions']:
         getter = self._get_equijoin_key_getters(_condition)
@@ -364,7 +357,7 @@ class JoinOperator(Operator):
         condition['conditions'] = filter_conditions
       else:
         condition = None
-    elif condition.get('type') != ConditionType.OR: # Ignore ORs for now.
+    elif condition.get('type') != Condition.Type.OR: # Ignore ORs for now.
       getter = self._get_equijoin_key_getters(condition)
       if getter:
         eq_join_getters.append(getter)

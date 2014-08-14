@@ -1,5 +1,5 @@
 from metis import app
-from metis.core.query.operator import Operator
+from metis.core.execute.operator import Operator
 
 _SPARK_CONTEXT = None
 

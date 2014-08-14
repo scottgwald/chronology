@@ -37,10 +37,10 @@ We'll be running some computations on the presidential campaigns contributions
 dataset. Start by downloading the dataset:
 
 ```bash
-wget ftp://ftp.fec.gov/FEC/Presidential_Map/2012/P00000001/P00000001-CA.zip
-unzip P00000001-CA.zip
-rm P00000001-CA.zip
-mv P00000001-CA.csv donations.csv
+wget ftp://ftp.fec.gov/FEC/Presidential_Map/2012/P00000001/P00000001-OR.zip
+unzip P00000001-OR.zip
+rm P00000001-OR.zip
+mv P00000001-OR.csv donations.csv
 ```
 
 Now let's transform this tabular CSV data into events and store them in Kronos.
@@ -99,65 +99,95 @@ based on the amount of donations made each day.
 import json
 import requests
 from datetime import datetime
+from datetime import timedelta
 from metis.common.time import datetime_to_kronos_time
 from metis.common.time import epoch_time_to_kronos_time
 from metis.common.time import kronos_time_to_datetime
-from metis.core.query.primitives import (kstream,
-                                         p,
-                                         c,
-                                         f,
-                                         agg_op,
-                                         agg,
-                                         order_by,
-                                         AggregateType,
-                                         FunctionType)
+from metis.core.query.aggregate import Count
+from metis.core.query.aggregate import GroupBy
+from metis.core.query.aggregate import Sum
+from metis.core.query.stream import KronosStream
+from metis.core.query.transform import Aggregate
+from metis.core.query.transform import Limit
+from metis.core.query.transform import OrderBy
+from metis.core.query.value import Constant
+from metis.core.query.value import Floor
+from metis.core.query.value import Property
 from pykronos import TIMESTAMP_FIELD
 
 def query(plan):
   for line in requests.post('http://localhost:8155/1.0/query',
-                            data=json.dumps({'plan': plan}),
+                            data=json.dumps({'plan': plan.to_dict()}),
                             stream=True).iter_lines():
     if not line:
       continue
     yield json.loads(line)
 
-# All donation events which happened in the year 2012.
-events_stream = kstream('donations',
-                       datetime_to_kronos_time(datetime(2012, 1, 1)),
-                       datetime_to_kronos_time(datetime(2012, 12, 31)))
+# We want to answer two questions:
+# 1. Which day of 2012 got the highest donation amount?
+# 2. On that day (from 1), which candidates got donations and how many
+#    donations?
 
-# We want two aggregates:
-# 1. Sum of all the `contb_receipt_amt` fields of events in one day.
-# 2. Number of donation per candidate in one day.
-aggregates = [agg_op(AggregateType.SUM,
-                     [p('contb_receipt_amt')],
-                     'total'),
-              agg_op(AggregateType.VALUE_COUNT,
-                     [p('cand_nm')],
-                     'candidates')]
+# First let's find the day that got the most donations.
+
+# All donation events which happened in the year 2012.
+stream = KronosStream('http://localhost:8150',
+                      'donations',
+                      datetime_to_kronos_time(datetime(2012, 1, 1)),
+                      datetime_to_kronos_time(datetime(2012, 12, 31)))
+
+# We need to aggregate by summing up values for the `contb_receipt_amt`
+# property.
+aggregates = [Sum([Property('contb_receipt_amt')], alias='total_donations')]
 
 # We need to group by TIMESTAMP_FIELD rounded down to the start of each day.
-group_bys = {
-  TIMESTAMP_FIELD: f(FunctionType.FLOOR,
-                     [p(TIMESTAMP_FIELD),
-                     c(epoch_time_to_kronos_time(60*60*24))])
-  }
+group_by = GroupBy(Floor([Property(TIMESTAMP_FIELD),
+                          Constant(epoch_time_to_kronos_time(60*60*24))],
+                         alias=TIMESTAMP_FIELD))
 
-aggregate = agg(events_stream, group_bys, aggregates)
+aggregate = Aggregate(stream, group_by, aggregates)
 
-# Order by the new `total` field created as a result of the `agg` operation.
-events = list(query(order_by(aggregate, [p('total')], reverse=True)))
+# Order by the new `total` field created in descending order and pick the
+# first event.
+plan = Limit(OrderBy(aggregate, [Property('total_donations')], reverse=True),
+             1)
+
+events = list(query(plan))
+assert len(events) == 1
 
 # Get the event for the day during which the maximum donations were made.
 event = events[0]
 day = kronos_time_to_datetime(event[TIMESTAMP_FIELD]).date()
 
-print 'A total of $%f were donated on %s.' % (event['total'], day)
-print 'On that day the following people got donations:'
-for candidate, num in event['candidates'].iteritems():
-print '  %s got %d donations' % (candidate, num)
+print 'A total of $%f were donated on %s.' % (event['total_donations'], day)
 # > A total of $291489.300000 were donated on 2012-10-17.
+
+# Now let's find the number of donations received per candidate during the day
+# from above.
+
+stream = KronosStream('http://localhost:8150',
+                      'donations',
+                      datetime_to_kronos_time(day),
+                      datetime_to_kronos_time(day + timedelta(days=1)))
+
+# We need to aggregate by simply counting the number of events in each
+# group.
+aggregates = [Count([], alias='num_donations')]
+
+# We need to group by the `cand_nm` property.
+group_by = GroupBy(Property('cand_nm', alias='candidate_name'))
+
+plan = Aggregate(stream, group_by, aggregates)
+
+events = list(query(plan))
+assert len(events) == 4
+
+for event in sorted(events, key=lambda e: e['num_donations']):
+  print '  %s got %d donations' % (event['candidate_name'],
+                                   event['num_donations'])
 # > On that day the following people got donations:
-# >   Romney, Mitt got 234 donations
-# >   Obama, Barack got 2746 donations
+# >   Johnson, Gary Earl got 1 donations
+# >   Stein, Jill got 2 donations
+# >   Romney, Mitt got 310 donations
+# >   Obama, Barack got 3404 donations
 ```

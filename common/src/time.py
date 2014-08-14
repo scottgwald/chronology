@@ -1,5 +1,9 @@
+from __future__ import absolute_import
+
+from datetime import date
 from datetime import datetime
 from dateutil.tz import tzutc
+from time import mktime
 
 # A timezone aware datetime object representing the UTC epoch.
 EPOCH = datetime.utcfromtimestamp(0).replace(tzinfo=tzutc())
@@ -10,6 +14,8 @@ def datetime_to_epoch_time(dt):
   If `dt` is a native datetime object (not timezone aware)
   then this function assumes that the timezone in UTC.
   """
+  if isinstance(dt, date):
+    dt = datetime.fromtimestamp(mktime(dt.timetuple()))
   # If the datetime is native, assume that the timezone is UTC.
   if not dt.tzinfo:
     dt = dt.replace(tzinfo=tzutc())

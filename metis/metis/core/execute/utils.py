@@ -3,10 +3,10 @@ import re
 import types
 
 from metis.common.event_tools import get_property
-from metis.core.query.enums import (ConditionType,
-                                    ConditionOpType,
-                                    FunctionType,
-                                    ValueType)
+from metis.core.query.condition import Condition
+from metis.core.query.value import Function
+from metis.core.query.value import Value
+
 
 def _safe_function(func):
   '''
@@ -78,52 +78,52 @@ def _subtract(*args):
 _len = _safe_function(len)
   
 FUNCTIONS = {
-  FunctionType.CEIL: _ceil,
-  FunctionType.FLOOR: _floor,
-  FunctionType.LOWERCASE: _lowercase,
-  FunctionType.UPPERCASE: _uppercase,
-  FunctionType.RANDOM_INT: _randint,
-  FunctionType.ADD: _add,
-  FunctionType.SUBTRACT: _subtract,
-  FunctionType.LEN: _len
+  Function.Name.CEIL: _ceil,
+  Function.Name.FLOOR: _floor,
+  Function.Name.LOWERCASE: _lowercase,
+  Function.Name.UPPERCASE: _uppercase,
+  Function.Name.RANDOM_INT: _randint,
+  Function.Name.ADD: _add,
+  Function.Name.SUBTRACT: _subtract,
+  Function.Name.LEN: _len
   }
 
-# Ensure that we have a function mapped for each `FunctionType`.
-assert FunctionType.values() == set(FUNCTIONS)
+# Ensure that we have a function mapped for each `Function.Name`.
+assert Function.Name.values() == set(FUNCTIONS)
 
 
 # Filters.
 def _check_leaf_condition(event, condition):
   op = condition['op']
-  if op == ConditionOpType.LT:
+  if op == Condition.Op.LT:
     result = (get_value(event, condition['left'])
               <
               get_value(event, condition['right']))
-  elif op == ConditionOpType.LTE:
+  elif op == Condition.Op.LTE:
     result = (get_value(event, condition['left'])
               <=
               get_value(event, condition['right']))
-  elif op == ConditionOpType.GT:
+  elif op == Condition.Op.GT:
     result = (get_value(event, condition['left'])
               >
               get_value(event, condition['right']))
-  elif op == ConditionOpType.GTE:
+  elif op == Condition.Op.GTE:
     result = (get_value(event, condition['left'])
               >=
               get_value(event, condition['right']))
-  elif op == ConditionOpType.EQ:
+  elif op == Condition.Op.EQ:
     result = (get_value(event, condition['left'])
               ==
               get_value(event, condition['right']))
-  elif op == ConditionOpType.CONTAINS:
+  elif op == Condition.Op.CONTAINS:
     result = (get_value(event, condition['right'])
               in
               get_value(event, condition['left']))
-  elif op == ConditionOpType.IN:
+  elif op == Condition.Op.IN:
     result = (get_value(event, condition['left'])
               in
               get_value(event, condition['right']))
-  elif op == ConditionOpType.REGEX:
+  elif op == Condition.Op.REGEX:
     result = re.search(get_value(event, condition['right']),
                        get_value(event, condition['left']))
     result = bool(result)
@@ -138,9 +138,9 @@ def _check_condition(event, condition):
     result = []
     for _condition in condition['conditions']:
       result.append(_check_condition(event, _condition))
-    if condition['type'] == ConditionType.AND:
+    if condition['type'] == Condition.Type.AND:
       result = all(result)
-    elif condition['type'] == ConditionType.OR:
+    elif condition['type'] == Condition.Type.OR:
       result = any(result)
     else:
       raise ValueError
@@ -159,40 +159,40 @@ def generate_filter(condition):
 
 # Validators.
 def _validate_constant(constant):
-  assert constant['type'] == ValueType.CONSTANT
+  assert constant['type'] == Value.Type.CONSTANT
   assert 'value' in constant
 
 def _validate_property(_property):
-  assert _property['type'] == ValueType.PROPERTY
+  assert _property['type'] == Value.Type.PROPERTY
   assert isinstance(_property.get('name'), types.StringTypes)
 
 def _validate_function(function):
-  assert function['type'] == ValueType.FUNCTION
+  assert function['type'] == Value.Type.FUNCTION
   assert isinstance(function.get('name'), types.StringTypes)
-  args = function.get('args')
+  args = function.get('arguments')
   assert isinstance(args, list)
   for arg in args:
     assert isinstance(arg, dict)
     arg_type = arg.get('type')
-    assert arg_type in ValueType.values()
-    if arg_type == ValueType.PROPERTY:
+    assert arg_type in Value.Type.values()
+    if arg_type == Value.Type.PROPERTY:
       _validate_property(arg)
-    elif arg_type == ValueType.CONSTANT:
+    elif arg_type == Value.Type.CONSTANT:
       _validate_constant(arg)
-    elif arg_type == ValueType.FUNCTION:
+    elif arg_type == Value.Type.FUNCTION:
       _validate_function(arg)
 
 def validate_getter(getter):
   assert isinstance(getter, dict)
   getter_type = getter.get('type')
-  assert getter_type in ValueType.values()
-  if getter_type == ValueType.FUNCTION:
-    assert getter.get('name') in FunctionType.values()
-  if getter_type == ValueType.PROPERTY:
+  assert getter_type in Value.Type.values()
+  if getter_type == Value.Type.FUNCTION:
+    assert getter.get('name') in Function.Name.values()
+  if getter_type == Value.Type.PROPERTY:
     _validate_property(getter)
-  elif getter_type == ValueType.CONSTANT:
+  elif getter_type == Value.Type.CONSTANT:
     _validate_constant(getter)
-  elif getter_type == ValueType.FUNCTION:
+  elif getter_type == Value.Type.FUNCTION:
     _validate_function(getter)
   else:
     raise ValueError
@@ -203,34 +203,34 @@ def validate_condition(condition):
   keys.discard('not') # `not` key is optional.
   if keys == {'conditions', 'type'}:
     assert isinstance(condition['conditions'], list)
-    assert condition.get('type') in ConditionType.values()
+    assert condition.get('type') in Condition.Type.values()
     for condition in condition['conditions']:
       validate_condition(condition)
   elif keys == {'left', 'right', 'op'}:
-    assert condition.get('op') in ConditionOpType.values()
+    assert condition.get('op') in Condition.Op.values()
     validate_getter(condition.get('left'))
     validate_getter(condition.get('right'))
   else:
     raise ValueError
 
 def get_value(event, getter):
-  if getter['type'] == ValueType.CONSTANT:
+  if getter['type'] == Value.Type.CONSTANT:
     return getter['value']
-  elif getter['type'] == ValueType.PROPERTY:
+  elif getter['type'] == Value.Type.PROPERTY:
     try:
       return get_property(event, getter['name'])
     except KeyError:
       return getter.get('default')
-  elif getter['type'] == ValueType.FUNCTION:
-    args = _get_function_args(event, getter['args'])
+  elif getter['type'] == Value.Type.FUNCTION:
+    args = _get_function_args(event, getter['arguments'])
     return FUNCTIONS[getter['name']](*args)
 
 def get_property_names_from_getter(getter):
   properties = []
-  if getter['type'] == ValueType.PROPERTY:
+  if getter['type'] == Value.Type.PROPERTY:
     properties.append(getter['name'])
-  elif getter['type'] == ValueType.FUNCTION:
-    for arg in getter['args']:
+  elif getter['type'] == Value.Type.FUNCTION:
+    for arg in getter['arguments']:
       properties.extend(get_property_names_from_getter(arg))
   return properties
 

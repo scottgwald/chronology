@@ -9,19 +9,19 @@ from metis.common.time import kronos_time_to_datetime
 from metis.common.time import kronos_time_to_epoch_time
 from metis.common.time import epoch_time_to_kronos_time
 from metis.conf.constants import TIMESTAMP_FIELD
-from metis.core.query.enums import AggregateType
-from metis.core.query.enums import ConditionOpType
-from metis.core.query.enums import FunctionType
-from metis.core.query.primitives import agg
-from metis.core.query.primitives import agg_op
-from metis.core.query.primitives import c
-from metis.core.query.primitives import cond
-from metis.core.query.primitives import cond_and
-from metis.core.query.primitives import f
-from metis.core.query.primitives import join
-from metis.core.query.primitives import kstream
-from metis.core.query.primitives import p
-from metis.core.query.primitives import proj
+from metis.core.query.aggregate import Count
+from metis.core.query.aggregate import GroupBy
+from metis.core.query.aggregate import Min
+from metis.core.query.condition import Condition
+from metis.core.query.stream import KronosStream
+from metis.core.query.transform import Aggregate
+from metis.core.query.transform import Join
+from metis.core.query.transform import Project
+from metis.core.query.value import Add
+from metis.core.query.value import Constant
+from metis.core.query.value import Floor
+from metis.core.query.value import Property
+from metis.core.query.value import Subtract
 
 
 class DateUnit(object):
@@ -51,26 +51,29 @@ def _date_to_datetime(d):
 
 def _cohort_stream_transform(kronos_url, stream, start, end,
                              transform, grouping_key, unit):
-  start_stream = kstream(stream, start, end, kronos_url)
+  start_stream = KronosStream(kronos_url, stream, start, end)
   if transform:
     transformed = transform(start_stream)
   else:
     transformed = start_stream
-  projected = proj(
-    transformed,
-    {TIMESTAMP_FIELD: p(TIMESTAMP_FIELD),
-     grouping_key: p(grouping_key),
-     'date': f(FunctionType.FLOOR,
-               [p(TIMESTAMP_FIELD),
-                c(DateUnit.unit_to_kronos_time(unit)),
-                c(start)])})
+  projected = Project(transformed,
+                      [Property(TIMESTAMP_FIELD,
+                                alias=TIMESTAMP_FIELD),
+                       Property(grouping_key,
+                                alias=grouping_key),
+                       Floor([Property(TIMESTAMP_FIELD),
+                              Constant(DateUnit.unit_to_kronos_time(unit)),
+                              Constant(start)],
+                             alias='date')])
   # This leaves us with a single event per (user, unit time) pair.
-  aggregated = agg(
+  aggregated = Aggregate(
     projected,
-    {grouping_key: p(grouping_key),
-     'date': p('date')},
+    GroupBy([Property(grouping_key,
+                      alias=grouping_key),
+             Property('date',
+                      alias='date')]),
     # The first time the user performed the event in that bucket.
-    [agg_op(AggregateType.MIN, [p(TIMESTAMP_FIELD)], alias=TIMESTAMP_FIELD)])
+    [Min([Property(TIMESTAMP_FIELD)], alias=TIMESTAMP_FIELD)])
   return aggregated
 
 
@@ -129,44 +132,41 @@ def cohort_queryplan(plan):
   additional_action_time = (DateUnit.unit_to_kronos_time(action['unit']) *
                             action['repetitions'])
 
-  joined = join(
-    left,
-    right,
-    cond_and(cond(p('cohort.%s' % cohort['grouping_key']),
-                  p('action.%s' % action['grouping_key']),
-                  ConditionOpType.EQ),
-             cond(p('action.%s' % TIMESTAMP_FIELD),
-                  p('cohort.%s' % TIMESTAMP_FIELD),
-                  ConditionOpType.GTE),
-             cond(p('action.%s' % TIMESTAMP_FIELD),
-                  f(FunctionType.ADD,
-                    [p('cohort.%s' % TIMESTAMP_FIELD),
-                     c(additional_action_time)]),
-                  ConditionOpType.LT)),
-    left_alias='cohort',
-    right_alias='action')
+  left.alias = 'cohort'
+  right.alias = 'action'
+  
+  joined = Join(left,
+                right,
+                (Condition(Condition.Op.EQ,
+                           Property('cohort.%s' % cohort['grouping_key']),
+                           Property('action.%s' % action['grouping_key'])) &
+                 Condition(Condition.Op.GTE,
+                           Property('action.%s' % TIMESTAMP_FIELD),
+                           Property('cohort.%s' % TIMESTAMP_FIELD)) &
+                 Condition(Condition.Op.LT,
+                           Property('action.%s' % TIMESTAMP_FIELD),
+                           Add([Property('cohort.%s' % TIMESTAMP_FIELD),
+                                Constant(additional_action_time)]))))
 
-  user_aggregated = agg(
+  user_aggregated = Aggregate(
     joined,
-    {TIMESTAMP_FIELD: p('cohort.date'),
-     'group': p('cohort.%s' % cohort['grouping_key']),
-     'action_step': f(FunctionType.FLOOR,
-                      [f(FunctionType.SUBTRACT,
-                         [p('action.%s' % TIMESTAMP_FIELD),
-                          p('cohort.%s' % TIMESTAMP_FIELD)]),
-                       c(DateUnit.unit_to_kronos_time(action['unit']))])},
-    []
+    GroupBy([Property('cohort.date', alias=TIMESTAMP_FIELD),
+             Property('cohort.%s' % cohort['grouping_key'], alias='group'),
+             Floor([Subtract([Property('action.%s' % TIMESTAMP_FIELD),
+                              Property('cohort.%s' % TIMESTAMP_FIELD)]),
+                    Constant(DateUnit.unit_to_kronos_time(action['unit']))],
+                   alias='action_step')]),
+    [Count([], alias='count')]
     )
 
-  aggregated = agg(
+  aggregated = Aggregate(
     user_aggregated,
-    {TIMESTAMP_FIELD: p(TIMESTAMP_FIELD),
-     'action_step': p('action_step')},
-    [agg_op(AggregateType.COUNT, [], alias='cohort_actions')]
-    )
+    GroupBy([Property(TIMESTAMP_FIELD, alias=TIMESTAMP_FIELD),
+             Property('action_step', alias='action_step')]),
+    [Count([], alias='cohort_actions')])
 
   # TODO(marcua): Also sum up the cohort sizes, join with the plan.
-  return aggregated
+  return aggregated.to_dict()
 
 
 def cohort_response(plan, events):
