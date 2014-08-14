@@ -14,7 +14,7 @@ def datetime_to_epoch_time(dt):
   If `dt` is a native datetime object (not timezone aware)
   then this function assumes that the timezone in UTC.
   """
-  if isinstance(dt, date):
+  if not isinstance(dt, datetime) and isinstance(dt, date):
     dt = datetime.fromtimestamp(mktime(dt.timetuple()))
   # If the datetime is native, assume that the timezone is UTC.
   if not dt.tzinfo:
