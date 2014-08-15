@@ -4,7 +4,7 @@ implementation currently uses `Operators` which have been deprecated.
 Furthermore it is a Spark-based implementation and doesn't afford ways to
 swap out a different computation framework (like Hadoop MapRedude). We will move
 towards a visitor-based implementation with multiple executors (Spark,
-Hadoop (MapReduce), PANDAS, etc.) in a future version.
+Hadoop MapReduce, PANDAS, etc.) in a future version.
 """
 
 import inspect
