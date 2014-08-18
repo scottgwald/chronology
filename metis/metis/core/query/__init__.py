@@ -29,3 +29,7 @@ class Node(object):
     if not isinstance(other, Node):
       return False
     return self.to_dict() == other.to_dict()
+
+
+class ExecutableNode(Node):
+  pass

@@ -13,7 +13,7 @@ class Aggregator(Node):
     COUNT = 'count'
     SUM = 'sum'
 
-  def __init__(self, arguments, alias=None):
+  def __init__(self, arguments, alias):
     self.arguments = arguments
     self.alias = alias
   
