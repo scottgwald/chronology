@@ -191,3 +191,9 @@ for event in sorted(events, key=lambda e: e['num_donations']):
 # >   Romney, Mitt got 310 donations
 # >   Obama, Barack got 3404 donations
 ```
+
+## Deployment
+
+Metis is a [Flask](http://flask.pocoo.org/) application and can be deployed
+like any standard Flask application. You can find the different deployment
+options [here](http://flask.pocoo.org/docs/deploying/).
