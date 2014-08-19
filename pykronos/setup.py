@@ -5,7 +5,7 @@ import os
 from setuptools import find_packages
 from setuptools import setup
 
-import pykronos
+exec(open('pykronos/version.py').read())
 
 README = open(os.path.join(os.path.dirname(__file__), 'README.md')).read()
 REQUIREMENTS = [
@@ -14,16 +14,16 @@ REQUIREMENTS = [
   ]
 
 setup(name='pykronos',
-      version=pykronos.__version__,
+      version=__version__,
       packages=find_packages(exclude=['tests*']),
       include_package_data=True,
       license='MIT License',
       description='A Python client for the Kronos time series storage engine',
       long_description=README,
-      url='https://github.com/Locu/kronos/',
+      url='https://github.com/Locu/chronology/pykronos',
       keywords=['kronos', 'analytics', 'metrics', 'client', 'logging'],
       install_requires=REQUIREMENTS,
-      author='Locu, Inc.',
+      author='GoDaddy',
       author_email='devs@locu.com',
       classifiers=[
         'Intended Audience :: Developers',

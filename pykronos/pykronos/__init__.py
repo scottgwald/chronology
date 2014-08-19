@@ -1,6 +1,4 @@
-from client import ID_FIELD
-from client import KronosClient
-from client import TIMESTAMP_FIELD
-
-__version_info__ = (0, 6, 0)
-__version__ = '.'.join(map(str, __version_info__))
+from pykronos.client import ID_FIELD
+from pykronos.client import KronosClient
+from pykronos.client import TIMESTAMP_FIELD
+from pykronos.version import __version__

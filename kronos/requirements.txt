@@ -4,10 +4,11 @@ elasticsearch==1.2.0
 greenlet==0.4.2
 gevent==1.0.1
 geventhttpclient==1.1.0
-git+git://github.com/chronology/python-timeuuid.git@v0.3.5#egg=timeuuid-0.3.5
 gipc==0.4.0
 lz4==0.7.0
+pykronos==0.6.0
 python-dateutil==2.2
+python-timeuuid==0.3.5
 requests==2.3.0
 werkzeug==0.9.6
 ujson==1.33
