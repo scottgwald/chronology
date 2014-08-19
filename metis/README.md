@@ -24,9 +24,9 @@ locally:
 
 ```bash
 git clone https://github.com/Locu/chronology.git
-cd chronology/kronos
+cd chronology/metis
 make installdeps
-python runserver.py --port 8155 --config settings.py.template --debug
+python runserver.py --port 8152 --config settings.py.template --debug
 ```
 
 This walk-through assumes that you have PyKronos installed on your system and
@@ -34,60 +34,40 @@ a test Kronos instance is running at `http://localhost:8150`. See [here]
 (../kronos/) on how to set up Kronos.
 
 We'll be running some computations on the presidential campaigns contributions
-dataset. Start by downloading the dataset:
+dataset. Start by inserting the test data into your Kronos server. We will be
+inserting around **100 thousand** events so make sure your test Kronos instance
+can handle that. The events are fairly small and shouldn't take more than a few
+megabytes of memory in case you want to use the `InMemoryBackend`.
 
 ```bash
-wget ftp://ftp.fec.gov/FEC/Presidential_Map/2012/P00000001/P00000001-OR.zip
-unzip P00000001-OR.zip
-rm P00000001-OR.zip
-mv P00000001-OR.csv donations.csv
+cd chronology/kronos
+python scripts/load_test_elections_data.py
 ```
 
-Now let's transform this tabular CSV data into events and store them in Kronos.
-We will be inserting around **100 thousand** events so make sure your test 
-Kronos instance can handle that. The events are fairly small and shouldn't take more than a few megabytes of memory in case you want to use the 
-`InMemoryBackend`.
+A sample event dictionary of this test data looks like:
 
 ```python
-import csv
-from dateutil.parser import parse
-from pykronos import KronosClient
-from pykronos import TIMESTAMP_FIELD
-
-events = []
-with open('donations.csv') as f:
-  rows = csv.DictReader(f)
-  for row in rows:
-    row[TIMESTAMP_FIELD] = parse(row['contb_receipt_dt'])
-    events.append(row)
-
-kc = KronosClient('http://localhost:8150')
-kc.put({'donations': events})
-```
-
-A sample event dictionary:
-
-```python
-{None: [''],
- '@time': datetime.datetime(2012, 8, 27, 0, 0),
- 'cand_id': 'P80003353',
- 'cand_nm': 'Romney, Mitt',
- 'cmte_id': 'C00431171',
- 'contb_receipt_amt': '1000',
- 'contb_receipt_dt': '27-AUG-12',
- 'contbr_city': 'TIGARD',
- 'contbr_employer': 'INTEL CORPORATION',
- 'contbr_nm': 'SMITH, VISTON R. JR.',
- 'contbr_occupation': 'OPERATIONS MANAGER',
- 'contbr_st': 'OR',
- 'contbr_zip': '972242918',
- 'election_tp': 'G2012',
- 'file_num': '896743',
- 'form_tp': 'SA17A',
- 'memo_cd': '',
- 'memo_text': '',
- 'receipt_desc': '',
- 'tran_id': 'SA17.2209403'}
+{u'@id': u'9809c000-17ed-11e2-8000-0b89d16a9975',
+ u'@time': 13504320000000000L,
+ u'cand_id': u'P80003338',
+ u'cand_nm': u'Obama, Barack',
+ u'cmte_id': u'C00431445',
+ u'contb_receipt_amt': u'6',
+ u'contb_receipt_dt': u'17-OCT-12',
+ u'contbr_city': u'PORTLAND',
+ u'contbr_employer': u'NOT EMPLOYED',
+ u'contbr_nm': u'BROOKS, MAGGIE',
+ u'contbr_occupation': u'STUDENT',
+ u'contbr_st': u'OR',
+ u'contbr_zip': u'972171333',
+ u'election_tp': u'G2012',
+ u'file_num': u'897092',
+ u'form_tp': u'SA17A',
+ u'memo_cd': u'',
+ u'memo_text': u'',
+ u'null': [u''],
+ u'receipt_desc': u'',
+ u'tran_id': u'C26603850'}
 ```
 
 Now let's use Metis to compute the total amount of money donated per day
@@ -111,12 +91,12 @@ from metis.core.query.transform import Aggregate
 from metis.core.query.transform import Limit
 from metis.core.query.transform import OrderBy
 from metis.core.query.value import Constant
-from metis.core.query.value import Floor
+from metis.core.query.value import DateTrunc
 from metis.core.query.value import Property
 from pykronos import TIMESTAMP_FIELD
 
 def query(plan):
-  for line in requests.post('http://localhost:8155/1.0/query',
+  for line in requests.post('http://localhost:8152/1.0/query',
                             data=json.dumps({'plan': plan.to_dict()}),
                             stream=True).iter_lines():
     if not line:
@@ -141,9 +121,9 @@ stream = KronosStream('http://localhost:8150',
 aggregates = [Sum([Property('contb_receipt_amt')], alias='total_donations')]
 
 # We need to group by TIMESTAMP_FIELD rounded down to the start of each day.
-group_by = GroupBy(Floor([Property(TIMESTAMP_FIELD),
-                          Constant(epoch_time_to_kronos_time(60*60*24))],
-                         alias=TIMESTAMP_FIELD))
+group_by = GroupBy(DateTrunc([Property(TIMESTAMP_FIELD),
+                              Constant(DateTrunc.Unit.DAY)],
+                             alias=TIMESTAMP_FIELD))
 
 aggregate = Aggregate(stream, group_by, aggregates)
 

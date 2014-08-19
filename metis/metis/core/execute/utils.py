@@ -1,9 +1,18 @@
 import operator
 import random
 import re
+import types
+
+from datetime import datetime
+from datetime import timedelta
+from dateutil.parser import parse
 
 from metis.common.event_tools import get_property
+from metis.common.time import kronos_time_to_datetime
+from metis.common.time import datetime_to_kronos_time
 from metis.core.query.condition import Condition
+from metis.core.query.value import DatePart
+from metis.core.query.value import DateTrunc
 from metis.core.query.value import Function
 from metis.core.query.value import Value
 
@@ -32,47 +41,97 @@ def _get_function_args(event, args):
   return arg_values
 
 
-@_safe_function
-def _ceil(value, base, *args):
-  assert len(args) <= 1
-  offset = args[0] if len(args) else 0
+def _ceil(value, base, offset=0):
   value = int(value) - offset
   return (value + (value % int(base))) + offset
 
 
-@_safe_function
-def _floor(value, base, *args):
-  assert len(args) <= 1
-  offset = args[0] if len(args) else 0
+def _floor(value, base, offset=0):
   value = int(value) - offset
   return (value - (value % int(base))) + offset
 
 
-@_safe_function
-def _subtract(*args):
-  if not args:
-    return 0
-  value = args[0]
-  for arg in args[1:]:
-    value -= arg
-  return value
+def _date_trunc(value, timeframe):
+  """
+  A date flooring function.
 
-  
+  Returns the closest datetime to the current one that aligns to timeframe.
+  For example, _date_trunc('2014-08-13 05:00:00', DateTrunc.Unit.MONTH)
+  will return a Kronos time representing 2014-08-01 00:00:00.
+  """
+  if isinstance(value, types.StringTypes):
+    value = parse(value)
+    return_as_str = True
+  else:
+    value = kronos_time_to_datetime(value)
+    return_as_str = False
+  timeframes = {
+    DateTrunc.Unit.SECOND: (lambda dt:
+                            dt - timedelta(microseconds=dt.microsecond)),
+    DateTrunc.Unit.MINUTE: (lambda dt:
+                            dt - timedelta(seconds=dt.second,
+                                           microseconds=dt.microsecond)),
+    DateTrunc.Unit.HOUR: (lambda dt:
+                          dt - timedelta(minutes=dt.minute,
+                                         seconds=dt.second,
+                                         microseconds=dt.microsecond)),
+    DateTrunc.Unit.DAY: lambda dt: dt.date(),
+    DateTrunc.Unit.WEEK: lambda dt: dt.date() - timedelta(days=dt.weekday()),
+    DateTrunc.Unit.MONTH: lambda dt: datetime(dt.year, dt.month, 1),
+    DateTrunc.Unit.YEAR: lambda dt: datetime(dt.year, 1, 1)
+    }
+  value = timeframes[timeframe](value)
+  if return_as_str:
+    return value.isoformat()
+  return datetime_to_kronos_time(value)
+
+
+def _date_part(value, part):
+  """
+  Returns a portion of a datetime.
+
+  Returns the portion of a datetime represented by timeframe.
+  For example, _date_part('2014-08-13 05:00:00', DatePart.Unit.WEEK_DAY)
+  will return 2, for Wednesday.
+  """
+  if isinstance(value, types.StringTypes):
+    value = parse(value)
+  else:
+    value = kronos_time_to_datetime(value)
+  value = kronos_time_to_datetime(value)
+  parts = {
+    DatePart.Unit.SECOND: lambda dt: dt.second,
+    DatePart.Unit.MINUTE: lambda dt: dt.minute,
+    DatePart.Unit.HOUR: lambda dt: dt.hour,
+    DatePart.Unit.DAY: lambda dt: dt.day,
+    DatePart.Unit.MONTH: lambda dt: dt.month,
+    DatePart.Unit.YEAR: lambda dt: dt.year,
+    DatePart.Unit.WEEK_DAY: lambda dt: dt.weekday(),
+    }
+  result = parts[part](value)
+  return result
+
+
 FUNCTIONS = {
   Function.Name.CEIL: _ceil,
   Function.Name.FLOOR: _floor,
-  Function.Name.LOWERCASE: _safe_function(lambda s: s.lower()),
-  Function.Name.UPPERCASE: _safe_function(lambda s: s.upper()),
+  Function.Name.LOWERCASE: lambda s: s.lower(),
+  Function.Name.UPPERCASE: lambda s: s.upper(),
   Function.Name.RANDOM_INT: lambda low, high: random.randint(low, high),
   Function.Name.ADD: lambda *args: sum(args),
-  Function.Name.SUBTRACT: _subtract,
-  Function.Name.LEN: _safe_function(len)
+  Function.Name.SUBTRACT: lambda *args: reduce(operator.sub, args),
+  Function.Name.MULTIPLY: lambda *args: reduce(operator.mul, args),
+  Function.Name.DIVIDE: lambda *args: reduce(operator.truediv, args),
+  Function.Name.DATE_TRUNC: _date_trunc,
+  Function.Name.DATE_PART: _date_part,
+  Function.Name.LEN: len
   }
 
 # Ensure that we have a function mapped for each `Function.Name`.
 assert Function.Name.values() == set(FUNCTIONS)
 
 
+@_safe_function
 def get_value(event, value):
   if value.type == Value.Type.CONSTANT:
     return value.value
