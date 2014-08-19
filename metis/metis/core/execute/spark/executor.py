@@ -20,13 +20,6 @@ from metis.core.execute.utils import get_properties_accessed_by_value
 from metis.core.execute.utils import get_value
 from metis.core.query.aggregate import Aggregator
 from metis.core.query.condition import Condition
-from metis.core.query.stream import KronosStream
-from metis.core.query.transform import Aggregate
-from metis.core.query.transform import Filter
-from metis.core.query.transform import Join
-from metis.core.query.transform import Limit
-from metis.core.query.transform import OrderBy
-from metis.core.query.transform import Project
 
 IGNORE_FILES_RE = re.compile('^.*\.pyc$', re.I)
 
