@@ -1,6 +1,6 @@
 datadiff==1.1.5
 flask==0.10.1
 py4j==0.8.1
-# pykronos---for now, a symlink to the parent dir
+pykronos==0.6.0
 # pyspark---temporarily done by cloning the spark repo, copy pyspark locally
 requests==2.3.0
