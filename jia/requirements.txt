@@ -5,5 +5,5 @@ flask-sslify==0.1.4
 gipc==0.4.0
 greenlet==0.4.2
 gevent==1.0
-# pykronos---for now, a symlink to the parent dir
+pykronos==0.6.0
 werkzeug==0.9.4

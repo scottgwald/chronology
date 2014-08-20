@@ -26,9 +26,9 @@ from metis.core.query.value import Subtract
 from tests.server import MetisServerTestCase
 
 
-class OperatorTestCase(MetisServerTestCase):
+class ExecutorTestCase(MetisServerTestCase):
   '''
-  Unit tests for all available `Operator` types.
+  Unit tests for all available `Executor.execute` methods.
   '''
   def validate_response(self, response):
     self.assertEqual(response.status_codes, 200)

@@ -1,10 +1,10 @@
 import types
 
-from metis.core.query import Node
+from metis.core.query import ExecutableNode
 from metis.utils.enum import Enum
 
 
-class Stream(Node):
+class Stream(ExecutableNode):
   class Type(Enum):
     KRONOS = 'kronos'
 

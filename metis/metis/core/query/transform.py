@@ -1,4 +1,4 @@
-from metis.core.query import Node
+from metis.core.query import ExecutableNode
 from metis.core.query.aggregate import Aggregator
 from metis.core.query.aggregate import GroupBy
 from metis.core.query.condition import Condition
@@ -17,7 +17,7 @@ def _parse_stream_or_transform(_dict):
   return Transform.parse(_dict)
 
 
-class Transform(Node):
+class Transform(ExecutableNode):
   class Type(Enum):
     PROJECT = 'project'
     FILTER = 'filter'

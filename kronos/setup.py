@@ -44,11 +44,11 @@ setup(name='kronos',
       license='MIT License',
       description='The Kronos time series storage engine',
       long_description=README,
-      url='https://github.com/Locu/kronos/',
+      url='https://github.com/Locu/chronology/kronos',
       keywords=['kronos', 'analytics', 'metrics', 'client', 'logging'],
       install_requires=REQUIREMENTS,
       dependency_links=DEPDENDENCY_LINKS,
-      author='Locu, Inc.',
+      author='GoDaddy',
       author_email='devs@locu.com',
       cmdclass={
         'install': KronosInstall

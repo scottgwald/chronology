@@ -7,7 +7,7 @@ from flask import Response
 import metis
 
 from metis import app
-from metis.core.execute import executor
+from metis.core.execute.service import service
 
 @app.route('/1.0/index', methods=['GET'])
 def index():
@@ -24,5 +24,5 @@ def query():
   request_json = request.get_json(force=True)
   plan = request_json['plan']
   return Response(('%s\r\n' % json.dumps(event)
-                   for event in executor.execute_compute_task(plan)),
+                   for event in service.execute_plan(plan)),
                   mimetype='application/json')
