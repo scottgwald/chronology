@@ -21,9 +21,12 @@ def json_endpoint(function):
                             status=200,
                             mimetype='application/json')
         return response
-      except:
-        _, exception, tb = sys.exc_info()
-        raise PyCodeError(exception, traceback.format_tb(tb))
+      except Exception as e:
+        if isinstance(e, PyCodeError):
+          raise e
+        else:
+          _, exception, tb = sys.exc_info()
+          raise PyCodeError(exception, traceback.format_tb(tb))
     except errors.JiaError as e:
       return e.to_response()
   return wrapper
