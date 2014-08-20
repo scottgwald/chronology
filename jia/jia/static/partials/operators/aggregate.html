@@ -1,19 +1,34 @@
-<div ng-repeat="arg in operator.args" class="operator-arg-set">
+<div ng-repeat="arg in operator.args[0]" class="operator-arg-set">
   <aggtype arg="arg[0]"></aggtype>
-  <span ng-show="arg[0].val == 'count'">
-    events
+  <span ng-if="arg[0].val == 'count'">
+    of <prop arg="arg[1]" placeholder="Property (optional)"></prop>
   </span>
-  <span ng-show="arg[0].val != 'count'">
+  <span ng-if="arg[0].val != 'count'">
     of <cpf arg="arg[1]"></cpf>
   </span>
-  and group by
-  <cpf arg="arg[2]"></cpf>
-  Store result in <val placeholder="'new field'" arg="arg[3]"></val>
-  <button class="btn btn-danger btn-xs" ng-click="removeArg($index)">
+  <div class="eol-group">
+    Store result in <val placeholder="'new field'" arg="arg[2]"></val>
+    <button class="btn btn-danger btn-xs"
+            ng-click="removeArg($index, operator.args[0])">
+      &times;
+    </button>
+  </div>
+</div>
+<button class="btn btn-primary btn-xs"
+        ng-click="addArg(operator.args[0])">
+  <span class="glyphicon glyphicon-plus"></span>
+  Add aggregate
+</button>
+<div><br><strong>Group by</strong></div>
+<div ng-repeat="arg in operator.args[1]" class="operator-arg-set">
+  <cpf arg="arg[0]"></cpf>
+  <button class="btn btn-danger btn-xs"
+          ng-click="removeArg($index, operator.args[1])">
     &times;
   </button>
 </div>
-<button class="btn btn-primary btn-xs" ng-click="addArg()">
+<button class="btn btn-primary btn-xs"
+        ng-click="addArg(operator.args[1])">
   <span class="glyphicon glyphicon-plus"></span>
-  Add aggregate
+  Add group 
 </button>

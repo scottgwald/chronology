@@ -95,7 +95,6 @@ class Scheduler(object):
     results = set()
 
     while True:
-      print "loop"
       now = datetime.datetime.now()
       if self._task_queue and self._task_queue[0][0] <= now:
         task = heappop(self._task_queue)[1]
@@ -126,7 +125,7 @@ class Scheduler(object):
               run_at = now + datetime.timedelta(seconds=int(task['interval']))
               self._schedule(task, next_run=run_at)
           else:
-            print "ERROR:", result.exception
+            sys.stderr.write("ERROR: %s" % result.exception)
 
 
 def _execute(task):
@@ -134,13 +133,6 @@ def _execute(task):
 
   This exists outside the Scheduler class because it is pickled after it is
   sent to the executor.
-<<<<<<< HEAD
-=======
-
-  TODO(derek): add better exception handling
-  TODO(derek): if the code being `exec`ed modifies the variable `task` (or
-  presumably other things in scope) everything gets messed up
->>>>>>> Refactor of precompute/compute and other things
   """
   print "[%s] -- %s -- START" % (datetime.datetime.now(), task['id'])
   try:

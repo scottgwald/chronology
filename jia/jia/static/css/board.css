@@ -183,7 +183,7 @@ cpf, op, aggop, val, prop {
 .stream {
   display: inline-block;
   height: 50px;
-  width: 38%;
+  width: 30%;
   padding-top: 8px;
 }
 
@@ -575,14 +575,33 @@ ul.steps li {
   padding-bottom: 10px;
 }
 
+ul.steps li:before {
+  content: "";
+  display: block;
+  position: absolute;
+  width: 1px;
+  top: 33px;
+  bottom: 10px;
+  left: 92px;
+  background: #AAB2BD;
+}
+
 ul.steps li:after {
   content: "";
   display: block;
-  width: 70px;
-  height: 40px;
-  background-image: url(images/arrow.png);
-  background-size: 70px 40px;
-  margin-left: 57px;
+  position: absolute;
+  width: 0px;
+  height: 0px;
+  left: 82px;
+  bottom: 0;
+  border-top: 10px solid #AAB2BD;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+}
+
+ul.steps li:last-child {
+  min-height: 0;
+  padding-bottom: 0;
 }
 
 ul.steps li:last-child:after {
@@ -591,6 +610,10 @@ ul.steps li:last-child:after {
 
 ul.steps li:last-child .selecter {
   width: 184px;
+}
+
+.eol-group {
+  display: inline-block;
 }
 
 .btn-group .selecter.flat-left .selecter-selected,

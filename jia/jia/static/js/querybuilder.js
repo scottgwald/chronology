@@ -19,13 +19,23 @@ qb.directive('querybuilder', function ($http, $compile) {
       }
     });
 
-  $scope.delete = function (step) {
-    var index = $scope.query.indexOf(step);
-    if (index > -1) {
-      $scope.query.splice(index, 1);
+    $scope.delete = function (step) {
+      var index = $scope.query.indexOf(step);
+      if (index > -1) {
+        $scope.query.splice(index, 1);
+      }
+    };
+  }];
+  
+  return {
+    restrict: 'E',
+    templateUrl: '/static/partials/querybuilder.html',
+    controller: controller,
+    scope: {
+      query: '='
     }
   };
-}]);
+});
 
 qb.directive('operator', function ($http, $compile) {
   var linker = function (scope, element, attrs) {
@@ -42,19 +52,31 @@ qb.directive('operator', function ($http, $compile) {
   }
 
   var controller = ['$scope', function($scope) {
+    // Initialize args lists with proper dimensions
     $scope.operators = [
       {name: 'Transform', operator: 'transform', args: []},
       {name: 'Filter', operator: 'filter', args: []},
       {name: 'Order by', operator: 'orderby', args: [[]]},
       {name: 'Limit', operator: 'limit', args: []},
-      {name: 'Aggregate', operator: 'aggregate', args: [[]]},
+      {name: 'Aggregate', operator: 'aggregate', args: [[[]], [[]]]},
     ];
 
-    $scope.addArg = function () {
-      $scope.operator.args.push([]);
+    $scope.addArg = function (argList) {
+      if (typeof argList != 'undefined') {
+        argList.push([]);
+      }
+      else {
+        $scope.operator.args.push([]);
+      }
     };
-    $scope.removeArg = function (idx) {
-      $scope.operator.args.pop(idx);
+    $scope.removeArg = function (idx, argList) {
+      if (typeof argList != 'undefined') {
+        console.log(argList, idx);
+        argList.splice(idx, 1);
+      }
+      else {
+        $scope.operator.args.splice(idx, 1);
+      }
     }
   }];
 
@@ -71,31 +93,6 @@ qb.directive('operator', function ($http, $compile) {
   };
 });
 
-qb.directive('cpf', function ($http, $compile) {
-  var linker = function (scope, element, attrs) {
-    if (scope.arg.val) {
-      var type = scope.arg.val['cpf_type'];
-      var func = scope.arg.val['function_name'];
-      var name = scope.arg.val['property_name'];
-      var val = scope.arg.val['constant_value'];
-      var args = scope.arg.val['function_args'];
-      scope.type = findObjectInListBasedOnKey(scope.types, 'type', type);
-      scope.func = findObjectInListBasedOnKey(scope.functions, 'value', func);
-      scope.name = name;
-      scope.value = val;
-      var strippedArgs = [];
-      _.each(args, function (arg) {
-        if (arg.cpf_type == 'property') {
-          strippedArgs.push(arg.property_name);
-        }
-        else if (arg.cpf_type == 'constant') {
-          strippedArgs.push(arg.constant_value);
-        }
-      });
-      scope.args = strippedArgs;
-    }
-  };
-});
 
 qb.directive('cpf', function ($http, $compile) {
   var controller = ['$scope', function ($scope) {
@@ -122,7 +119,7 @@ qb.directive('cpf', function ($http, $compile) {
       },
       {
         name: 'Date Truncate',
-        value: 'datetrunc',
+        value: 'date_trunc',
         args: [],
         options: [
           {name: 'Property', type: 'property'},
@@ -143,7 +140,7 @@ qb.directive('cpf', function ($http, $compile) {
       },
       {
         name: 'Date Part',
-        value: 'datepart',
+        value: 'date_part',
         args: [],
         options: [
           {name: 'Property', type: 'property'},
@@ -179,7 +176,7 @@ qb.directive('cpf', function ($http, $compile) {
       },
       {
         name: 'Random Integer',
-        value: 'randint',
+        value: 'rand_int',
         args: [],
         options: [
           {name: 'Low', type: 'constant'},
@@ -188,22 +185,40 @@ qb.directive('cpf', function ($http, $compile) {
       }
       /*
        * TODO(derek): Missing functions
+       *
+       * or make an HTTP endpoint for determining this info
        */
     ];
     $scope.func = $scope.functions[0];
 
-    if (!$scope.arg) {
-      $scope.arg = {};
-    }
-
     $scope.types = [
-      {name: 'Property'},
-      {name: 'Constant'},
-      {name: 'Function'}
+      {name: 'Property', type: 'property'},
+      {name: 'Constant', type: 'constant'},
+      {name: 'Function', type: 'function'}
     ];
     $scope.type = $scope.types[0];
     $scope.args = [];
         
+    if (!$scope.arg || !$scope.arg.val) {
+      $scope.arg = {};
+    }
+    else if ($scope.arg.val.cpf_type) {
+      $scope.type = findObjectInListBasedOnKey($scope.types, 'type',
+                                               $scope.arg.val.cpf_type);
+      $scope.func = findObjectInListBasedOnKey($scope.functions, 'value',
+                                               $scope.arg.val.function_name);
+      _.each($scope.arg.val.function_args, function (arg, index) {
+        if (typeof arg.property_name != 'undefined') {
+          $scope.args.push(arg.property_name);
+        }
+        else if (typeof arg.constant_value != 'undefined') {
+          $scope.args.push(arg.constant_value);
+        }
+      });
+      $scope.name = $scope.arg.val.property_name;
+      $scope.value = $scope.arg.val.constant_value;
+    }
+
     $scope.$watch(function () {
       return [$scope.func,
               $scope.type,
@@ -241,7 +256,6 @@ qb.directive('cpf', function ($http, $compile) {
     restrict: "E",
     templateUrl: '/static/partials/operators/cpf.html',
     controller: controller,
-    link: linker,
     scope: {
       arg: '=' 
     }
@@ -270,11 +284,15 @@ qb.directive('op', function ($http, $compile) {
     $scope.type = $scope.types[0];
 
     if (!$scope.arg) {
-      $scope.arg = {};
+      $scope.arg = {
+        'val': ''
+      };
     }
 
     $scope.$watch('type', function () {
-      $scope.arg.val = $scope.type.value;
+      if ($scope.type != undefined) {
+        $scope.arg.val = $scope.type.value;
+      }
     });
   }];
 
@@ -299,14 +317,12 @@ qb.directive('aggtype', function ($http, $compile) {
 
   var controller = ['$scope', function ($scope) {
     $scope.types = [
-      {name: 'is less than'},
-      {name: 'is less than or equal to'},
-      {name: 'is greater than'},
-      {name: 'is greater than or equal to'},
-      {name: 'is equal to'},
-      {name: 'contains'},
-      {name: 'is in'},
-      {name: 'matches regex'}
+      {name: 'Minimum', value: 'min'},
+      {name: 'Maximum', value: 'max'},
+      {name: 'Average', value: 'avg'},
+      {name: 'Count', value: 'count'},
+      {name: 'Sum', value: 'sum'},
+      {name: 'Value count', value: 'valuecount'}
     ];
     $scope.type = $scope.types[3];
 
@@ -369,6 +385,7 @@ qb.directive('prop', function ($http, $compile) {
   };
 
   var controller = ['$scope', function ($scope) {
+    $scope.placeholder = 'Property';
     $scope.$watch('val', function () {
       $scope.arg = {
         'cpf_type': 'property',
@@ -383,7 +400,8 @@ qb.directive('prop', function ($http, $compile) {
     controller: controller,
     link: linker,
     scope: {
-      arg: '='
+      arg: '=',
+      placeholder: '@'
     }
   };
 });
