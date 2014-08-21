@@ -22,6 +22,9 @@
 <div><br><strong>Group by</strong></div>
 <div ng-repeat="arg in operator.args[1]" class="operator-arg-set">
   <cpf arg="arg[0]"></cpf>
+  <div class="eol-group">
+    Store result in <val arg="arg[1]"></val>
+  </div>
   <button class="btn btn-danger btn-xs"
           ng-click="removeArg($index, operator.args[1])">
     &times;

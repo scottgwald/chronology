@@ -191,6 +191,7 @@ class QueryCompute(object):
     try:
       exec self._query in {}, locals_dict # No globals.
     except:
+      raise
       _, exception, tb = sys.exc_info()
       raise PyCodeError(exception, traceback.format_tb(tb))
 
@@ -202,12 +203,8 @@ class QueryCompute(object):
   def _run_metis(self, start_time, end_time, unique_id=None):
     start_time = datetime_to_kronos_time(start_time)
     end_time = datetime_to_kronos_time(end_time)
-    print self._query
     q = translate_query(self._query, self._stream, start_time, end_time)
-    print q
     r = requests.post("%s/1.0/query" % app.config['METIS_URL'], data=q)
-    print r.text
-    # exit()
     return json.loads('[%s]' % (',').join(r.text.splitlines()))
 
   def compute(self, metis=False, use_cache=True):
